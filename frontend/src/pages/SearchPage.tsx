@@ -257,6 +257,8 @@ export function SearchPage() {
   const [advertiserStats, setAdvertiserStats] = useState<Map<string, { totalActiveAds: number; loading: boolean }>>(new Map())
   const [debugMode, setDebugMode] = useState(false)
   const [debugData, setDebugData] = useState<any>(null)
+  const [carouselIndices, setCarouselIndices] = useState<Record<string, number>>({})
+  const [screenshots, setScreenshots] = useState<Record<string, { loading: boolean; data?: string; error?: string }>>({})
 
   // Load advertiser stats when search results change
   useEffect(() => {
@@ -264,6 +266,22 @@ export function SearchPage() {
       const uniquePageIds = [...new Set(searchResults.map(ad => ad.page_id).filter(id => id && id !== 'N/A'))]
       uniquePageIds.forEach(pageId => {
         getAdvertiserStats(pageId)
+      })
+    }
+  }, [searchResults])
+
+  // Generate screenshots automatically for all ads
+  useEffect(() => {
+    if (searchResults.length > 0) {
+      console.log(`📸 Iniciando generación automática de screenshots para ${searchResults.length} anuncios`)
+      
+      searchResults.forEach((ad, index) => {
+        if (ad.ad_snapshot_url && !screenshots[ad.id]) {
+          // Delay progresivo para evitar sobrecarga del servidor
+          setTimeout(() => {
+            generateScreenshot(ad.id, ad.ad_snapshot_url)
+          }, index * 2000) // 2 segundos entre cada screenshot
+        }
       })
     }
   }, [searchResults])
@@ -547,6 +565,101 @@ export function SearchPage() {
     if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`
     if (num >= 1000) return `${(num / 1000).toFixed(1)}K`
     return num.toString()
+  }
+
+  const getCountryName = (countryCode: string | undefined) => {
+    const countryNames: Record<string, string> = {
+      'CO': 'Colombia',
+      'US': 'Estados Unidos',
+      'MX': 'México',
+      'BR': 'Brasil',
+      'AR': 'Argentina',
+      'ES': 'España'
+    }
+    return countryNames[countryCode || 'CO'] || countryCode || 'Colombia'
+  }
+
+  // Carousel functions
+  const getCarouselIndex = (adId: string) => carouselIndices[adId] || 0
+  
+  const setCarouselIndex = (adId: string, index: number) => {
+    setCarouselIndices(prev => ({ ...prev, [adId]: index }))
+  }
+  
+  const nextCarouselItem = (adId: string, totalItems: number) => {
+    const currentIndex = getCarouselIndex(adId)
+    const nextIndex = (currentIndex + 1) % totalItems
+    setCarouselIndex(adId, nextIndex)
+  }
+  
+  const prevCarouselItem = (adId: string, totalItems: number) => {
+    const currentIndex = getCarouselIndex(adId)
+    const prevIndex = currentIndex === 0 ? totalItems - 1 : currentIndex - 1
+    setCarouselIndex(adId, prevIndex)
+  }
+
+  // Screenshot functions
+  const generateScreenshot = async (adId: string, adUrl: string) => {
+    if (!adUrl || screenshots[adId]?.loading) return
+
+    setScreenshots(prev => ({
+      ...prev,
+      [adId]: { loading: true }
+    }))
+
+    try {
+      console.log(`📸 Generando screenshot para ${adId}: ${adUrl}`)
+      
+      const result = await scraperApi.getAdScreenshot({
+        adUrl,
+        adId,
+        options: {
+          width: 1200,
+          height: 1600,
+          quality: 70,
+          waitTime: 4000
+        }
+      })
+
+      if (debugMode) {
+        console.log(`🔍 DEBUG - Screenshot result for ${adId}:`, result)
+        setDebugData((prev: any) => ({
+          ...prev,
+          [`screenshot_${adId}`]: result
+        }))
+      }
+
+      if (result.success && result.imageData) {
+        setScreenshots(prev => ({
+          ...prev,
+          [adId]: { 
+            loading: false, 
+            data: result.imageData 
+          }
+        }))
+        
+        // Toast de éxito
+        console.log(`✅ Screenshot generado: ${result.imageSizeKB}KB ${result.cached ? '(cache)' : '(nuevo)'}`)
+      } else {
+        setScreenshots(prev => ({
+          ...prev,
+          [adId]: { 
+            loading: false, 
+            error: result.error || 'Error desconocido' 
+          }
+        }))
+        console.error(`❌ Error generando screenshot para ${adId}:`, result.error)
+      }
+    } catch (error) {
+      console.error(`❌ Error en generateScreenshot para ${adId}:`, error)
+      setScreenshots(prev => ({
+        ...prev,
+        [adId]: { 
+          loading: false, 
+          error: error instanceof Error ? error.message : 'Error desconocido' 
+        }
+      }))
+    }
   }
 
   // Calculate advertiser ad count
@@ -1100,6 +1213,39 @@ export function SearchPage() {
                   <div className="text-sm text-gray-400">Promedio por anunciante</div>
                 </div>
               </div>
+
+              {/* Screenshot Progress */}
+              {searchResults.length > 0 && searchResults.some(ad => ad.ad_snapshot_url) && (
+                <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                      </svg>
+                      <span className="text-sm font-medium text-blue-300">Screenshots automáticos</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm text-blue-300">
+                        {Object.values(screenshots).filter(s => s.data).length} / {searchResults.filter(ad => ad.ad_snapshot_url).length} completados
+                      </span>
+                      {Object.values(screenshots).some(s => s.loading) && (
+                        <div className="w-4 h-4 border border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                      )}
+                    </div>
+                  </div>
+                  
+                  {/* Progress Bar */}
+                  <div className="mt-2 w-full bg-gray-700 rounded-full h-2">
+                    <div 
+                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                      style={{
+                        width: `${(Object.values(screenshots).filter(s => s.data).length / searchResults.filter(ad => ad.ad_snapshot_url).length) * 100}%`
+                      }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -1143,27 +1289,78 @@ export function SearchPage() {
                 <div key={ad.id} className="ad-card">
                   {/* Ad Header */}
                   <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-start gap-3">
                       {/* Page Profile Picture or Avatar */}
                       {adInfo.pageInfo.profilePicture ? (
                         <img 
                           src={adInfo.pageInfo.profilePicture} 
                           alt={ad.page_name}
-                          className="w-10 h-10 rounded-lg object-cover"
+                          className="w-10 h-10 rounded-lg object-cover mt-0.5"
                           onError={(e) => {
                             (e.target as HTMLImageElement).style.display = 'none'
                           }}
                         />
                       ) : (
-                        <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center text-white font-bold">
+                        <div className="w-10 h-10 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center text-white font-bold mt-0.5">
                           {ad.page_name.charAt(0).toUpperCase()}
                         </div>
                       )}
                       
                       <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-white truncate">
+                        <h3 className="font-semibold text-white truncate mb-2">
                           {ad.page_name}
                         </h3>
+                        
+                        {/* Advertiser Stats - Below advertiser name */}
+                        <div className="mb-2 space-y-1">
+                          {/* Total Active Ads */}
+                          {(() => {
+                            const stats = advertiserStats.get(ad.page_id)
+                            if (!stats || ad.page_id === 'N/A') return null
+
+                            const isHighActivity = stats.totalActiveAds > 5
+                            
+                            return (
+                              <div>
+                                <div className="text-xs text-gray-400 mb-1">Anuncios totales activos del anunciante</div>
+                                <span className={`text-sm font-bold whitespace-nowrap ${
+                                  isHighActivity 
+                                    ? 'text-yellow-300 bg-yellow-500/10 px-2 py-1 rounded border border-yellow-500/30' 
+                                    : 'text-green-300'
+                                }`}>
+                                  {stats.loading ? (
+                                    <div className="flex items-center gap-2">
+                                      <div className="w-2 h-2 border border-green-400/30 border-t-green-400 rounded-full animate-spin" />
+                                      <span>Obteniendo anuncios del anunciante...</span>
+                                    </div>
+                                  ) : (
+                                      `${stats.totalActiveAds} activo${stats.totalActiveAds > 1 ? 's' : ''} en ${getCountryName(searchParams.country)}`
+                                  )}
+                                </span>
+                              </div>
+                            )
+                          })()}
+                          
+                          {/* Advertiser Ad Count in Search */}
+                          {getAdvertiserAdCount(ad.page_name) > 1 && (
+                            <div>
+                              <div className="text-xs text-gray-400 mb-1">Anuncios del mismo anunciante en esta búsqueda</div>
+                              <span className="text-sm font-bold text-blue-300">
+                                {(() => {
+                                  const totalCount = getAdvertiserAdCount(ad.page_name)
+                                  const additionalCount = totalCount - 1
+                                  
+                                  if (totalCount === 2) {
+                                    return `1 más`
+                                  } else {
+                                    return `${additionalCount} más`
+                                  }
+                                })()}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                        
                         <div className="flex items-center gap-2 text-sm text-gray-400">
                           {adInfo.pageInfo.categories && adInfo.pageInfo.categories.length > 0 && (
                             <span className="text-xs bg-gray-700/50 px-2 py-1 rounded">
@@ -1197,93 +1394,85 @@ export function SearchPage() {
                   </div>
 
                   {/* Advertiser Ad Count Badge */}
-                  {getAdvertiserAdCount(ad.page_name) > 1 && (
-                    <div className="flex justify-center mb-4">
-                      <div className="inline-flex items-center gap-2 bg-gradient-to-r from-primary-500/20 to-secondary-500/20 border border-primary-500/30 rounded-full px-4 py-2">
-                        <Users className="w-4 h-4 text-primary-400" />
-                        <span className="text-sm font-medium text-primary-300">
-                          {getAdvertiserAdCount(ad.page_name)} anuncio{getAdvertiserAdCount(ad.page_name) > 1 ? 's' : ''} más de este anunciante en esta búsqueda
-                        </span>
-                        {getAdvertiserAdCount(ad.page_name) > 3 && (
-                          <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full border border-yellow-500/30">
-                            🔥 Intensivo
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
 
-                  {/* Total Active Ads Badge */}
-                  {(() => {
-                    const stats = advertiserStats.get(ad.page_id)
-                    if (!stats || ad.page_id === 'N/A') return null
 
-                    return (
-                      <div className="flex justify-center mb-4">
-                        <div className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500/20 to-blue-500/20 border border-green-500/30 rounded-full px-4 py-2">
-                          <Globe className="w-4 h-4 text-green-400" />
-                          <span className="text-sm font-medium text-green-300">
-                            {stats.loading ? (
-                              <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 border border-green-400/30 border-t-green-400 rounded-full animate-spin" />
-                                <span>Obteniendo total de anuncios activos...</span>
-                              </div>
-                            ) : (
-                              `${stats.totalActiveAds} anuncio${stats.totalActiveAds > 1 ? 's' : ''} activo${stats.totalActiveAds > 1 ? 's' : ''} en total`
-                            )}
-                          </span>
-                          {stats.totalActiveAds > 100 && (
-                            <span className="text-xs bg-red-500/20 text-red-300 px-2 py-1 rounded-full border border-red-500/30">
-                              🚀 Mega Activo
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )
-                  })()}
-
-                  {/* Collation Count Badge - Duplicates */}
-                  {ad.collation_count > 1 && (
-                    <div className="flex justify-center mb-4">
-                      <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-full px-4 py-2">
-                        <MessageCircle className="w-4 h-4 text-orange-400" />
-                        <span className="text-sm font-medium text-orange-300">
-                          {ad.collation_count} variante{ad.collation_count > 1 ? 's' : ''} de este mismo anuncio
-                        </span>
-                        {ad.collation_count > 5 && (
-                          <span className="text-xs bg-red-500/20 text-red-300 px-2 py-1 rounded-full border border-red-500/30">
-                            🔄 Múltiples
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
 
                   {/* Ad Content */}
                   <div className="ad-content space-y-3">
                     {/* Creative Bodies */}
                     {adInfo.body && (
                       <div>
-                        <p className="text-sm text-gray-300 line-clamp-3">
-                          {adInfo.body}
-                        </p>
+                        {(() => {
+                          const isLongText = adInfo.body.length > 200
+                          const isExpanded = expandedAds.has(`${ad.id}_body`)
+                          const shouldTruncate = isLongText && !isExpanded
+                          
+                          return (
+                            <>
+                              <p className={`text-sm text-gray-300 leading-relaxed ${shouldTruncate ? 'line-clamp-3' : ''}`}>
+                                {shouldTruncate ? `${adInfo.body.slice(0, 200)}...` : adInfo.body}
+                              </p>
+                              {isLongText && (
+                                <button
+                                  onClick={() => {
+                                    const newSet = new Set(expandedAds)
+                                    if (isExpanded) {
+                                      newSet.delete(`${ad.id}_body`)
+                                    } else {
+                                      newSet.add(`${ad.id}_body`)
+                                    }
+                                    setExpandedAds(newSet)
+                                  }}
+                                  className="text-xs text-primary-400 hover:text-primary-300 mt-1 transition-colors"
+                                >
+                                  {isExpanded ? 'Ver menos' : 'Ver más'}
+                                </button>
+                              )}
+                            </>
+                          )
+                        })()}
                       </div>
                     )}
 
-                    {/* Main Ad Content - Images */}
-                    {adInfo.images && adInfo.images.length > 0 && (
-                      <div className="ad-media-container space-y-2">
-                        <div className="flex items-center gap-2 text-xs text-primary-400">
-                          <Image className="w-3 h-3" />
-                          <span>{adInfo.images.length} imagen(es)</span>
+                    {/* Collation Count Badge - Near images to show duplicates */}
+                    {ad.collation_count > 1 && (
+                      <div className="flex justify-start mb-2">
+                        <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-full px-3 py-1.5">
+                          <MessageCircle className="w-3 h-3 text-orange-400" />
+                          <span className="text-xs font-medium text-orange-300">
+                            {ad.collation_count} variante{ad.collation_count > 1 ? 's' : ''} de este mismo anuncio
+                          </span>
+                          {ad.collation_count > 5 && (
+                            <span className="text-xs bg-red-500/20 text-red-300 px-1.5 py-0.5 rounded-full border border-red-500/30">
+                              🔄
+                            </span>
+                          )}
                         </div>
-                        <div className="space-y-2">
-                          {adInfo.images.map((image: any, index: number) => (
+                      </div>
+                    )}
+
+                    {/* Main Ad Content - Images Carousel */}
+                    {adInfo.images && adInfo.images.length > 0 && (
+                      <div className="ad-media-container">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 text-xs text-primary-400">
+                            <Image className="w-3 h-3" />
+                            <span>{adInfo.images.length} imagen(es)</span>
+                          </div>
+                          {adInfo.images.length > 1 && (
+                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                              <span>{getCarouselIndex(ad.id) + 1} de {adInfo.images.length}</span>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="relative">
+                          {/* Current Image */}
+                          <div className="relative">
                             <SmartImage
-                              key={index}
-                              src={image.original_image_url || image.resized_image_url}
-                              alt={`Contenido del anuncio ${index + 1}`}
-                              fallbackSrc={image.resized_image_url || image.original_image_url}
+                              src={adInfo.images[getCarouselIndex(ad.id)]?.original_image_url || adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url}
+                              alt={`Contenido del anuncio ${getCarouselIndex(ad.id) + 1}`}
+                              fallbackSrc={adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url || adInfo.images[getCarouselIndex(ad.id)]?.original_image_url}
                               preserveAspectRatio={true}
                               maxHeight="max-h-96"
                               onError={(e) => {
@@ -1291,7 +1480,46 @@ export function SearchPage() {
                                 target.style.display = 'none';
                               }}
                             />
-                          ))}
+                            
+                            {/* Navigation Arrows */}
+                            {adInfo.images.length > 1 && (
+                              <>
+                                <button
+                                  onClick={() => prevCarouselItem(ad.id, adInfo.images.length)}
+                                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                  </svg>
+                                </button>
+                                <button
+                                  onClick={() => nextCarouselItem(ad.id, adInfo.images.length)}
+                                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                  </svg>
+                                </button>
+                              </>
+                            )}
+                          </div>
+                          
+                          {/* Carousel Indicators */}
+                          {adInfo.images.length > 1 && (
+                            <div className="flex justify-center gap-1 mt-2">
+                              {adInfo.images.map((_: any, index: number) => (
+                                <button
+                                  key={index}
+                                  onClick={() => setCarouselIndex(ad.id, index)}
+                                  className={`w-2 h-2 rounded-full transition-colors ${
+                                    index === getCarouselIndex(ad.id) 
+                                      ? 'bg-primary-500' 
+                                      : 'bg-gray-600 hover:bg-gray-500'
+                                  }`}
+                                />
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1324,115 +1552,162 @@ export function SearchPage() {
 
                     {/* Ad Cards (Carousel) - Facebook Ad Layout */}
                     {adInfo.cards && adInfo.cards.length > 0 && (
-                      <div className="ad-media-container space-y-3">
-                        <div className="flex items-center gap-2 text-xs text-primary-400">
-                          <Image className="w-3 h-3" />
-                          <span>Anuncios del carrusel ({adInfo.cards.length})</span>
-                          {adInfo.apifyInfo?.displayFormat && (
-                            <span className="bg-primary-500/20 px-2 py-1 rounded">
-                              {adInfo.apifyInfo.displayFormat}
-                            </span>
+                      <div className="ad-media-container">
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2 text-xs text-primary-400">
+                            <Image className="w-3 h-3" />
+                            <span>Anuncios del carrusel ({adInfo.cards.length})</span>
+                            {adInfo.apifyInfo?.displayFormat && (
+                              <span className="bg-primary-500/20 px-2 py-1 rounded">
+                                {adInfo.apifyInfo.displayFormat}
+                              </span>
+                            )}
+                          </div>
+                          {adInfo.cards.length > 1 && (
+                            <div className="flex items-center gap-1 text-xs text-gray-400">
+                              <span>{getCarouselIndex(`${ad.id}_cards`) + 1} de {adInfo.cards.length}</span>
+                            </div>
                           )}
                         </div>
                         
-                        {/* Show first 2 cards in full Facebook ad layout */}
-                        {adInfo.cards.slice(0, 2).map((card: any, index: number) => (
-                          <div key={index} className="bg-gray-800/30 border border-gray-700 rounded-lg overflow-hidden">
-                            {/* Card Image */}
-                            {card.resized_image_url && (
+                        <div className="relative">
+                          {/* Current Card */}
+                          {(() => {
+                            const currentIndex = getCarouselIndex(`${ad.id}_cards`)
+                            const card = adInfo.cards[currentIndex]
+                            return (
                               <div className="relative">
-                                <SmartImage
-                                  src={card.resized_image_url}
-                                  alt={card.title || `Anuncio ${index + 1}`}
-                                  fallbackSrc={card.original_image_url || card.resized_image_url}
-                                  containerClassName="rounded-none border-none"
-                                  preserveAspectRatio={true}
-                                  maxHeight="max-h-64"
-                                  onError={(e) => {
-                                    const target = e.target as HTMLImageElement;
-                                    target.style.display = 'none';
-                                  }}
-                                />
-                                {/* Platform overlay */}
-                                <div className="absolute top-2 right-2 z-10">
-                                  <div className="bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                                    {getPublisherPlatformIcon('FACEBOOK')}
-                                    <span>Facebook</span>
+                                <div className="bg-gray-800/30 border border-gray-700 rounded-lg overflow-hidden">
+                                  {/* Card Image */}
+                                  {card.resized_image_url && (
+                                    <div className="relative">
+                                      <SmartImage
+                                        src={card.resized_image_url}
+                                        alt={card.title || `Anuncio ${currentIndex + 1}`}
+                                        fallbackSrc={card.original_image_url || card.resized_image_url}
+                                        containerClassName="rounded-none border-none"
+                                        preserveAspectRatio={true}
+                                        maxHeight="max-h-64"
+                                        onError={(e) => {
+                                          const target = e.target as HTMLImageElement;
+                                          target.style.display = 'none';
+                                        }}
+                                      />
+                                      {/* Platform overlay */}
+                                      <div className="absolute top-2 right-2 z-10">
+                                        <div className="bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
+                                          {getPublisherPlatformIcon('FACEBOOK')}
+                                          <span>Facebook</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Card Content - Facebook Ad Style */}
+                                  <div className="p-3 space-y-2">
+                                    {/* Card Title */}
+                                    {card.title && (
+                                      <h4 className="font-semibold text-white text-sm leading-tight">
+                                        {card.title}
+                                      </h4>
+                                    )}
+                                    
+                                    {/* Card Body/Description */}
+                                    {card.body && card.body.trim() && (
+                                      <p className="text-gray-300 text-xs leading-relaxed line-clamp-2">
+                                        {card.body.length > 150 ? `${card.body.slice(0, 150)}...` : card.body}
+                                      </p>
+                                    )}
+                                    
+                                    {/* CTA Button with Destination */}
+                                    {card.cta_text && (
+                                      <div className="pt-2">
+                                        <div className="flex items-center justify-between">
+                                          <div className="flex-1">
+                                            <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors">
+                                              {card.cta_text}
+                                            </button>
+                                          </div>
+                                          <div className="text-xs text-gray-400 ml-3">
+                                            {card.link_url ? (
+                                              <div className="flex items-center gap-1">
+                                                <ExternalLink className="w-3 h-3" />
+                                                <span>Enlace externo</span>
+                                              </div>
+                                            ) : card.cta_type === 'MESSAGE_PAGE' ? (
+                                              <div className="flex items-center gap-1">
+                                                <MessageCircle className="w-3 h-3" />
+                                                <span>WhatsApp</span>
+                                              </div>
+                                            ) : card.cta_type === 'CONTACT_US' ? (
+                                              <div className="flex items-center gap-1">
+                                                <MessageCircle className="w-3 h-3" />
+                                                <span>Mensaje</span>
+                                              </div>
+                                            ) : (
+                                              <div className="flex items-center gap-1">
+                                                <Globe className="w-3 h-3" />
+                                                <span>Página</span>
+                                              </div>
+                                            )}
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+                                    
+                                    {/* Link URL if available */}
+                                    {card.link_url && (
+                                      <div className="text-xs text-blue-400 truncate">
+                                        <a href={card.link_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
+                                          {card.link_url}
+                                        </a>
+                                      </div>
+                                    )}
                                   </div>
                                 </div>
+                                
+                                {/* Navigation Arrows */}
+                                {adInfo.cards.length > 1 && (
+                                  <>
+                                    <button
+                                      onClick={() => prevCarouselItem(`${ad.id}_cards`, adInfo.cards.length)}
+                                      className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors z-20"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={() => nextCarouselItem(`${ad.id}_cards`, adInfo.cards.length)}
+                                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors z-20"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                    </button>
+                                  </>
+                                )}
                               </div>
-                            )}
-                            
-                            {/* Card Content - Facebook Ad Style */}
-                            <div className="p-3 space-y-2">
-                              {/* Card Title */}
-                              {card.title && (
-                                <h4 className="font-semibold text-white text-sm leading-tight">
-                                  {card.title}
-                                </h4>
-                              )}
-                              
-                              {/* Card Body/Description */}
-                              {card.body && card.body.trim() && (
-                                <p className="text-gray-300 text-xs leading-relaxed">
-                                  {card.body}
-                                </p>
-                              )}
-                              
-                              {/* CTA Button with Destination */}
-                              {card.cta_text && (
-                                <div className="pt-2">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex-1">
-                                      <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors">
-                                        {card.cta_text}
-                                      </button>
-                                    </div>
-                                    <div className="text-xs text-gray-400 ml-3">
-                                      {card.link_url ? (
-                                        <div className="flex items-center gap-1">
-                                          <ExternalLink className="w-3 h-3" />
-                                          <span>Enlace externo</span>
-                                        </div>
-                                      ) : card.cta_type === 'MESSAGE_PAGE' ? (
-                                        <div className="flex items-center gap-1">
-                                          <MessageCircle className="w-3 h-3" />
-                                          <span>WhatsApp</span>
-                                        </div>
-                                      ) : card.cta_type === 'CONTACT_US' ? (
-                                        <div className="flex items-center gap-1">
-                                          <MessageCircle className="w-3 h-3" />
-                                          <span>Mensaje</span>
-                                        </div>
-                                      ) : (
-                                        <div className="flex items-center gap-1">
-                                          <Globe className="w-3 h-3" />
-                                          <span>Página</span>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-                              
-                              {/* Link URL if available */}
-                              {card.link_url && (
-                                <div className="text-xs text-blue-400 truncate">
-                                  <a href={card.link_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                    {card.link_url}
-                                  </a>
-                                </div>
-                              )}
+                            )
+                          })()}
+                          
+                          {/* Carousel Indicators */}
+                          {adInfo.cards.length > 1 && (
+                            <div className="flex justify-center gap-1 mt-2">
+                              {adInfo.cards.map((_: any, index: number) => (
+                                <button
+                                  key={index}
+                                  onClick={() => setCarouselIndex(`${ad.id}_cards`, index)}
+                                  className={`w-2 h-2 rounded-full transition-colors ${
+                                    index === getCarouselIndex(`${ad.id}_cards`) 
+                                      ? 'bg-primary-500' 
+                                      : 'bg-gray-600 hover:bg-gray-500'
+                                  }`}
+                                />
+                              ))}
                             </div>
-                          </div>
-                        ))}
-                        
-                        {/* Show remaining cards count */}
-                        {adInfo.cards.length > 2 && (
-                          <div className="text-xs text-gray-400 text-center py-2 bg-gray-800/20 rounded">
-                            +{adInfo.cards.length - 2} anuncios más en el carrusel
-                          </div>
-                        )}
+                          )}
+                        </div>
                       </div>
                     )}
 
@@ -1476,19 +1751,125 @@ export function SearchPage() {
                       </div>
                     )}
 
-                    {/* Expandable Details */}
-                    <div className="border-t border-primary-500/20 pt-2">
-                      <button
-                        onClick={() => toggleAdExpansion(ad.id)}
-                        className="flex items-center gap-2 text-xs text-primary-400 hover:text-primary-300 transition-colors w-full"
-                      >
-                        {isExpanded ? (
-                          <ChevronDown className="w-3 h-3" />
-                        ) : (
-                          <ChevronRight className="w-3 h-3" />
+                    {/* Action Buttons */}
+                    <div className="border-t border-primary-500/20 pt-2 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <button
+                          onClick={() => toggleAdExpansion(ad.id)}
+                          className="flex items-center gap-2 text-xs text-primary-400 hover:text-primary-300 transition-colors"
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="w-3 h-3" />
+                          ) : (
+                            <ChevronRight className="w-3 h-3" />
+                          )}
+                          {isExpanded ? 'Ocultar detalles' : 'Ver más detalles'}
+                        </button>
+
+                        {/* Screenshot Status */}
+                        {ad.ad_snapshot_url && (
+                          <div className="flex items-center gap-2">
+                            {screenshots[ad.id]?.loading ? (
+                              <div className="flex items-center gap-2 text-xs text-blue-400">
+                                <div className="w-3 h-3 border border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                                <span>Generando screenshot...</span>
+                              </div>
+                            ) : screenshots[ad.id]?.data ? (
+                              <div className="flex items-center gap-2 text-xs text-green-400">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                                </svg>
+                                <span>Screenshot listo</span>
+                              </div>
+                            ) : screenshots[ad.id]?.error ? (
+                              <button
+                                onClick={() => generateScreenshot(ad.id, ad.ad_snapshot_url)}
+                                className="flex items-center gap-2 text-xs text-red-400 hover:text-red-300 transition-colors"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <span>Reintentar</span>
+                              </button>
+                            ) : (
+                              <div className="flex items-center gap-2 text-xs text-gray-400">
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <span>En cola...</span>
+                              </div>
+                            )}
+                          </div>
                         )}
-                        {isExpanded ? 'Ocultar detalles' : 'Ver más detalles'}
-                      </button>
+                      </div>
+
+                      {/* Screenshot Display */}
+                      {screenshots[ad.id]?.data && (
+                        <div className="bg-gray-900/50 border border-primary-500/30 rounded-lg overflow-hidden">
+                          <div className="flex items-center justify-between p-2 bg-gray-800/50">
+                            <span className="text-xs text-primary-300 font-medium flex items-center gap-1">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                              </svg>
+                              Vista previa del anuncio
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                onClick={() => {
+                                  const link = document.createElement('a');
+                                  link.href = screenshots[ad.id].data!;
+                                  link.download = `screenshot_${ad.page_name}_${ad.id}.jpg`;
+                                  link.click();
+                                }}
+                                className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                                title="Descargar screenshot"
+                              >
+                                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                              </button>
+                              <button
+                                onClick={() => setScreenshots(prev => {
+                                  const newState = { ...prev };
+                                  delete newState[ad.id];
+                                  return newState;
+                                })}
+                                className="text-xs text-gray-400 hover:text-gray-300 transition-colors"
+                                title="Cerrar screenshot"
+                              >
+                                ✕
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex justify-center bg-white/5 p-4">
+                            <img 
+                              src={screenshots[ad.id].data} 
+                              alt={`Screenshot de ${ad.page_name}`}
+                              className="max-w-full max-h-96 object-contain rounded-lg shadow-lg border border-gray-600/50"
+                              style={{ backgroundColor: 'white' }}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Screenshot Error */}
+                      {screenshots[ad.id]?.error && (
+                        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-red-400">Error: {screenshots[ad.id].error}</span>
+                            <button
+                              onClick={() => setScreenshots(prev => {
+                                const newState = { ...prev };
+                                delete newState[ad.id];
+                                return newState;
+                              })}
+                              className="text-xs text-red-400 hover:text-red-300"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </div>
 
                     {/* Expanded Details */}
@@ -1610,8 +1991,8 @@ export function SearchPage() {
                                     
                                     {/* Card Body/Description */}
                                     {card.body && card.body.trim() && (
-                                      <p className="text-gray-300 text-xs leading-relaxed">
-                                        {card.body}
+                                      <p className="text-gray-300 text-xs leading-relaxed line-clamp-2">
+                                        {card.body.length > 150 ? `${card.body.slice(0, 150)}...` : card.body}
                                       </p>
                                     )}
                                     

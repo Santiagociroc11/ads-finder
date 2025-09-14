@@ -274,6 +274,59 @@ export const scraperApi = {
     const response = await api.post('/ads/advertiser-stats', params)
     return response.data
   },
+
+  // Generate screenshot of Facebook ad
+  getAdScreenshot: async (params: {
+    adUrl: string
+    adId: string
+    options?: {
+      width?: number
+      height?: number
+      quality?: number
+      waitTime?: number
+    }
+  }): Promise<{
+    success: boolean
+    adId: string
+    imageData?: string
+    cached: boolean
+    executionTime: number
+    imageSizeKB: number
+    message: string
+    cacheStats?: any
+    error?: string
+  }> => {
+    const response = await api.post('/ads/screenshot', params)
+    return response.data
+  },
+
+  // Get screenshot cache statistics
+  getScreenshotStats: async (): Promise<{
+    success: boolean
+    stats: {
+      size: number
+      maxSize: number
+      entries: Array<{
+        key: string
+        timestamp: number
+        accessCount: number
+        age: number
+      }>
+    }
+    message: string
+  }> => {
+    const response = await api.get('/ads/screenshot/stats')
+    return response.data
+  },
+
+  // Clear screenshot cache
+  clearScreenshotCache: async (): Promise<{
+    success: boolean
+    message: string
+  }> => {
+    const response = await api.delete('/ads/screenshot/cache')
+    return response.data
+  },
 }
 
 export default api
