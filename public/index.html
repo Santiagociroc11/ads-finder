@@ -50,6 +50,13 @@
             transform: scale(1.05);
         }
 
+        .btn-icon {
+            background: transparent; border: none; color: var(--primary-glow);
+            padding: 0.5rem; border-radius: 0.5rem; cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .btn-icon:hover { background: rgba(0, 255, 255, 0.1); color: #fff; }
+
         #grid-background {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
             background-image: 
@@ -309,6 +316,25 @@
                     <button type="submit" class="btn btn-secondary w-full">Añadir Página</button>
                 </form>
                 <div id="tracked-pages-list" class="flex-grow overflow-y-auto space-y-2 pr-2"></div>
+            </div>
+
+            <!-- Panel de búsquedas guardadas -->
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <h3 class="text-lg font-medium text-cyan-400 border-b border-cyan-500/20 pb-2">💰 Búsquedas Guardadas</h3>
+                    <button id="refresh-saved-searches" class="btn-icon" title="Actualizar lista">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M3 21v-5h5"/></svg>
+                    </button>
+                </div>
+                <div class="space-y-2">
+                    <button id="view-saved-searches" class="btn btn-primary w-full text-sm py-2">
+                        📖 Ver Búsquedas Guardadas
+                    </button>
+                    <button id="view-search-stats" class="btn btn-secondary w-full text-sm py-2">
+                        📊 Estadísticas de Ahorro
+                    </button>
+                </div>
+                <div id="saved-searches-summary" class="text-xs text-cyan-600"></div>
             </div>
         </aside>
 
@@ -1111,6 +1137,370 @@
             }
         }
         
+        // === FUNCIONES PARA BÚSQUEDAS GUARDADAS ===
+        async function loadSavedSearches() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/complete-searches`);
+                if (!response.ok) throw new Error('Error loading saved searches');
+                
+                const data = await response.json();
+                displaySavedSearches(data.searches, data.stats);
+                updateSavedSearchesSummary(data.stats);
+            } catch (error) {
+                console.error('Error loading saved searches:', error);
+                showNotification('Error al cargar búsquedas guardadas', 'error');
+            }
+        }
+
+        function displaySavedSearches(searches, stats) {
+            const container = document.getElementById('results-container');
+            
+            if (searches.length === 0) {
+                container.innerHTML = `
+                    <div class="col-span-full text-center py-20">
+                        <svg class="w-24 h-24 mx-auto text-cyan-700 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M8 7V3a4 4 0 118 0v4m-4 8a4 4 0 11-8 0v-4m4-4h8m-4-4v8m-4 4h8"/>
+                        </svg>
+                        <h3 class="text-2xl font-medium text-cyan-500 holographic-title">Sin Búsquedas Guardadas</h3>
+                        <p class="text-cyan-600 mt-2">Ejecuta búsquedas con Apify para empezar a ahorrar</p>
+                        <button id="back-to-search" class="btn btn-primary mt-4 px-6">Volver a Búsqueda</button>
+                    </div>
+                `;
+                document.getElementById('back-to-search').addEventListener('click', showSearchForm);
+                return;
+            }
+
+            let html = `
+                <div class="col-span-full mb-6">
+                    <div class="holographic-panel p-4">
+                        <h2 class="text-2xl font-bold text-cyan-300 holographic-title mb-4">💰 Búsquedas Guardadas</h2>
+                        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-center">
+                            <div class="stat-box holographic-panel p-3">
+                                <div class="text-2xl font-bold text-cyan-400">${stats.totalSearches}</div>
+                                <div class="text-sm text-cyan-600">Búsquedas</div>
+                            </div>
+                            <div class="stat-box holographic-panel p-3">
+                                <div class="text-2xl font-bold text-green-400">${stats.totalAds.toLocaleString()}</div>
+                                <div class="text-sm text-cyan-600">Anuncios Guardados</div>
+                            </div>
+                            <div class="stat-box holographic-panel p-3">
+                                <div class="text-2xl font-bold text-yellow-400">${stats.apifySearches}</div>
+                                <div class="text-sm text-cyan-600">Búsquedas Apify</div>
+                            </div>
+                            <div class="stat-box holographic-panel p-3">
+                                <div class="text-2xl font-bold text-purple-400">${Math.round(stats.avgAdsPerSearch || 0)}</div>
+                                <div class="text-sm text-cyan-600">Promedio/Búsqueda</div>
+                            </div>
+                        </div>
+                        <button id="back-to-search" class="btn btn-secondary mt-4">← Volver a Búsqueda</button>
+                    </div>
+                </div>
+            `;
+
+            searches.forEach(search => {
+                const date = new Date(search.executedAt).toLocaleDateString('es-ES');
+                const time = new Date(search.executedAt).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' });
+                
+                html += `
+                    <div class="holographic-panel p-4 cursor-pointer hover:scale-105 transition-transform" 
+                         onclick="loadSavedSearch('${search._id}')">
+                        <div class="flex items-start justify-between mb-3">
+                            <h3 class="font-semibold text-cyan-300 text-lg">${search.searchName}</h3>
+                            ${search.source === 'apify_scraping' ? '<span class="text-yellow-400">💎</span>' : '<span class="text-blue-400">🚀</span>'}
+                        </div>
+                        
+                        <div class="space-y-2 text-sm">
+                            <div class="flex justify-between">
+                                <span class="text-cyan-500">Término:</span>
+                                <span class="text-white">${search.metadata.searchTerm}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-cyan-500">País:</span>
+                                <span class="text-white">${search.metadata.country}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-cyan-500">Resultados:</span>
+                                <span class="text-green-400 font-semibold">${search.totalResults}</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-cyan-500">Fecha:</span>
+                                <span class="text-gray-300">${date} ${time}</span>
+                            </div>
+                            ${search.accessCount > 0 ? `
+                                <div class="flex justify-between">
+                                    <span class="text-cyan-500">Accesos:</span>
+                                    <span class="text-purple-400">${search.accessCount}x</span>
+                                </div>
+                            ` : ''}
+                        </div>
+
+                        <div class="mt-3 flex justify-between items-center">
+                            <div class="text-xs ${search.source === 'apify_scraping' ? 'text-yellow-600' : 'text-blue-600'}">
+                                ${search.source === 'apify_scraping' ? '💰 Ahorro de Apify' : '🚀 Búsqueda API'}
+                            </div>
+                            <button class="btn-icon text-red-400 hover:text-red-300" 
+                                    onclick="event.stopPropagation(); deleteSavedSearch('${search._id}', '${search.searchName}')"
+                                    title="Eliminar búsqueda">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3,6 5,6 21,6"></polyline><path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path></svg>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+            document.getElementById('back-to-search').addEventListener('click', showSearchForm);
+        }
+
+        async function loadSavedSearch(searchId) {
+            try {
+                showLoading('Cargando búsqueda guardada...');
+                
+                const response = await fetch(`${API_BASE_URL}/api/complete-searches/${searchId}?page=1&limit=100`);
+                if (!response.ok) throw new Error('Error loading saved search');
+                
+                const data = await response.json();
+                hideLoading();
+                
+                // Mostrar los resultados como si fuera una búsqueda normal
+                displayResults(data.results);
+                
+                // Actualizar información de paginación si hay más resultados
+                if (data.pagination.hasNextPage) {
+                    setupSavedSearchPagination(searchId, data.pagination);
+                }
+                
+                showNotification(`Búsqueda "${data.searchName}" cargada (${data.results.length} anuncios)`, 'success');
+                
+            } catch (error) {
+                hideLoading();
+                console.error('Error loading saved search:', error);
+                showNotification('Error al cargar la búsqueda guardada', 'error');
+            }
+        }
+
+        function setupSavedSearchPagination(searchId, pagination) {
+            const paginationControls = document.getElementById('pagination-controls');
+            let html = `
+                <div class="flex items-center space-x-4">
+                    <span class="text-cyan-500">Página ${pagination.currentPage} de ${pagination.totalPages}</span>
+            `;
+            
+            if (pagination.hasPrevPage) {
+                html += `<button onclick="loadSavedSearchPage('${searchId}', ${pagination.currentPage - 1})" class="btn btn-secondary px-4 py-2">← Anterior</button>`;
+            }
+            
+            if (pagination.hasNextPage) {
+                html += `<button onclick="loadSavedSearchPage('${searchId}', ${pagination.currentPage + 1})" class="btn btn-secondary px-4 py-2">Siguiente →</button>`;
+            }
+            
+            html += `<button onclick="loadSavedSearches()" class="btn btn-primary px-4 py-2">← Volver a Lista</button></div>`;
+            
+            paginationControls.innerHTML = html;
+        }
+
+        async function loadSavedSearchPage(searchId, page) {
+            try {
+                showLoading(`Cargando página ${page}...`);
+                
+                const response = await fetch(`${API_BASE_URL}/api/complete-searches/${searchId}?page=${page}&limit=100`);
+                if (!response.ok) throw new Error('Error loading page');
+                
+                const data = await response.json();
+                hideLoading();
+                
+                displayResults(data.results);
+                setupSavedSearchPagination(searchId, data.pagination);
+                
+            } catch (error) {
+                hideLoading();
+                showNotification('Error al cargar la página', 'error');
+            }
+        }
+
+        async function deleteSavedSearch(searchId, searchName) {
+            if (!confirm(`¿Eliminar la búsqueda "${searchName}"?`)) return;
+            
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/complete-searches/${searchId}`, {
+                    method: 'DELETE'
+                });
+                
+                if (!response.ok) throw new Error('Error deleting search');
+                
+                showNotification('Búsqueda eliminada exitosamente', 'success');
+                loadSavedSearches(); // Recargar lista
+                
+            } catch (error) {
+                console.error('Error deleting saved search:', error);
+                showNotification('Error al eliminar la búsqueda', 'error');
+            }
+        }
+
+        async function loadSearchStats() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/complete-searches/stats`);
+                if (!response.ok) throw new Error('Error loading stats');
+                
+                const data = await response.json();
+                displaySearchStats(data);
+                
+            } catch (error) {
+                console.error('Error loading search stats:', error);
+                showNotification('Error al cargar estadísticas', 'error');
+            }
+        }
+
+        function displaySearchStats(data) {
+            const container = document.getElementById('results-container');
+            
+            container.innerHTML = `
+                <div class="col-span-full">
+                    <div class="holographic-panel p-6">
+                        <h2 class="text-2xl font-bold text-cyan-300 holographic-title mb-6">📊 Estadísticas de Ahorro</h2>
+                        
+                        <!-- Estadísticas principales -->
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                            <div class="stat-box holographic-panel p-4 text-center">
+                                <div class="text-3xl font-bold text-green-400">${data.costSavings.estimatedSavings}</div>
+                                <div class="text-sm text-cyan-600">Ahorro Estimado</div>
+                                <div class="text-xs text-green-600 mt-1">${data.costSavings.apifySearchesSaved} búsquedas Apify guardadas</div>
+                            </div>
+                            <div class="stat-box holographic-panel p-4 text-center">
+                                <div class="text-3xl font-bold text-cyan-400">${data.overview.totalSearches || 0}</div>
+                                <div class="text-sm text-cyan-600">Total Búsquedas</div>
+                                <div class="text-xs text-cyan-600 mt-1">${data.overview.totalAds || 0} anuncios guardados</div>
+                            </div>
+                            <div class="stat-box holographic-panel p-4 text-center">
+                                <div class="text-3xl font-bold text-purple-400">${Math.round(data.overview.avgAdsPerSearch || 0)}</div>
+                                <div class="text-sm text-cyan-600">Promedio por Búsqueda</div>
+                                <div class="text-xs text-purple-600 mt-1">${data.overview.totalAccesses || 0} accesos totales</div>
+                            </div>
+                        </div>
+
+                        <!-- Top países -->
+                        ${data.topCountries && data.topCountries.length > 0 ? `
+                            <div class="mb-6">
+                                <h3 class="text-lg font-semibold text-cyan-400 mb-3">🌍 Top Países</h3>
+                                <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                    ${data.topCountries.slice(0, 6).map(country => `
+                                        <div class="holographic-panel p-3 text-center">
+                                            <div class="font-semibold text-white">${country._id}</div>
+                                            <div class="text-sm text-cyan-500">${country.count} búsquedas</div>
+                                            <div class="text-xs text-gray-400">${country.totalAds} anuncios</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Top términos -->
+                        ${data.topTerms && data.topTerms.length > 0 ? `
+                            <div class="mb-6">
+                                <h3 class="text-lg font-semibold text-cyan-400 mb-3">🔍 Términos Más Buscados</h3>
+                                <div class="space-y-2">
+                                    ${data.topTerms.slice(0, 5).map(term => `
+                                        <div class="flex justify-between items-center holographic-panel p-3">
+                                            <span class="text-white font-medium">${term._id}</span>
+                                            <div class="text-right">
+                                                <div class="text-cyan-400">${term.count} búsquedas</div>
+                                                <div class="text-xs text-gray-400">${term.totalAds} anuncios</div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <!-- Búsquedas más accedidas -->
+                        ${data.mostAccessed && data.mostAccessed.length > 0 ? `
+                            <div class="mb-6">
+                                <h3 class="text-lg font-semibold text-cyan-400 mb-3">⭐ Más Reutilizadas</h3>
+                                <div class="space-y-2">
+                                    ${data.mostAccessed.map(search => `
+                                        <div class="flex justify-between items-center holographic-panel p-3 cursor-pointer hover:bg-cyan-900/20" 
+                                             onclick="loadSavedSearch('${search._id}')">
+                                            <div>
+                                                <div class="text-white font-medium">${search.searchName}</div>
+                                                <div class="text-xs text-gray-400">${search.totalResults} anuncios • ${search.source}</div>
+                                            </div>
+                                            <div class="text-purple-400 font-bold">${search.accessCount}x</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+
+                        <div class="flex space-x-4">
+                            <button onclick="loadSavedSearches()" class="btn btn-primary px-6">📖 Ver Búsquedas</button>
+                            <button onclick="showSearchForm()" class="btn btn-secondary px-6">← Volver a Búsqueda</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function updateSavedSearchesSummary(stats) {
+            const summary = document.getElementById('saved-searches-summary');
+            if (stats.totalSearches > 0) {
+                summary.innerHTML = `
+                    <div class="text-center">
+                        <div class="text-green-400 font-semibold">${stats.totalSearches} búsquedas • ${stats.totalAds} anuncios</div>
+                        <div class="text-yellow-600">${stats.apifySearches} búsquedas Apify guardadas</div>
+                    </div>
+                `;
+            } else {
+                summary.innerHTML = '<div class="text-center text-gray-500">Sin búsquedas guardadas</div>';
+            }
+        }
+
+        function showSearchForm() {
+            // Restaurar vista de búsqueda
+            document.getElementById('results-container').innerHTML = `
+                <div id="placeholder" class="col-span-full text-center py-20 opacity-50">
+                    <svg class="w-24 h-24 mx-auto text-cyan-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <h3 class="mt-4 text-2xl font-medium text-cyan-500 holographic-title">Esperando Comando</h3>
+                </div>
+            `;
+            document.getElementById('pagination-controls').innerHTML = '';
+        }
+
+        function showNotification(message, type = 'info') {
+            const notification = document.createElement('div');
+            notification.className = `fixed top-4 right-4 px-4 py-2 rounded-lg shadow-lg z-50 text-white ${
+                type === 'success' ? 'bg-green-500' : 
+                type === 'error' ? 'bg-red-500' : 'bg-cyan-500'
+            }`;
+            notification.textContent = message;
+            document.body.appendChild(notification);
+            
+            setTimeout(() => notification.remove(), 3000);
+        }
+
+        // Event listeners para búsquedas guardadas
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('view-saved-searches').addEventListener('click', loadSavedSearches);
+            document.getElementById('view-search-stats').addEventListener('click', loadSearchStats);
+            document.getElementById('refresh-saved-searches').addEventListener('click', () => {
+                updateSavedSearchesSummary({ totalSearches: 0, totalAds: 0, apifySearches: 0 });
+                fetch(`${API_BASE_URL}/api/complete-searches`).then(res => res.json()).then(data => {
+                    updateSavedSearchesSummary(data.stats);
+                }).catch(() => {});
+            });
+            
+            // Cargar resumen inicial
+            setTimeout(() => {
+                document.getElementById('refresh-saved-searches').click();
+            }, 1000);
+        });
+
+        // Funciones globales para usar en onclick
+        window.loadSavedSearch = loadSavedSearch;
+        window.loadSavedSearchPage = loadSavedSearchPage;
+        window.deleteSavedSearch = deleteSavedSearch;
+
         // Inicializar event listeners cuando se carga la página
         document.addEventListener('DOMContentLoaded', function() {
             // Event listeners para cambio de método de búsqueda
