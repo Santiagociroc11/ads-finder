@@ -1,22 +1,37 @@
 import dotenv from 'dotenv';
+import path from 'path';
+
+// Load environment variables FIRST - before any other imports
+// Go up one directory from backend/ to reach the root where .env is located
+const envPath = path.join(process.cwd(), '..', '.env');
+const result = dotenv.config({ path: envPath });
+console.log(`🔧 Loading .env from: ${envPath}`);
+console.log(`🔧 Dotenv result:`, result.error ? `ERROR: ${result.error.message}` : 'SUCCESS');
+console.log(`🔧 FACEBOOK_ACCESS_TOKEN loaded:`, process.env.FACEBOOK_ACCESS_TOKEN ? 'YES' : 'NO');
+
+// Now import everything else
 import express from 'express';
 import cors from 'cors';
-import path from 'path';
 import { fileURLToPath } from 'url';
 
 import { connectDatabase } from '@/services/database.js';
 import { errorHandler } from '@/middleware/errorHandler.js';
 import { logger } from '@/middleware/logger.js';
 
-// Import routes
+// Import routes AFTER dotenv is configured
 import adsRoutes from '@/routes/ads.js';
 import pagesRoutes from '@/routes/pages.js';
 import savedAdsRoutes from '@/routes/savedAds.js';
 import completeSearchesRoutes from '@/routes/completeSearches.js';
 import suggestionsRoutes from '@/routes/suggestions.js';
 
-// Load environment variables
-dotenv.config();
+// Verify critical environment variables
+if (!process.env.FACEBOOK_ACCESS_TOKEN) {
+  console.warn('⚠️  FACEBOOK_ACCESS_TOKEN not found - Facebook API searches will fail');
+}
+if (!process.env.MONGO_URL) {
+  console.warn('⚠️  MONGO_URL not found - using default: mongodb://localhost:27017');
+}
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);

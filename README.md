@@ -78,10 +78,10 @@ npm run install:all
 
 2. **Configure environment variables:**
 ```bash
-# Copy example files
-cp backend/.env.example backend/.env
+# Copy example file to root directory
+cp backend/env.example .env
 
-# Edit backend/.env with your credentials
+# Edit .env with your credentials
 FACEBOOK_ACCESS_TOKEN=your_facebook_token_here
 APIFY_API_TOKEN=your_apify_token_here
 GEMINI_API_KEY=your_gemini_key_here
@@ -242,19 +242,24 @@ npm run lint              # Lint all projects
 
 ## 🔒 Environment Variables
 
-### Backend (.env)
-```bash
-# Required
-FACEBOOK_ACCESS_TOKEN=     # Facebook Graph API token
-MONGO_URL=                 # MongoDB connection string
+### Root .env Configuration
 
-# Optional
-APIFY_API_TOKEN=          # For professional scraping
-GEMINI_API_KEY=           # For AI suggestions
-PORT=3000                 # Server port
-NODE_ENV=development      # Environment
-FRONTEND_URL=             # Frontend URL for CORS
+The `.env` file should be placed in the **root directory** of the project:
+
+```bash
+# ===== REQUIRED =====
+FACEBOOK_ACCESS_TOKEN=your_token_here     # Facebook Graph API token
+MONGO_URL=mongodb://localhost:27017       # MongoDB connection string
+
+# ===== OPTIONAL =====
+APIFY_API_TOKEN=your_apify_token          # For 💎 Apify Pro scraping
+GEMINI_API_KEY=your_gemini_key            # For 🤖 AI suggestions
+PORT=3000                                 # Server port (default: 3000)
+NODE_ENV=development                      # Environment
+FRONTEND_URL=http://localhost:5173        # Frontend URL for CORS
 ```
+
+**Note:** The backend automatically reads the `.env` file from the project root directory.
 
 ### Frontend (.env.local)
 ```bash

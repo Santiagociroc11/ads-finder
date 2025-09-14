@@ -25,11 +25,11 @@ router.post('/', asyncHandler(async (req, res) => {
   const { idea } = req.body;
   
   if (!idea) {
-    throw new CustomError('An initial idea is required', 400);
+    throw new CustomError('Se requiere una idea inicial', 400);
   }
 
   if (!genAI) {
-    throw new CustomError('AI service is not available', 503);
+    throw new CustomError('El servicio de IA no está disponible', 503);
   }
 
   try {
@@ -55,7 +55,7 @@ router.post('/', asyncHandler(async (req, res) => {
   } catch (error) {
     console.error('[AI] ❌ Error generating suggestions:', error);
     throw new CustomError(
-      error instanceof Error ? error.message : 'AI service error',
+      error instanceof Error ? error.message : 'Error del servicio de IA',
       500
     );
   }

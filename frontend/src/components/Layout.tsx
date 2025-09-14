@@ -81,7 +81,7 @@ export function Layout({ children }: LayoutProps) {
                 Ads Finder PRO
               </h1>
               <p className="text-sm text-primary-400 font-orbitron">
-                TypeScript Edition v2.0
+                Edición TypeScript v2.0
               </p>
             </div>
             
@@ -127,7 +127,7 @@ export function Layout({ children }: LayoutProps) {
           <div className="pt-6 border-t border-primary-500/20">
             <div className="text-xs text-gray-400 text-center">
               <div className="font-orbitron text-primary-400 mb-1">
-                🚀 Powered by TypeScript
+                🚀 Impulsado por TypeScript
               </div>
               <div>
                 💎 Apify • 🤖 Gemini AI • 📊 MongoDB

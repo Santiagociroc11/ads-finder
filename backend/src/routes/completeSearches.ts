@@ -17,13 +17,13 @@ router.post('/', asyncHandler(async (req, res) => {
   const { searchName, searchParams, results, source, metadata } = req.body;
   
   if (!searchName || !results || !Array.isArray(results)) {
-    throw new CustomError('Search name and results are required', 400);
+    throw new CustomError('El nombre de búsqueda y los resultados son requeridos', 400);
   }
 
   // Check if search name already exists
   const existingSearch = await collections.completeSearches().findOne({ searchName });
   if (existingSearch) {
-    throw new CustomError('A search with this name already exists', 409);
+    throw new CustomError('Ya existe una búsqueda con este nombre', 409);
   }
 
   const newCompleteSearch: Omit<CompleteSearch, '_id'> = {
@@ -57,7 +57,7 @@ router.post('/', asyncHandler(async (req, res) => {
   res.status(201).json({
     ...newCompleteSearch,
     _id: result.insertedId,
-    message: `Complete search saved: ${results.length} ads`
+    message: `Búsqueda completa guardada: ${results.length} anuncios`
   });
 }));
 
@@ -138,13 +138,13 @@ router.get('/:id', asyncHandler(async (req, res) => {
   const { page = 1, limit = 50 } = req.query;
   
   if (!ObjectId.isValid(id)) {
-    throw new CustomError('Invalid search ID', 400);
+    throw new CustomError('ID de búsqueda inválido', 400);
   }
   
   const completeSearch = await collections.completeSearches().findOne({ _id: new ObjectId(id) });
   
   if (!completeSearch) {
-    throw new CustomError('Complete search not found', 404);
+    throw new CustomError('Búsqueda completa no encontrada', 404);
   }
   
   // Update access statistics
@@ -179,7 +179,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     ...completeSearch,
     results: paginatedResults,
     pagination,
-    message: 'Search loaded from cache - No additional cost'
+    message: 'Búsqueda cargada desde caché - Sin costo adicional'
   };
   
   res.json(response);
@@ -190,13 +190,13 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   
   if (!ObjectId.isValid(id)) {
-    throw new CustomError('Invalid search ID', 400);
+    throw new CustomError('ID de búsqueda inválido', 400);
   }
   
   const completeSearch = await collections.completeSearches().findOne({ _id: new ObjectId(id) });
   
   if (!completeSearch) {
-    throw new CustomError('Complete search not found', 404);
+    throw new CustomError('Búsqueda completa no encontrada', 404);
   }
   
   await collections.completeSearches().deleteOne({ _id: new ObjectId(id) });
@@ -204,7 +204,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   console.log(`[COMPLETE_SEARCH] 🗑️ Complete search deleted: "${completeSearch.searchName}" (${completeSearch.totalResults} ads)`);
   
   res.json({
-    message: `Search "${completeSearch.searchName}" deleted successfully`,
+    message: `Búsqueda "${completeSearch.searchName}" eliminada exitosamente`,
     deletedResults: completeSearch.totalResults
   });
 }));
@@ -322,7 +322,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
     topCountries,
     topTerms,
     mostAccessed,
-    message: `${apifySearchCount} Apify searches saved - Avoids re-executing expensive searches`
+    message: `${apifySearchCount} búsquedas Apify guardadas - Evita re-ejecutar búsquedas costosas`
   };
   
   res.json(searchStats);

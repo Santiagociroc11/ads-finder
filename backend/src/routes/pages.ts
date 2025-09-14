@@ -12,7 +12,7 @@ router.post('/', asyncHandler(async (req, res) => {
   const { pageIdentifier } = req.body;
   
   if (!pageIdentifier) {
-    throw new CustomError('Page identifier is required', 400);
+    throw new CustomError('El identificador de página es requerido', 400);
   }
 
   let identifier = pageIdentifier;
@@ -29,12 +29,12 @@ router.post('/', asyncHandler(async (req, res) => {
       }
       console.log(`[PAGES] ✅ Extracted identifier: ${identifier}`);
     } catch (error) {
-      throw new CustomError('Invalid Facebook URL format', 400);
+      throw new CustomError('Formato de URL de Facebook inválido', 400);
     }
   }
 
   if (!identifier) {
-    throw new CustomError('Could not extract page identifier', 400);
+    throw new CustomError('No se pudo extraer el identificador de página', 400);
   }
 
   try {
@@ -45,13 +45,13 @@ router.post('/', asyncHandler(async (req, res) => {
     const fbData = await fbResponse.json() as any;
 
     if (!fbResponse.ok || fbData.error) {
-      throw new CustomError(fbData.error?.message || 'Facebook API error', 400);
+      throw new CustomError(fbData.error?.message || 'Error de API de Facebook', 400);
     }
 
     // Check if page is already tracked
     const existingPage = await collections.trackedPages().findOne({ pageId: fbData.id });
     if (existingPage) {
-      throw new CustomError('Page is already being tracked', 409);
+      throw new CustomError('La página ya está siendo rastreada', 409);
     }
 
     const newPage: Omit<TrackedPage, '_id'> = {
@@ -74,7 +74,7 @@ router.post('/', asyncHandler(async (req, res) => {
     if (error instanceof CustomError) {
       throw error;
     }
-    throw new CustomError(`Facebook API error: ${error instanceof Error ? error.message : 'Unknown error'}`, 500);
+    throw new CustomError(`Error de API de Facebook: ${error instanceof Error ? error.message : 'Error desconocido'}`, 500);
   }
 }));
 
@@ -93,18 +93,18 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   
   if (!ObjectId.isValid(id)) {
-    throw new CustomError('Invalid page ID', 400);
+    throw new CustomError('ID de página inválido', 400);
   }
   
   const result = await collections.trackedPages().deleteOne({ _id: new ObjectId(id) });
   
   if (result.deletedCount === 0) {
-    throw new CustomError('Tracked page not found', 404);
+    throw new CustomError('Página rastreada no encontrada', 404);
   }
   
   console.log(`[PAGES] 🗑️ Tracked page removed: ${id}`);
   
-  res.json({ message: 'Tracked page removed successfully' });
+  res.json({ message: 'Página rastreada eliminada exitosamente' });
 }));
 
 export default router;

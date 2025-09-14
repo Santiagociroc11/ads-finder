@@ -11,13 +11,13 @@ router.post('/', asyncHandler(async (req, res) => {
   const { adData, tags, notes, collection } = req.body;
   
   if (!adData || !adData.id) {
-    throw new CustomError('Ad data is required', 400);
+    throw new CustomError('Los datos del anuncio son requeridos', 400);
   }
 
   // Check if ad is already saved
   const existingAd = await collections.savedAds().findOne({ 'adData.id': adData.id });
   if (existingAd) {
-    throw new CustomError('This ad is already saved', 409);
+    throw new CustomError('Este anuncio ya está guardado', 409);
   }
 
   const newSavedAd: Omit<SavedAd, '_id'> = {
@@ -42,7 +42,7 @@ router.post('/', asyncHandler(async (req, res) => {
   res.status(201).json({
     ...newSavedAd,
     _id: result.insertedId,
-    message: 'Ad saved successfully'
+    message: 'Anuncio guardado exitosamente'
   });
 }));
 
@@ -114,7 +114,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   const { tags, notes, collection, isFavorite } = req.body;
   
   if (!ObjectId.isValid(id)) {
-    throw new CustomError('Invalid ad ID', 400);
+    throw new CustomError('ID de anuncio inválido', 400);
   }
   
   const updateFields: any = {};
@@ -130,12 +130,12 @@ router.put('/:id', asyncHandler(async (req, res) => {
   );
   
   if (result.matchedCount === 0) {
-    throw new CustomError('Saved ad not found', 404);
+    throw new CustomError('Anuncio guardado no encontrado', 404);
   }
   
   console.log(`[SAVED_ADS] ✏️ Ad updated: ${id}`);
   
-  res.json({ message: 'Ad updated successfully' });
+  res.json({ message: 'Anuncio actualizado exitosamente' });
 }));
 
 // DELETE /api/saved-ads/:id - Delete saved ad
@@ -143,18 +143,18 @@ router.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   
   if (!ObjectId.isValid(id)) {
-    throw new CustomError('Invalid ad ID', 400);
+    throw new CustomError('ID de anuncio inválido', 400);
   }
   
   const result = await collections.savedAds().deleteOne({ _id: new ObjectId(id) });
   
   if (result.deletedCount === 0) {
-    throw new CustomError('Saved ad not found', 404);
+    throw new CustomError('Anuncio guardado no encontrado', 404);
   }
   
   console.log(`[SAVED_ADS] 🗑️ Ad deleted: ${id}`);
   
-  res.json({ message: 'Saved ad deleted successfully' });
+  res.json({ message: 'Anuncio guardado eliminado exitosamente' });
 }));
 
 // GET /api/saved-ads/collections - Get available collections
@@ -189,7 +189,7 @@ router.post('/bulk', asyncHandler(async (req, res) => {
   const { ads, defaultTags, defaultCollection, defaultNotes } = req.body;
   
   if (!ads || !Array.isArray(ads) || ads.length === 0) {
-    throw new CustomError('An array of ads is required', 400);
+    throw new CustomError('Se requiere un array de anuncios', 400);
   }
 
   const results = {
@@ -257,7 +257,7 @@ router.post('/bulk', asyncHandler(async (req, res) => {
   console.log(`[SAVED_ADS] 📦 Bulk save: ${results.saved} saved, ${results.skipped} skipped`);
   
   res.json({
-    message: `Bulk save completed: ${results.saved} ads saved, ${results.skipped} already existed`,
+    message: `Guardado masivo completado: ${results.saved} anuncios guardados, ${results.skipped} ya existían`,
     results
   });
 }));

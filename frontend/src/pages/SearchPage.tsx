@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useQuery, useMutation } from 'react-query'
+import { useMutation } from 'react-query'
 import { toast } from 'react-hot-toast'
 import { 
   Search, 
@@ -9,7 +9,6 @@ import {
   Eye,
   Bookmark,
   ExternalLink,
-  Flame,
   Calendar,
   Users,
   MapPin
@@ -40,7 +39,7 @@ export function SearchPage() {
     {
       onSuccess: (data: SearchResponse) => {
         setSearchResults(data.data)
-        toast.success(`Found ${data.data.length} ads!`)
+        toast.success(`¡Se encontraron ${data.data.length} anuncios!`)
         
         if (data.autoSaved?.saved) {
           toast.success(data.autoSaved.message, { duration: 6000 })
@@ -48,7 +47,7 @@ export function SearchPage() {
       },
       onError: (error: any) => {
         console.error('Search error:', error)
-        toast.error(error.response?.data?.error || 'Search failed')
+        toast.error(error.response?.data?.error || 'Error en la búsqueda')
       }
     }
   )
@@ -58,11 +57,11 @@ export function SearchPage() {
     (idea: string) => suggestionsApi.generateSuggestions(idea),
     {
       onSuccess: (data) => {
-        toast.success(`Generated ${data.suggestions.length} keyword suggestions!`)
+        toast.success(`¡Se generaron ${data.suggestions.length} sugerencias de palabras clave!`)
       },
       onError: (error: any) => {
         console.error('Suggestions error:', error)
-        toast.error('Failed to generate suggestions')
+        toast.error('Error al generar sugerencias')
       }
     }
   )
@@ -71,7 +70,7 @@ export function SearchPage() {
     e.preventDefault()
     
     if (!searchParams.value.trim()) {
-      toast.error('Please enter a search term')
+      toast.error('Por favor ingresa un término de búsqueda')
       return
     }
 
@@ -80,7 +79,7 @@ export function SearchPage() {
 
   const handleSuggestions = () => {
     if (!searchParams.value.trim()) {
-      toast.error('Enter an idea first')
+      toast.error('Ingresa una idea primero')
       return
     }
     
@@ -102,10 +101,10 @@ export function SearchPage() {
       {/* Header */}
       <div className="text-center">
         <h1 className="text-4xl font-bold holographic-title mb-2">
-          Professional Ad Discovery
+          Descubrimiento Profesional de Anuncios
         </h1>
         <p className="text-gray-400 text-lg">
-          Find winning Facebook ads with AI-powered insights
+          Encuentra anuncios ganadores de Facebook con insights impulsados por IA
         </p>
       </div>
 
@@ -119,7 +118,7 @@ export function SearchPage() {
                 type="text"
                 value={searchParams.value}
                 onChange={(e) => setSearchParams(prev => ({ ...prev, value: e.target.value }))}
-                placeholder="Enter keyword or search term..."
+                placeholder="Ingresa palabra clave o término de búsqueda..."
                 className="form-input w-full pr-12"
               />
               <button
@@ -127,7 +126,7 @@ export function SearchPage() {
                 onClick={handleSuggestions}
                 disabled={suggestionsMutation.isLoading}
                 className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon"
-                title="Generate AI suggestions"
+                title="Generar sugerencias de IA"
               >
                 <Sparkles className={`w-5 h-5 ${suggestionsMutation.isLoading ? 'animate-spin' : ''}`} />
               </button>
@@ -158,7 +157,7 @@ export function SearchPage() {
           {suggestionsMutation.data?.suggestions && (
             <div className="space-y-2">
               <label className="text-sm font-medium text-primary-400">
-                🤖 AI Suggestions:
+                🤖 Sugerencias de IA:
               </label>
               <div className="flex flex-wrap gap-2">
                 {suggestionsMutation.data.suggestions.map((suggestion, index) => (
@@ -181,7 +180,7 @@ export function SearchPage() {
               {/* Country */}
               <div>
                 <label className="block text-sm font-medium text-primary-400 mb-2">
-                  Country
+                  País
                 </label>
                 <select
                   value={searchParams.country}
@@ -200,7 +199,7 @@ export function SearchPage() {
               {/* Minimum Days */}
               <div>
                 <label className="block text-sm font-medium text-primary-400 mb-2">
-                  Minimum Days Running
+                  Días Mínimos Ejecutándose
                 </label>
                 <input
                   type="number"
@@ -214,25 +213,25 @@ export function SearchPage() {
               {/* Ad Type */}
               <div>
                 <label className="block text-sm font-medium text-primary-400 mb-2">
-                  Ad Type
+                  Tipo de Anuncio
                 </label>
                 <select
                   value={searchParams.adType}
                   onChange={(e) => setSearchParams(prev => ({ ...prev, adType: e.target.value }))}
                   className="form-select w-full"
                 >
-                  <option value="ALL">All Ads</option>
-                  <option value="POLITICAL_AND_ISSUE_ADS">Political (with metrics)</option>
-                  <option value="FINANCIAL_PRODUCTS_AND_SERVICES_ADS">Financial</option>
-                  <option value="EMPLOYMENT_ADS">Employment</option>
-                  <option value="HOUSING_ADS">Housing</option>
+                  <option value="ALL">Todos los Anuncios</option>
+                  <option value="POLITICAL_AND_ISSUE_ADS">Políticos (con métricas)</option>
+                  <option value="FINANCIAL_PRODUCTS_AND_SERVICES_ADS">Financieros</option>
+                  <option value="EMPLOYMENT_ADS">Empleo</option>
+                  <option value="HOUSING_ADS">Vivienda</option>
                 </select>
               </div>
 
               {/* Search Method */}
               <div className="md:col-span-2 lg:col-span-3">
                 <label className="block text-sm font-medium text-primary-400 mb-3">
-                  Search Method
+                  Método de Búsqueda
                 </label>
                 <div className="grid grid-cols-3 gap-3">
                   <label className="search-method-label">
@@ -250,7 +249,7 @@ export function SearchPage() {
                     />
                     <div className="text-center">
                       <div className="text-sm font-medium">🚀 API</div>
-                      <div className="text-xs text-gray-400">Fast & Official</div>
+                      <div className="text-xs text-gray-400">Rápido y Oficial</div>
                     </div>
                   </label>
                   
@@ -268,8 +267,8 @@ export function SearchPage() {
                       className="search-method-radio"
                     />
                     <div className="text-center">
-                      <div className="text-sm font-medium">🕷️ Smart</div>
-                      <div className="text-xs text-gray-400">Multiple Variations</div>
+                      <div className="text-sm font-medium">🕷️ Inteligente</div>
+                      <div className="text-xs text-gray-400">Múltiples Variaciones</div>
                     </div>
                   </label>
                   
@@ -288,7 +287,7 @@ export function SearchPage() {
                     />
                     <div className="text-center">
                       <div className="text-sm font-medium">💎 Apify Pro</div>
-                      <div className="text-xs text-gray-400">Professional</div>
+                      <div className="text-xs text-gray-400">Profesional</div>
                     </div>
                   </label>
                 </div>
@@ -298,17 +297,17 @@ export function SearchPage() {
               {searchParams.useApify && (
                 <div>
                   <label className="block text-sm font-medium text-primary-400 mb-2">
-                    Max Ads (Apify)
+                    Máx Anuncios (Apify)
                   </label>
                   <select
                     value={searchParams.apifyCount}
                     onChange={(e) => setSearchParams(prev => ({ ...prev, apifyCount: parseInt(e.target.value) }))}
                     className="form-select w-full"
                   >
-                    <option value={50}>50 ads</option>
-                    <option value={100}>100 ads</option>
-                    <option value={200}>200 ads</option>
-                    <option value={500}>500 ads (expensive)</option>
+                    <option value={50}>50 anuncios</option>
+                    <option value={100}>100 anuncios</option>
+                    <option value={200}>200 anuncios</option>
+                    <option value={500}>500 anuncios (costoso)</option>
                   </select>
                 </div>
               )}
@@ -323,16 +322,16 @@ export function SearchPage() {
           {/* Results Header */}
           <div className="flex items-center justify-between">
             <h2 className="text-2xl font-bold text-primary-300">
-              Found {searchResults.length} Ads
+              Se encontraron {searchResults.length} Anuncios
             </h2>
             <div className="flex gap-2">
               <button className="btn-secondary">
                 <Download className="w-4 h-4 mr-2" />
-                Export
+                Exportar
               </button>
               <button className="btn-secondary">
                 <Bookmark className="w-4 h-4 mr-2" />
-                Save All
+                Guardar Todo
               </button>
             </div>
           </div>
@@ -351,8 +350,9 @@ export function SearchPage() {
                       <h3 className="font-semibold text-white truncate">
                         {ad.page_name}
                       </h3>
-                      <div className="text-xs text-gray-400">
-                        {ad.days_running} days running
+                      <div className="text-lg font-bold text-primary-400 flex items-center gap-1">
+                        <Calendar className="w-4 h-4" />
+                        {ad.days_running} días ejecutándose
                       </div>
                     </div>
                   </div>
@@ -402,7 +402,7 @@ export function SearchPage() {
                     {ad.collation_count > 1 && (
                       <div className="flex items-center gap-1">
                         <Users className="w-3 h-3" />
-                        {ad.collation_count} variants
+                        {ad.collation_count} variantes
                       </div>
                     )}
                   </div>
@@ -411,7 +411,7 @@ export function SearchPage() {
                   <div className="flex gap-2 pt-2 border-t border-primary-500/20">
                     <button className="btn-secondary text-xs px-3 py-1 flex-1">
                       <Eye className="w-3 h-3 mr-1" />
-                      View
+                      Ver
                     </button>
                     <button 
                       onClick={() => window.open(ad.ad_snapshot_url, '_blank')}
@@ -453,10 +453,10 @@ export function SearchPage() {
         <div className="text-center py-20">
           <Search className="w-24 h-24 mx-auto text-gray-600 mb-4" />
           <h3 className="text-2xl font-medium text-gray-400 holographic-title">
-            Ready to Discover
+            Listo para Descubrir
           </h3>
           <p className="text-gray-500 mt-2">
-            Enter a keyword to find winning Facebook ads
+            Ingresa una palabra clave para encontrar anuncios ganadores de Facebook
           </p>
         </div>
       )}

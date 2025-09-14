@@ -5,7 +5,15 @@ import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
 import type { SearchParams, SearchResponse } from '@shared/types/index.js';
 
 const router = express.Router();
-const facebookService = new FacebookService();
+
+// Lazy initialization to ensure environment variables are loaded
+let facebookService: FacebookService | null = null;
+function getFacebookService(): FacebookService {
+  if (!facebookService) {
+    facebookService = new FacebookService();
+  }
+  return facebookService;
+}
 
 // POST /api/search - Main search endpoint
 router.post('/', asyncHandler(async (req, res) => {
@@ -13,14 +21,14 @@ router.post('/', asyncHandler(async (req, res) => {
   
   // Validate required fields
   if (!searchParams.value) {
-    throw new CustomError('Search value is required', 400);
+    throw new CustomError('El valor de búsqueda es requerido', 400);
   }
 
   console.log(`[SEARCH] 🔍 Starting search: "${searchParams.value}" (${searchParams.searchType})`);
   
   try {
     // Execute search using FacebookService
-    let searchResult: SearchResponse = await facebookService.searchAds(searchParams);
+    let searchResult: SearchResponse = await getFacebookService().searchAds(searchParams);
     
     // Auto-save complete search for Apify results
     if (searchParams.useApify && searchResult.data.length > 0) {
@@ -135,8 +143,8 @@ router.post('/', asyncHandler(async (req, res) => {
     
   } catch (error) {
     console.error(`[SEARCH] ❌ Search failed:`, error);
-    throw new CustomError(
-      error instanceof Error ? error.message : 'Search failed', 
+      throw new CustomError(
+      error instanceof Error ? error.message : 'Error en la búsqueda', 
       500
     );
   }
@@ -147,7 +155,7 @@ router.get('/multiple-pages', asyncHandler(async (req, res) => {
   const { initialUrl, maxPages = 5 } = req.query;
   
   if (!initialUrl || typeof initialUrl !== 'string') {
-    throw new CustomError('Initial URL is required', 400);
+    throw new CustomError('La URL inicial es requerida', 400);
   }
   
   const pages = parseInt(maxPages as string) || 5;
@@ -155,7 +163,7 @@ router.get('/multiple-pages', asyncHandler(async (req, res) => {
   console.log(`[SEARCH] 📄 Fetching multiple pages: ${pages} pages max`);
   
   try {
-    const result = await facebookService.fetchMultiplePages(initialUrl, pages);
+    const result = await getFacebookService().fetchMultiplePages(initialUrl, pages);
     
     console.log(`[SEARCH] ✅ Multiple pages completed: ${result.data.length} total ads`);
     
@@ -164,7 +172,7 @@ router.get('/multiple-pages', asyncHandler(async (req, res) => {
   } catch (error) {
     console.error(`[SEARCH] ❌ Multiple pages failed:`, error);
     throw new CustomError(
-      error instanceof Error ? error.message : 'Multiple pages fetch failed', 
+      error instanceof Error ? error.message : 'Error al obtener múltiples páginas', 
       500
     );
   }

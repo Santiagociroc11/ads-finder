@@ -22,10 +22,10 @@ export function StatsPage() {
       <div className="text-center">
         <h1 className="text-3xl font-bold holographic-title">
           <BarChart3 className="inline w-8 h-8 mr-3" />
-          Analytics & Savings
+          Análisis y Ahorros
         </h1>
         <p className="text-gray-400 mt-2">
-          Track your cost savings and search patterns
+          Rastrea tus ahorros de costos y patrones de búsqueda
         </p>
       </div>
 
@@ -35,9 +35,9 @@ export function StatsPage() {
           <div className="text-3xl font-bold text-green-400 mb-2">
             {stats?.costSavings?.estimatedSavings || '$0.00'}
           </div>
-          <div className="text-sm text-gray-400">Estimated Savings</div>
+          <div className="text-sm text-gray-400">Ahorros Estimados</div>
           <div className="text-xs text-green-600 mt-1">
-            {stats?.costSavings?.apifySearchesSaved || 0} Apify searches saved
+            {stats?.costSavings?.apifySearchesSaved || 0} búsquedas Apify ahorradas
           </div>
         </div>
 
@@ -45,9 +45,9 @@ export function StatsPage() {
           <div className="text-3xl font-bold text-primary-400 mb-2">
             {stats?.overview?.totalSearches || 0}
           </div>
-          <div className="text-sm text-gray-400">Total Searches</div>
+          <div className="text-sm text-gray-400">Total de Búsquedas</div>
           <div className="text-xs text-primary-600 mt-1">
-            {stats?.overview?.totalAds || 0} ads found
+            {stats?.overview?.totalAds || 0} anuncios encontrados
           </div>
         </div>
 
@@ -55,9 +55,9 @@ export function StatsPage() {
           <div className="text-3xl font-bold text-purple-400 mb-2">
             {Math.round(stats?.overview?.avgAdsPerSearch || 0)}
           </div>
-          <div className="text-sm text-gray-400">Avg per Search</div>
+          <div className="text-sm text-gray-400">Promedio por Búsqueda</div>
           <div className="text-xs text-purple-600 mt-1">
-            {stats?.overview?.totalAccesses || 0} total accesses
+            {stats?.overview?.totalAccesses || 0} accesos totales
           </div>
         </div>
       </div>
@@ -67,14 +67,14 @@ export function StatsPage() {
         <div className="holographic-panel p-6">
           <h3 className="text-lg font-semibold text-primary-400 mb-4 flex items-center">
             <Globe className="w-5 h-5 mr-2" />
-            Top Countries
+            Países Principales
           </h3>
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {stats.topCountries.slice(0, 6).map((country, index) => (
               <div key={country._id} className="text-center p-3 bg-dark-800/50 rounded-lg">
                 <div className="font-semibold text-white">{country._id}</div>
-                <div className="text-sm text-primary-400">{country.count} searches</div>
-                <div className="text-xs text-gray-400">{country.totalAds} ads</div>
+                <div className="text-sm text-primary-400">{country.count} búsquedas</div>
+                <div className="text-xs text-gray-400">{country.totalAds} anuncios</div>
               </div>
             ))}
           </div>
@@ -86,15 +86,15 @@ export function StatsPage() {
         <div className="holographic-panel p-6">
           <h3 className="text-lg font-semibold text-primary-400 mb-4 flex items-center">
             <TrendingUp className="w-5 h-5 mr-2" />
-            Most Searched Terms
+            Términos Más Buscados
           </h3>
           <div className="space-y-3">
             {stats.topTerms.slice(0, 5).map((term, index) => (
               <div key={term._id} className="flex justify-between items-center p-3 bg-dark-800/50 rounded-lg">
                 <span className="text-white font-medium">{term._id}</span>
                 <div className="text-right">
-                  <div className="text-primary-400">{term.count} searches</div>
-                  <div className="text-xs text-gray-400">{term.totalAds} ads</div>
+                  <div className="text-primary-400">{term.count} búsquedas</div>
+                  <div className="text-xs text-gray-400">{term.totalAds} anuncios</div>
                 </div>
               </div>
             ))}
@@ -107,7 +107,7 @@ export function StatsPage() {
         <div className="holographic-panel p-6">
           <h3 className="text-lg font-semibold text-primary-400 mb-4 flex items-center">
             <DollarSign className="w-5 h-5 mr-2" />
-            Most Reused Searches
+            Búsquedas Más Reutilizadas
           </h3>
           <div className="space-y-3">
             {stats.mostAccessed.map((search) => (
@@ -115,7 +115,7 @@ export function StatsPage() {
                 <div>
                   <div className="text-white font-medium">{search.searchName}</div>
                   <div className="text-xs text-gray-400">
-                    {search.totalResults} ads • {search.source}
+                    {search.totalResults} anuncios • {search.source}
                   </div>
                 </div>
                 <div className="text-purple-400 font-bold text-lg">
