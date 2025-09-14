@@ -66,258 +66,618 @@ MongoClient.connect(mongoUrl)
 
 // --- Rutas de la API ---
 
-// RUTAS PARA BÚSQUEDAS GUARDADAS
-app.post('/api/saved-searches', async (req, res) => {
+// RUTAS PARA ANUNCIOS GUARDADOS (RESULTADOS)
+app.post('/api/saved-ads', async (req, res) => {
     if (!db) return res.status(500).json({ message: 'Conexión a la base de datos no establecida.' });
     
-    const { name, description, searchParams } = req.body;
-    if (!name || !searchParams) {
-        return res.status(400).json({ message: 'Nombre y parámetros de búsqueda son requeridos.' });
+    const { adData, tags, notes, collection } = req.body;
+    if (!adData || !adData.id) {
+        return res.status(400).json({ message: 'Datos del anuncio son requeridos.' });
+    }
+
+    try {
+        // Verificar que no exista el anuncio ya guardado
+        const existingAd = await db.collection('savedAds').findOne({ 'adData.id': adData.id });
+        if (existingAd) {
+            return res.status(409).json({ message: 'Este anuncio ya está guardado.' });
+        }
+
+        const newSavedAd = {
+            adData: adData, // Todo el objeto del anuncio
+            tags: tags || [], // Etiquetas para categorizar
+            notes: notes || '', // Notas personales
+            collection: collection || 'General', // Colección/carpeta
+            savedAt: new Date(),
+            lastViewed: new Date(),
+            isFavorite: false,
+            analysis: {
+                hotnessScore: adData.hotness_score || 0,
+                daysRunning: adData.days_running || 0,
+                isLongRunning: adData.is_long_running || false
+            }
+        };
+
+        const result = await db.collection('savedAds').insertOne(newSavedAd);
+        
+        console.log(`[SAVED_ADS] ✅ Nuevo anuncio guardado: ${adData.page_name} (ID: ${adData.id})`);
+        res.status(201).json({ 
+            ...newSavedAd, 
+            _id: result.insertedId,
+            message: 'Anuncio guardado exitosamente' 
+        });
+
+    } catch (error) {
+        console.error("Error al guardar anuncio:", error);
+        res.status(500).json({ message: 'Error al guardar el anuncio.' });
+    }
+});
+
+app.get('/api/saved-ads', async (req, res) => {
+    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
+    
+    try {
+        const { collection, tags, isFavorite, sortBy, limit } = req.query;
+        
+        // Construir filtro
+        let filter = {};
+        if (collection && collection !== 'all') {
+            filter.collection = collection;
+        }
+        if (tags) {
+            const tagArray = tags.split(',');
+            filter.tags = { $in: tagArray };
+        }
+        if (isFavorite === 'true') {
+            filter.isFavorite = true;
+        }
+        
+        // Configurar ordenamiento
+        let sort = {};
+        switch (sortBy) {
+            case 'savedAt':
+                sort = { savedAt: -1 };
+                break;
+            case 'hotness':
+                sort = { 'analysis.hotnessScore': -1 };
+                break;
+            case 'daysRunning':
+                sort = { 'analysis.daysRunning': -1 };
+                break;
+            case 'pageName':
+                sort = { 'adData.page_name': 1 };
+                break;
+            default:
+                sort = { savedAt: -1 };
+        }
+        
+        let query = db.collection('savedAds').find(filter).sort(sort);
+        if (limit) {
+            query = query.limit(parseInt(limit));
+        }
+        
+        const savedAds = await query.toArray();
+        
+        // Agregar estadísticas
+        const stats = await db.collection('savedAds').aggregate([
+            { $group: { 
+                _id: null, 
+                total: { $sum: 1 },
+                favorites: { $sum: { $cond: ['$isFavorite', 1, 0] } },
+                collections: { $addToSet: '$collection' },
+                avgHotness: { $avg: '$analysis.hotnessScore' }
+            }}
+        ]).toArray();
+        
+        res.json({
+            ads: savedAds,
+            stats: stats[0] || { total: 0, favorites: 0, collections: [], avgHotness: 0 }
+        });
+    } catch (error) {
+        console.error("Error al obtener anuncios guardados:", error);
+        res.status(500).json({ message: 'Error al obtener anuncios guardados.' });
+    }
+});
+
+app.put('/api/saved-ads/:id', async (req, res) => {
+    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
+    
+    try {
+        const { id } = req.params;
+        const { tags, notes, collection, isFavorite } = req.body;
+        
+        const updateFields = {};
+        if (tags !== undefined) updateFields.tags = tags;
+        if (notes !== undefined) updateFields.notes = notes;
+        if (collection !== undefined) updateFields.collection = collection;
+        if (isFavorite !== undefined) updateFields.isFavorite = isFavorite;
+        updateFields.lastViewed = new Date();
+        
+        const result = await db.collection('savedAds').updateOne(
+            { _id: new ObjectId(id) },
+            { $set: updateFields }
+        );
+        
+        if (result.matchedCount === 0) {
+            return res.status(404).json({ message: 'Anuncio guardado no encontrado.' });
+        }
+        
+        console.log(`[SAVED_ADS] ✏️ Anuncio actualizado: ${id}`);
+        res.status(200).json({ message: 'Anuncio actualizado exitosamente.' });
+    } catch (error) {
+        console.error("Error al actualizar anuncio guardado:", error);
+        res.status(500).json({ message: 'Error al actualizar el anuncio guardado.' });
+    }
+});
+
+app.delete('/api/saved-ads/:id', async (req, res) => {
+    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
+    
+    try {
+        const { id } = req.params;
+        const result = await db.collection('savedAds').deleteOne({ _id: new ObjectId(id) });
+        
+        if (result.deletedCount === 0) {
+            return res.status(404).json({ message: 'Anuncio guardado no encontrado.' });
+        }
+        
+        console.log(`[SAVED_ADS] 🗑️ Anuncio eliminado: ${id}`);
+        res.status(200).json({ message: 'Anuncio guardado eliminado con éxito.' });
+    } catch (error) {
+        console.error("Error al eliminar anuncio guardado:", error);
+        res.status(500).json({ message: 'Error al eliminar el anuncio guardado.' });
+    }
+});
+
+// Endpoint para obtener colecciones disponibles
+app.get('/api/saved-ads/collections', async (req, res) => {
+    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
+    
+    try {
+        const collections = await db.collection('savedAds').aggregate([
+            { $group: { 
+                _id: '$collection', 
+                count: { $sum: 1 },
+                lastAdded: { $max: '$savedAt' }
+            }},
+            { $sort: { count: -1 }}
+        ]).toArray();
+        
+        res.json(collections);
+    } catch (error) {
+        console.error("Error al obtener colecciones:", error);
+        res.status(500).json({ message: 'Error al obtener colecciones.' });
+    }
+});
+
+// Endpoint para obtener tags disponibles
+app.get('/api/saved-ads/tags', async (req, res) => {
+    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
+    
+    try {
+        const tags = await db.collection('savedAds').aggregate([
+            { $unwind: '$tags' },
+            { $group: { _id: '$tags', count: { $sum: 1 }}},
+            { $sort: { count: -1 }}
+        ]).toArray();
+        
+        res.json(tags);
+    } catch (error) {
+        console.error("Error al obtener tags:", error);
+        res.status(500).json({ message: 'Error al obtener tags.' });
+    }
+});
+
+// Endpoint para guardar múltiples anuncios (desde una búsqueda)
+app.post('/api/saved-ads/bulk', async (req, res) => {
+    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
+    
+    const { ads, defaultTags, defaultCollection, defaultNotes } = req.body;
+    if (!ads || !Array.isArray(ads) || ads.length === 0) {
+        return res.status(400).json({ message: 'Se requiere un array de anuncios.' });
+    }
+
+    try {
+        const results = {
+            saved: 0,
+            skipped: 0,
+            errors: 0,
+            details: []
+        };
+
+        // Verificar cuáles anuncios ya existen
+        const existingAdIds = await db.collection('savedAds').find(
+            { 'adData.id': { $in: ads.map(ad => ad.id) } }
+        ).toArray();
+        const existingIds = new Set(existingAdIds.map(ad => ad.adData.id));
+
+        const adsToSave = [];
+        
+        for (const adData of ads) {
+            if (existingIds.has(adData.id)) {
+                results.skipped++;
+                results.details.push({
+                    adId: adData.id,
+                    status: 'skipped',
+                    reason: 'Ya existe'
+                });
+                continue;
+            }
+
+            const newSavedAd = {
+                adData: adData,
+                tags: defaultTags || [],
+                notes: defaultNotes || '',
+                collection: defaultCollection || 'General',
+                savedAt: new Date(),
+                lastViewed: new Date(),
+                isFavorite: false,
+                analysis: {
+                    hotnessScore: adData.hotness_score || 0,
+                    daysRunning: adData.days_running || 0,
+                    isLongRunning: adData.is_long_running || false
+                }
+            };
+
+            adsToSave.push(newSavedAd);
+            results.details.push({
+                adId: adData.id,
+                status: 'pending',
+                pageName: adData.page_name
+            });
+        }
+
+        // Guardar anuncios en lote
+        if (adsToSave.length > 0) {
+            const insertResult = await db.collection('savedAds').insertMany(adsToSave);
+            results.saved = insertResult.insertedCount;
+            
+            // Actualizar detalles con éxito
+            results.details.forEach(detail => {
+                if (detail.status === 'pending') {
+                    detail.status = 'saved';
+                }
+            });
+        }
+
+        console.log(`[SAVED_ADS] 📦 Guardado masivo: ${results.saved} guardados, ${results.skipped} omitidos`);
+        res.json({
+            message: `Guardado masivo completado: ${results.saved} anuncios guardados, ${results.skipped} ya existían`,
+            results: results
+        });
+
+    } catch (error) {
+        console.error("Error en guardado masivo:", error);
+        res.status(500).json({ message: 'Error en el guardado masivo de anuncios.' });
+    }
+});
+
+// RUTAS PARA BÚSQUEDAS COMPLETAS GUARDADAS (para no re-ejecutar Apify costoso)
+app.post('/api/complete-searches', async (req, res) => {
+    if (!db) return res.status(500).json({ message: 'Conexión a la base de datos no establecida.' });
+    
+    const { searchName, searchParams, results, source, metadata } = req.body;
+    if (!searchName || !results || !Array.isArray(results)) {
+        return res.status(400).json({ message: 'Nombre de búsqueda y resultados son requeridos.' });
     }
 
     try {
         // Verificar que no exista una búsqueda con el mismo nombre
-        const existingSearch = await db.collection('savedSearches').findOne({ name: name });
+        const existingSearch = await db.collection('completeSearches').findOne({ searchName: searchName });
         if (existingSearch) {
             return res.status(409).json({ message: 'Ya existe una búsqueda guardada con ese nombre.' });
         }
 
-        const newSavedSearch = {
-            name: name,
-            description: description || '',
-            searchParams: searchParams,
-            createdAt: new Date(),
-            lastExecuted: null,
-            executionCount: 0,
-            results: {
-                totalAds: 0,
-                lastResultCount: 0
-            }
+        const newCompleteSearch = {
+            searchName: searchName,
+            searchParams: searchParams || {},
+            executedAt: new Date(),
+            source: source || 'unknown',
+            totalResults: results.length,
+            results: results, // Todos los anuncios
+            metadata: {
+                country: searchParams?.country || 'N/A',
+                searchTerm: searchParams?.value || 'N/A',
+                minDays: searchParams?.minDays || 0,
+                adType: searchParams?.adType || 'ALL',
+                useApify: searchParams?.useApify || false,
+                ...metadata
+            },
+            stats: {
+                avgHotnessScore: results.length > 0 ? results.reduce((sum, ad) => sum + (ad.hotness_score || 0), 0) / results.length : 0,
+                longRunningAds: results.filter(ad => ad.is_long_running).length,
+                topPages: [...new Set(results.map(ad => ad.page_name))].slice(0, 10)
+            },
+            lastAccessed: new Date(),
+            accessCount: 0
         };
 
-        const result = await db.collection('savedSearches').insertOne(newSavedSearch);
+        const result = await db.collection('completeSearches').insertOne(newCompleteSearch);
         
-        console.log(`[SAVED_SEARCH] ✅ Nueva búsqueda guardada: "${name}"`);
+        console.log(`[COMPLETE_SEARCH] ✅ Búsqueda completa guardada: "${searchName}" con ${results.length} anuncios`);
         res.status(201).json({ 
-            ...newSavedSearch, 
+            ...newCompleteSearch, 
             _id: result.insertedId,
-            message: 'Búsqueda guardada exitosamente' 
+            message: `Búsqueda completa guardada: ${results.length} anuncios` 
         });
 
     } catch (error) {
-        console.error("Error al guardar búsqueda:", error);
-        res.status(500).json({ message: 'Error al guardar la búsqueda.' });
+        console.error("Error al guardar búsqueda completa:", error);
+        res.status(500).json({ message: 'Error al guardar la búsqueda completa.' });
     }
 });
 
-app.get('/api/saved-searches', async (req, res) => {
+app.get('/api/complete-searches', async (req, res) => {
     if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
     
     try {
-        const savedSearches = await db.collection('savedSearches')
-            .find()
-            .sort({ lastExecuted: -1, createdAt: -1 }) // Más recientes primero
-            .toArray();
+        const { sortBy, limit } = req.query;
         
-        // Agregar información útil a cada búsqueda
-        const enrichedSearches = savedSearches.map(search => ({
-            ...search,
-            searchSummary: `${search.searchParams.searchType === 'keyword' ? 'Palabra clave' : 'Página'}: "${search.searchParams.value}" | País: ${search.searchParams.country || 'CO'} | Días mín: ${search.searchParams.minDays || 0}`,
-            isRecentlyExecuted: search.lastExecuted && (new Date() - new Date(search.lastExecuted)) < (24 * 60 * 60 * 1000) // Últimas 24h
-        }));
-        
-        res.json(enrichedSearches);
-    } catch (error) {
-        console.error("Error al obtener búsquedas guardadas:", error);
-        res.status(500).json({ message: 'Error al obtener búsquedas guardadas.' });
-    }
-});
-
-app.delete('/api/saved-searches/:id', async (req, res) => {
-    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
-    
-    try {
-        const { id } = req.params;
-        const result = await db.collection('savedSearches').deleteOne({ _id: new ObjectId(id) });
-        
-        if (result.deletedCount === 0) {
-            return res.status(404).json({ message: 'Búsqueda guardada no encontrada.' });
+        // Configurar ordenamiento
+        let sort = {};
+        switch (sortBy) {
+            case 'executedAt':
+                sort = { executedAt: -1 };
+                break;
+            case 'totalResults':
+                sort = { totalResults: -1 };
+                break;
+            case 'lastAccessed':
+                sort = { lastAccessed: -1 };
+                break;
+            case 'searchName':
+                sort = { searchName: 1 };
+                break;
+            default:
+                sort = { executedAt: -1 };
         }
         
-        console.log(`[SAVED_SEARCH] 🗑️ Búsqueda eliminada: ${id}`);
-        res.status(200).json({ message: 'Búsqueda guardada eliminada con éxito.' });
-    } catch (error) {
-        console.error("Error al eliminar búsqueda guardada:", error);
-        res.status(500).json({ message: 'Error al eliminar la búsqueda guardada.' });
-    }
-});
-
-app.post('/api/saved-searches/:id/execute', async (req, res) => {
-    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
-    
-    try {
-        const { id } = req.params;
-        const savedSearch = await db.collection('savedSearches').findOne({ _id: new ObjectId(id) });
-        
-        if (!savedSearch) {
-            return res.status(404).json({ message: 'Búsqueda guardada no encontrada.' });
-        }
-        
-        console.log(`[SAVED_SEARCH] 🔄 Ejecutando búsqueda guardada: "${savedSearch.name}"`);
-        
-        // Ejecutar la búsqueda usando los parámetros guardados
-        // Simular req.body con los parámetros guardados
-        const searchRequest = {
-            body: savedSearch.searchParams
+        // Proyección para no cargar todos los resultados (solo metadata)
+        const projection = {
+            searchName: 1,
+            searchParams: 1,
+            executedAt: 1,
+            source: 1,
+            totalResults: 1,
+            metadata: 1,
+            stats: 1,
+            lastAccessed: 1,
+            accessCount: 1
+            // results: 0  // No incluir resultados completos
         };
         
-        // Llamar internamente al endpoint de búsqueda
-        // Por simplicidad, redirigir los parámetros y ejecutar la búsqueda
-        const token = process.env.FACEBOOK_ACCESS_TOKEN;
-        if (!token) return res.status(500).json({ message: 'Token de acceso no configurado en el servidor.' });
-        
-        // Construir endpoint usando los parámetros guardados
-        const params = savedSearch.searchParams;
-        const minDaysNumber = parseInt(params.minDays) || 0;
-        
-        let searchFields;
-        if (params.adType === 'POLITICAL_AND_ISSUE_ADS') {
-            searchFields = 'id,ad_creation_time,ad_delivery_start_time,ad_delivery_stop_time,ad_creative_bodies,ad_creative_link_captions,ad_creative_link_descriptions,ad_creative_link_titles,ad_snapshot_url,languages,page_id,page_name,publisher_platforms,impressions,spend,currency,demographic_distribution,estimated_audience_size';
-        } else {
-            searchFields = 'id,ad_creation_time,ad_delivery_start_time,ad_delivery_stop_time,ad_creative_bodies,ad_creative_link_captions,ad_creative_link_descriptions,ad_creative_link_titles,ad_snapshot_url,languages,page_id,page_name,publisher_platforms';
+        let query = db.collection('completeSearches').find({}, { projection }).sort(sort);
+        if (limit) {
+            query = query.limit(parseInt(limit));
         }
         
-        let selectedAdType = params.adType || 'ALL';
-        let searchParams = `ad_type=${selectedAdType}&ad_active_status=ACTIVE&limit=100&fields=${searchFields}`;
+        const completeSearches = await query.toArray();
         
-        // Búsqueda por keyword o página
-        if (params.searchType === 'keyword') {
-            searchParams += `&search_terms=${encodeURIComponent(params.value)}`;
-            if (params.searchPhraseType === 'exact') {
-                searchParams += `&search_type=KEYWORD_EXACT_PHRASE`;
-            } else {
-                searchParams += `&search_type=KEYWORD_UNORDERED`;
-            }
-        } else {
-            searchParams += `&search_page_ids=[${params.value}]`;
+        // Agregar información útil
+        const enrichedSearches = completeSearches.map(search => ({
+            ...search,
+            searchSummary: `${search.metadata.searchTerm} | ${search.metadata.country} | ${search.totalResults} anuncios | ${search.source}`,
+            isRecent: search.executedAt && (new Date() - new Date(search.executedAt)) < (7 * 24 * 60 * 60 * 1000), // Últimos 7 días
+            costSavings: search.source === 'apify_scraping' ? `💰 Evita re-ejecutar Apify` : ''
+        }));
+        
+        // Estadísticas generales
+        const globalStats = await db.collection('completeSearches').aggregate([
+            { $group: { 
+                _id: null, 
+                totalSearches: { $sum: 1 },
+                totalAds: { $sum: '$totalResults' },
+                apifySearches: { $sum: { $cond: [{ $eq: ['$source', 'apify_scraping'] }, 1, 0] } },
+                avgAdsPerSearch: { $avg: '$totalResults' }
+            }}
+        ]).toArray();
+        
+        res.json({
+            searches: enrichedSearches,
+            stats: globalStats[0] || { totalSearches: 0, totalAds: 0, apifySearches: 0, avgAdsPerSearch: 0 }
+        });
+    } catch (error) {
+        console.error("Error al obtener búsquedas completas:", error);
+        res.status(500).json({ message: 'Error al obtener búsquedas completas.' });
+    }
+});
+
+app.get('/api/complete-searches/:id', async (req, res) => {
+    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
+    
+    try {
+        const { id } = req.params;
+        const { page = 1, limit = 50 } = req.query;
+        
+        const completeSearch = await db.collection('completeSearches').findOne({ _id: new ObjectId(id) });
+        
+        if (!completeSearch) {
+            return res.status(404).json({ message: 'Búsqueda completa no encontrada.' });
         }
         
-        // Filtro de país
-        if (params.country && params.country !== 'ALL') {
-            searchParams += `&ad_reached_countries=['${params.country}']`;
-            searchParams += `&is_targeted_country=false`;
-        } else {
-            searchParams += `&ad_reached_countries=['CO']`;
-            searchParams += `&is_targeted_country=false`;
-        }
-        
-        // Filtros de fecha
-        if (params.dateFrom) {
-            searchParams += `&ad_delivery_date_min=${params.dateFrom}`;
-        }
-        if (params.dateTo) {
-            searchParams += `&ad_delivery_date_max=${params.dateTo}`;
-        }
-        
-        // Filtro inteligente de días mínimos
-        if (minDaysNumber > 0 && !params.dateTo) {
-            const today = new Date();
-            const maxDate = new Date(today);
-            maxDate.setDate(today.getDate() - minDaysNumber);
-            const maxDateString = maxDate.toISOString().split('T')[0];
-            searchParams += `&ad_delivery_date_max=${maxDateString}`;
-        }
-        
-        // Otros filtros
-        if (params.mediaType && params.mediaType !== 'ALL') {
-            searchParams += `&media_type=${params.mediaType}`;
-        }
-        if (params.languages && params.languages.length > 0) {
-            const languageArray = params.languages.map(lang => `'${lang}'`).join(',');
-            searchParams += `&languages=[${languageArray}]`;
-        }
-        if (params.platforms && params.platforms.length > 0) {
-            const platformArray = params.platforms.map(platform => `'${platform}'`).join(',');
-            searchParams += `&publisher_platforms=[${platformArray}]`;
-        }
-        
-        const endpoint = `https://graph.facebook.com/v21.0/ads_archive?${searchParams}&access_token=${token}`;
-        
-        // Ejecutar búsqueda
-        const fbResponse = await fetch(endpoint);
-        const data = await fbResponse.json();
-        
-        if (data.error) {
-            throw new Error(JSON.stringify(data.error));
-        }
-        
-        data.source = 'facebook_api';
-        
-        // Actualizar estadísticas de la búsqueda guardada
-        await db.collection('savedSearches').updateOne(
+        // Actualizar estadísticas de acceso
+        await db.collection('completeSearches').updateOne(
             { _id: new ObjectId(id) },
-            {
-                $set: { 
-                    lastExecuted: new Date(),
-                    'results.lastResultCount': data.data ? data.data.length : 0
-                },
-                $inc: { executionCount: 1 }
+            { 
+                $set: { lastAccessed: new Date() },
+                $inc: { accessCount: 1 }
             }
         );
         
-        console.log(`[SAVED_SEARCH] ✅ Búsqueda "${savedSearch.name}" ejecutada: ${data.data ? data.data.length : 0} resultados`);
+        // Paginación de resultados
+        const pageNum = parseInt(page);
+        const limitNum = parseInt(limit);
+        const startIndex = (pageNum - 1) * limitNum;
+        const endIndex = startIndex + limitNum;
         
-        // Procesar resultados igual que en la búsqueda normal
-        if (data.data) {
-            data.data.forEach(ad => {
-                // Campos básicos
-                ad.id = ad.id || 'N/A';
-                ad.page_id = ad.page_id || 'N/A';
-                ad.page_name = ad.page_name || 'Página sin nombre';
-                
-                // Calcular días corriendo
-                if (ad.ad_delivery_start_time) {
-                    const startDate = new Date(ad.ad_delivery_start_time);
-                    const today = new Date();
-                    const diffTime = Math.abs(today - startDate);
-                    const daysRunning = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-                    ad.days_running = daysRunning;
-                    ad.is_long_running = daysRunning > 30;
-                    ad.is_indefinite = !ad.ad_delivery_stop_time;
-                } else {
-                    ad.days_running = 0;
-                    ad.is_long_running = false;
-                    ad.is_indefinite = true;
-                }
-                
-                // Hotness score
-                ad.collation_count = ad.collation_count || 1;
-                ad.hotness_score = calculateHotnessScore(ad.collation_count, ad.days_running);
-                ad.flame_emoji = getFlameEmoji(ad.hotness_score);
-            });
-            
-            // Ordenar por hotness_score
-            data.data.sort((a, b) => {
-                if (b.hotness_score !== a.hotness_score) {
-                    return b.hotness_score - a.hotness_score;
-                }
-                return (b.days_running || 0) - (a.days_running || 0);
-            });
-        }
+        const paginatedResults = completeSearch.results.slice(startIndex, endIndex);
         
-        // Agregar información de la búsqueda guardada
-        data.savedSearch = {
-            id: savedSearch._id,
-            name: savedSearch.name,
-            description: savedSearch.description,
-            executionCount: savedSearch.executionCount + 1
-        };
+        console.log(`[COMPLETE_SEARCH] 📖 Cargando búsqueda "${completeSearch.searchName}": página ${pageNum}, ${paginatedResults.length} anuncios`);
         
-        res.json(data);
+        res.json({
+            ...completeSearch,
+            results: paginatedResults,
+            pagination: {
+                currentPage: pageNum,
+                totalPages: Math.ceil(completeSearch.totalResults / limitNum),
+                totalResults: completeSearch.totalResults,
+                resultsPerPage: limitNum,
+                hasNextPage: endIndex < completeSearch.totalResults,
+                hasPrevPage: pageNum > 1
+            },
+            message: `Búsqueda cargada desde cache - Sin costo adicional`
+        });
         
     } catch (error) {
-        console.error("Error al ejecutar búsqueda guardada:", error);
-        res.status(500).json({ message: 'Error al ejecutar la búsqueda guardada.' });
+        console.error("Error al cargar búsqueda completa:", error);
+        res.status(500).json({ message: 'Error al cargar la búsqueda completa.' });
+    }
+});
+
+app.delete('/api/complete-searches/:id', async (req, res) => {
+    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
+    
+    try {
+        const { id } = req.params;
+        const completeSearch = await db.collection('completeSearches').findOne({ _id: new ObjectId(id) });
+        
+        if (!completeSearch) {
+            return res.status(404).json({ message: 'Búsqueda completa no encontrada.' });
+        }
+        
+        const result = await db.collection('completeSearches').deleteOne({ _id: new ObjectId(id) });
+        
+        console.log(`[COMPLETE_SEARCH] 🗑️ Búsqueda completa eliminada: "${completeSearch.searchName}" (${completeSearch.totalResults} anuncios)`);
+        res.status(200).json({ 
+            message: `Búsqueda "${completeSearch.searchName}" eliminada exitosamente.`,
+            deletedResults: completeSearch.totalResults
+        });
+    } catch (error) {
+        console.error("Error al eliminar búsqueda completa:", error);
+        res.status(500).json({ message: 'Error al eliminar la búsqueda completa.' });
+    }
+});
+
+// Endpoint para buscar en búsquedas guardadas
+app.get('/api/complete-searches/search', async (req, res) => {
+    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
+    
+    try {
+        const { q, source, country, minResults } = req.query;
+        
+        let filter = {};
+        
+        // Filtro de texto
+        if (q) {
+            filter.$or = [
+                { searchName: { $regex: q, $options: 'i' } },
+                { 'metadata.searchTerm': { $regex: q, $options: 'i' } }
+            ];
+        }
+        
+        // Filtro por fuente
+        if (source) {
+            filter.source = source;
+        }
+        
+        // Filtro por país
+        if (country) {
+            filter['metadata.country'] = country;
+        }
+        
+        // Filtro por mínimo de resultados
+        if (minResults) {
+            filter.totalResults = { $gte: parseInt(minResults) };
+        }
+        
+        const searches = await db.collection('completeSearches')
+            .find(filter, { 
+                projection: { 
+                    results: 0 // No incluir resultados completos en búsqueda
+                }
+            })
+            .sort({ executedAt: -1 })
+            .limit(50)
+            .toArray();
+        
+        res.json({
+            searches: searches,
+            total: searches.length,
+            query: { q, source, country, minResults }
+        });
+        
+    } catch (error) {
+        console.error("Error buscando en búsquedas guardadas:", error);
+        res.status(500).json({ message: 'Error en la búsqueda.' });
+    }
+});
+
+// Endpoint para obtener estadísticas detalladas
+app.get('/api/complete-searches/stats', async (req, res) => {
+    if (!db) return res.status(500).json({ message: 'Base de datos no conectada.' });
+    
+    try {
+        const stats = await db.collection('completeSearches').aggregate([
+            {
+                $group: {
+                    _id: null,
+                    totalSearches: { $sum: 1 },
+                    totalAds: { $sum: '$totalResults' },
+                    avgAdsPerSearch: { $avg: '$totalResults' },
+                    apifySearches: { $sum: { $cond: [{ $eq: ['$source', 'apify_scraping'] }, 1, 0] } },
+                    apiSearches: { $sum: { $cond: [{ $eq: ['$source', 'facebook_api'] }, 1, 0] } },
+                    totalAccesses: { $sum: '$accessCount' },
+                    avgHotness: { $avg: '$stats.avgHotnessScore' }
+                }
+            }
+        ]).toArray();
+        
+        // Top países
+        const topCountries = await db.collection('completeSearches').aggregate([
+            { $group: { _id: '$metadata.country', count: { $sum: 1 }, totalAds: { $sum: '$totalResults' } }},
+            { $sort: { count: -1 }},
+            { $limit: 10 }
+        ]).toArray();
+        
+        // Top términos de búsqueda
+        const topTerms = await db.collection('completeSearches').aggregate([
+            { $group: { _id: '$metadata.searchTerm', count: { $sum: 1 }, totalAds: { $sum: '$totalResults' } }},
+            { $sort: { count: -1 }},
+            { $limit: 10 }
+        ]).toArray();
+        
+        // Búsquedas más accedidas
+        const mostAccessed = await db.collection('completeSearches').aggregate([
+            { $match: { accessCount: { $gt: 0 } }},
+            { $sort: { accessCount: -1 }},
+            { $limit: 5 },
+            { $project: { searchName: 1, accessCount: 1, totalResults: 1, source: 1 }}
+        ]).toArray();
+        
+        // Potencial ahorro (estimado)
+        const apifySearchCount = (stats[0]?.apifySearches || 0);
+        const avgApifyResults = await db.collection('completeSearches').aggregate([
+            { $match: { source: 'apify_scraping' }},
+            { $group: { _id: null, avgResults: { $avg: '$totalResults' }}}
+        ]).toArray();
+        
+        const estimatedCostSavings = apifySearchCount * 0.05; // Estimado $0.05 por búsqueda
+        
+        res.json({
+            overview: stats[0] || {},
+            costSavings: {
+                apifySearchesSaved: apifySearchCount,
+                estimatedSavings: `$${estimatedCostSavings.toFixed(2)}`,
+                avgResultsPerApify: avgApifyResults[0]?.avgResults || 0
+            },
+            topCountries: topCountries,
+            topTerms: topTerms,
+            mostAccessed: mostAccessed,
+            message: `${apifySearchCount} búsquedas Apify guardadas - Evitas re-ejecutar costosas`
+        });
+        
+    } catch (error) {
+        console.error("Error obteniendo estadísticas:", error);
+        res.status(500).json({ message: 'Error obteniendo estadísticas.' });
     }
 });
 
@@ -1137,7 +1497,7 @@ async function captureScreenshotsBatch(ads, batchSize = 10) {
 }
 
 app.post('/api/search', async (req, res) => {
-    const { searchType, value, country, minDays, url, dateFrom, dateTo, adType, mediaType, languages, platforms, searchPhraseType, singlePage, useWebScraping, useApify, apifyCount, saveSearch, searchName, searchDescription } = req.body;
+    const { searchType, value, country, minDays, url, dateFrom, dateTo, adType, mediaType, languages, platforms, searchPhraseType, singlePage, useWebScraping, useApify, apifyCount, autoSaveComplete, completeName } = req.body;
     const token = process.env.FACEBOOK_ACCESS_TOKEN;
     if (!token) return res.status(500).json({ message: 'Token de acceso no configurado en el servidor.' });
     
@@ -1293,6 +1653,67 @@ app.post('/api/search', async (req, res) => {
                 source: 'apify_scraping',
                 message: `Scraping profesional completado: ${scrapedAds.length} anuncios extraídos con Apify${minDaysNumber > 0 ? ` (mínimo ${minDaysNumber} días corriendo)` : ''}`
             };
+            
+            // AUTO-GUARDAR búsqueda completa de Apify (evitar re-ejecutar costoso)
+            if (scrapedAds.length > 0) {
+                try {
+                    const searchName = completeName || `Apify-${value}-${country || 'CO'}-${new Date().toISOString().split('T')[0]}`;
+                    
+                    // Verificar si ya existe
+                    const existingComplete = await db.collection('completeSearches').findOne({ searchName: searchName });
+                    
+                    if (!existingComplete) {
+                        const completeSearchData = {
+                            searchName: searchName,
+                            searchParams: {
+                                searchType, value, country, minDays, dateFrom, dateTo, 
+                                adType, mediaType, languages, platforms, searchPhraseType, 
+                                useApify: true, apifyCount: maxAdsToScrape
+                            },
+                            executedAt: new Date(),
+                            source: 'apify_scraping',
+                            totalResults: scrapedAds.length,
+                            results: scrapedAds,
+                            metadata: {
+                                country: country || 'CO',
+                                searchTerm: value,
+                                minDays: minDaysNumber,
+                                adType: adType || 'ALL',
+                                useApify: true,
+                                apifyCount: maxAdsToScrape
+                            },
+                            stats: {
+                                avgHotnessScore: scrapedAds.length > 0 ? scrapedAds.reduce((sum, ad) => sum + (ad.hotness_score || 0), 0) / scrapedAds.length : 0,
+                                longRunningAds: scrapedAds.filter(ad => ad.is_long_running).length,
+                                topPages: [...new Set(scrapedAds.map(ad => ad.page_name))].slice(0, 10)
+                            },
+                            lastAccessed: new Date(),
+                            accessCount: 1
+                        };
+                        
+                        await db.collection('completeSearches').insertOne(completeSearchData);
+                        
+                        data.autoSaved = {
+                            saved: true,
+                            searchName: searchName,
+                            message: `💰 Búsqueda Apify guardada automáticamente - Reutilizable sin costo adicional`
+                        };
+                        
+                        console.log(`[AUTO_SAVE] ✅ Búsqueda Apify auto-guardada: "${searchName}" con ${scrapedAds.length} anuncios`);
+                    } else {
+                        data.autoSaved = {
+                            saved: false,
+                            message: `Búsqueda ya existe: "${searchName}"`
+                        };
+                    }
+                } catch (saveError) {
+                    console.error(`[AUTO_SAVE] ❌ Error auto-guardando: ${saveError.message}`);
+                    data.autoSaved = {
+                        saved: false,
+                        message: 'Error al auto-guardar búsqueda'
+                    };
+                }
+            }
             
         } else if (useWebScraping && searchType === 'keyword' && !url) {
             console.log(`[INFO] 🕷️ Usando WEB SCRAPING para mayor cobertura...`);
@@ -1576,57 +1997,38 @@ app.post('/api/search', async (req, res) => {
             });
         }
         
-        // Guardar búsqueda automáticamente si se especifica
-        if (saveSearch && searchName && !url) {
+        // Verificar cuáles anuncios ya están guardados
+        if (data.data && data.data.length > 0) {
             try {
-                // Solo guardar si no existe una búsqueda con el mismo nombre
-                const existingSearch = await db.collection('savedSearches').findOne({ name: searchName });
+                const adIds = data.data.map(ad => ad.id);
+                const savedAds = await db.collection('savedAds').find(
+                    { 'adData.id': { $in: adIds } }
+                ).toArray();
                 
-                if (!existingSearch) {
-                    const searchParamsToSave = {
-                        searchType, value, country, minDays, dateFrom, dateTo, 
-                        adType, mediaType, languages, platforms, searchPhraseType, 
-                        useWebScraping, useApify, apifyCount
-                    };
-                    
-                    const newSavedSearch = {
-                        name: searchName,
-                        description: searchDescription || '',
-                        searchParams: searchParamsToSave,
-                        createdAt: new Date(),
-                        lastExecuted: new Date(), // Se ejecutó ahora
-                        executionCount: 1,
-                        results: {
-                            totalAds: data.totalAds || (data.data ? data.data.length : 0),
-                            lastResultCount: data.data ? data.data.length : 0
-                        }
-                    };
-                    
-                    const result = await db.collection('savedSearches').insertOne(newSavedSearch);
-                    
-                    // Agregar información de guardado a la respuesta
-                    data.savedSearch = {
-                        id: result.insertedId,
-                        name: searchName,
-                        description: searchDescription || '',
-                        saved: true,
-                        message: 'Búsqueda guardada exitosamente'
-                    };
-                    
-                    console.log(`[SAVED_SEARCH] ✅ Búsqueda guardada automáticamente: "${searchName}"`);
-                } else {
-                    data.savedSearch = {
-                        saved: false,
-                        message: 'Ya existe una búsqueda con ese nombre'
-                    };
-                    console.log(`[SAVED_SEARCH] ⚠️ No se pudo guardar: ya existe "${searchName}"`);
+                const savedAdIds = new Set(savedAds.map(savedAd => savedAd.adData.id));
+                
+                // Marcar anuncios que ya están guardados
+                data.data.forEach(ad => {
+                    ad.isSaved = savedAdIds.has(ad.id);
+                    if (ad.isSaved) {
+                        const savedAdData = savedAds.find(savedAd => savedAd.adData.id === ad.id);
+                        ad.savedInfo = {
+                            savedAt: savedAdData.savedAt,
+                            collection: savedAdData.collection,
+                            tags: savedAdData.tags,
+                            isFavorite: savedAdData.isFavorite
+                        };
+                    }
+                });
+                
+                const savedCount = data.data.filter(ad => ad.isSaved).length;
+                if (savedCount > 0) {
+                    console.log(`[SAVED_ADS] 📌 ${savedCount} de ${data.data.length} anuncios ya están guardados`);
                 }
-            } catch (saveError) {
-                console.error(`[SAVED_SEARCH] ❌ Error guardando búsqueda: ${saveError.message}`);
-                data.savedSearch = {
-                    saved: false,
-                    message: 'Error al guardar la búsqueda'
-                };
+                
+            } catch (error) {
+                console.error(`[SAVED_ADS] ❌ Error verificando anuncios guardados: ${error.message}`);
+                // No fallar la búsqueda si hay error en verificación
             }
         }
         
