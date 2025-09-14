@@ -3,6 +3,8 @@ import { FacebookService } from '@/services/facebookService.js';
 import { collections } from '@/services/database.js';
 import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
 import type { SearchParams, SearchResponse } from '@shared/types/index.js';
+import { FacebookScraperService } from '../services/facebookScraperService.js';
+import { AdvertiserStatsService } from '../services/advertiserStatsService.js';
 
 const router = express.Router();
 
@@ -175,6 +177,214 @@ router.get('/multiple-pages', asyncHandler(async (req, res) => {
       error instanceof Error ? error.message : 'Error al obtener múltiples páginas', 
       500
     );
+  }
+}));
+
+// POST /api/ads/scrape-advertiser - Scrape all ads from a specific advertiser
+router.post('/scrape-advertiser', asyncHandler(async (req, res) => {
+  const { advertiserName, maxAds = 50, country = 'CO', useStealth = true } = req.body;
+
+  if (!advertiserName || typeof advertiserName !== 'string') {
+    throw new CustomError('Advertiser name is required and must be a string', 400);
+  }
+
+  console.log(`[SCRAPER] 🚀 Starting scraping for advertiser: ${advertiserName}`);
+  
+  const scraper = new FacebookScraperService();
+  
+  try {
+    const result = await scraper.scrapeAdvertiserAds({
+      advertiserName,
+      maxAds: Math.min(maxAds, 100), // Limit to 100 ads max
+      country,
+      useStealth
+    });
+
+    console.log(`[SCRAPER] ✅ Scraping completed: ${result.totalFound} ads found`);
+    
+    res.json({
+      success: result.success,
+      data: result.data,
+      totalFound: result.totalFound,
+      executionTime: result.executionTime,
+      advertiserName,
+      message: result.success 
+        ? `Successfully scraped ${result.totalFound} ads from ${advertiserName}`
+        : `Failed to scrape ads: ${result.error}`,
+      debug: result.debug
+    });
+
+  } catch (error) {
+    console.error(`[SCRAPER] ❌ Scraping failed:`, error);
+    throw new CustomError(
+      error instanceof Error ? error.message : 'Error al hacer scraping de anuncios',
+      500
+    );
+  } finally {
+    await scraper.close();
+  }
+}));
+
+// POST /api/ads/advertiser-stats - Get total active ads count for a page by pageId
+router.post('/advertiser-stats', asyncHandler(async (req, res) => {
+  const { pageId, country = 'ALL' } = req.body;
+
+  if (!pageId || typeof pageId !== 'string') {
+    throw new CustomError('pageId is required and must be a string', 400);
+  }
+
+  console.log(`[STATS] 📊 Getting stats for pageId: ${pageId}`);
+  
+  const statsService = new AdvertiserStatsService();
+  
+  try {
+    const result = await statsService.getAdvertiserStats(pageId, country);
+
+    console.log(`[STATS] ✅ Stats retrieval completed: ${result.stats?.totalActiveAds || 0} total ads`);
+    
+    res.json({
+      success: result.success,
+      pageId,
+      advertiserName: result.stats?.advertiserName,
+      totalActiveAds: result.stats?.totalActiveAds || 0,
+      lastUpdated: result.stats?.lastUpdated,
+      executionTime: result.executionTime,
+      message: result.success 
+        ? `Found ${result.stats?.totalActiveAds || 0} total active ads for ${result.stats?.advertiserName || pageId}`
+        : `Failed to get stats: ${result.error}`,
+      debug: result.debug
+    });
+
+  } catch (error) {
+    console.error(`[STATS] ❌ Stats retrieval failed:`, error);
+    throw new CustomError(
+      error instanceof Error ? error.message : 'Error al obtener estadísticas del anunciante',
+      500
+    );
+  } finally {
+    await statsService.close();
+  }
+}));
+
+// Test endpoint to verify debug functionality
+router.post('/test-debug', asyncHandler(async (req, res) => {
+  const { pageId = '1835332883255867', country = 'ALL' } = req.body;
+
+  console.log(`🧪 Testing debug functionality for pageId: ${pageId}`);
+  
+  const statsService = new AdvertiserStatsService();
+  
+  try {
+    const result = await statsService.getAdvertiserStats(pageId, country);
+    
+    res.json({
+      success: true,
+      message: 'Debug test completed',
+      result: result,
+      timestamp: new Date().toISOString()
+    });
+  } catch (error) {
+    console.error('Error in test-debug endpoint:', error);
+    throw new CustomError(
+      error instanceof Error ? error.message : 'Error en test de debug',
+      500
+    );
+  } finally {
+    await statsService.close();
+  }
+}));
+
+// Test endpoint with direct URL
+router.post('/test-direct-url', asyncHandler(async (req, res) => {
+  const { url } = req.body;
+
+  if (!url) {
+    throw new CustomError('URL is required', 400);
+  }
+
+  console.log(`🧪 Testing direct URL: ${url}`);
+  
+  const { chromium } = await import('playwright');
+  
+  try {
+    const browser = await chromium.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ]
+    });
+
+    const context = await browser.newContext({
+      viewport: { width: 1920, height: 1080 },
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    });
+
+    const page = await context.newPage();
+
+    // Navigate to the URL
+    await page.goto(url, { 
+      waitUntil: 'networkidle',
+      timeout: 30000 
+    });
+
+    // Wait for content to load
+    await page.waitForTimeout(5000);
+
+    // Extract the count using our improved logic
+    const countResult = await page.evaluate(() => {
+      const text = document.body.innerText;
+      
+      // Look for the specific Facebook pattern "~X.XXX resultados"
+      const tildePattern = text.match(/~(\d{1,3}(?:\.\d{3})*)\s*resultados?/i);
+      if (tildePattern) {
+        return {
+          found: true,
+          pattern: 'tilde',
+          count: parseInt(tildePattern[1].replace(/\./g, '')),
+          text: tildePattern[0]
+        };
+      }
+      
+      // Look for "X.XXX resultados" pattern (without tilde)
+      const resultadosPattern = text.match(/(\d{1,3}(?:\.\d{3})*)\s*resultados?/i);
+      if (resultadosPattern) {
+        return {
+          found: true,
+          pattern: 'resultados',
+          count: parseInt(resultadosPattern[1].replace(/\./g, '')),
+          text: resultadosPattern[0]
+        };
+      }
+      
+      return { found: false, text: text.substring(0, 1000) };
+    });
+
+    const pageTitle = await page.title();
+    const pageContentLength = (await page.content()).length;
+    
+    res.json({
+      success: true,
+      message: 'Direct URL test completed',
+      url: url,
+      pageTitle: pageTitle,
+      pageContentLength: pageContentLength,
+      countResult: countResult,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error in test-direct-url endpoint:', error);
+    throw new CustomError(
+      error instanceof Error ? error.message : 'Error en test de URL directa',
+      500
+    );
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
   }
 }));
 

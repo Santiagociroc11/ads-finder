@@ -53,6 +53,7 @@ app.use('/screenshots', express.static(path.join(__dirname, '../screenshots')));
 
 // API Routes
 app.use('/api/search', adsRoutes);
+app.use('/api/ads', adsRoutes); // Also mount ads routes under /api/ads for scraper endpoints
 app.use('/api/pages', pagesRoutes);
 app.use('/api/saved-ads', savedAdsRoutes);
 app.use('/api/complete-searches', completeSearchesRoutes);

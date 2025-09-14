@@ -244,4 +244,36 @@ export const apiUtils = {
   },
 }
 
+// === SCRAPER API ===
+export const scraperApi = {
+  // Scrape all ads from a specific advertiser
+  scrapeAdvertiser: async (params: {
+    advertiserName: string
+    maxAds?: number
+    country?: string
+    useStealth?: boolean
+  }): Promise<SearchResponse> => {
+    const response = await api.post('/ads/scrape-advertiser', params)
+    return response.data
+  },
+
+  // Get total active ads count for a page by pageId
+  getAdvertiserStats: async (params: {
+    pageId: string
+    country?: string
+  }): Promise<{
+    success: boolean
+    pageId: string
+    advertiserName?: string
+    totalActiveAds: number
+    lastUpdated?: string
+    executionTime: number
+    message: string
+    debug?: any
+  }> => {
+    const response = await api.post('/ads/advertiser-stats', params)
+    return response.data
+  },
+}
+
 export default api
