@@ -1,0 +1,1128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ad Finder Pro - Holographic UI</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;700&family=Roboto:wght@300;400&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-glow: rgba(0, 255, 255, 0.8);
+            --secondary-glow: rgba(255, 0, 255, 0.8);
+            --bg-color: #0a0a1a;
+        }
+        
+        body { 
+            font-family: 'Roboto', sans-serif; 
+            background-color: var(--bg-color);
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+        
+        /* Animaciones para anuncios calientes */
+        @keyframes hotPulse {
+            0%, 100% { box-shadow: 0 0 20px rgba(251, 146, 60, 0.3); }
+            50% { box-shadow: 0 0 30px rgba(251, 146, 60, 0.5); }
+        }
+        
+        .hot-ad {
+            animation: hotPulse 3s ease-in-out infinite;
+        }
+        
+        /* Mejoras para botones */
+        .btn-ads-library {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        .btn-ads-library:hover {
+            transform: translateY(-2px);
+        }
+        
+        /* Mejoras para estadísticas */
+        .stat-box {
+            transition: all 0.3s ease;
+        }
+        
+        .stat-box:hover {
+            transform: scale(1.05);
+        }
+
+        #grid-background {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: -1;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.1) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.1) 1px, transparent 1px);
+            background-size: 40px 40px;
+            animation: moveGrid 20s linear infinite;
+        }
+
+        @keyframes moveGrid {
+            from { background-position: 0 0; }
+            to { background-position: -80px -80px; }
+        }
+
+        .holographic-panel {
+            background: rgba(10, 20, 40, 0.6); backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 255, 0.2); border-radius: 1rem;
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.1), 0 0 30px rgba(0, 255, 255, 0.05) inset;
+            transition: all 0.3s ease;
+        }
+
+        .holographic-title {
+            font-family: 'Orbitron', sans-serif;
+            text-shadow: 0 0 5px var(--primary-glow), 0 0 10px var(--primary-glow);
+        }
+
+        .form-input, .form-select {
+            background-color: rgba(0, 0, 0, 0.3); border: 1px solid rgba(0, 255, 255, 0.3);
+            color: #fff; border-radius: 8px; transition: all 0.3s ease;
+        }
+        
+        .form-select optgroup { background-color: #0a0a1a; color: #e0e0e0; }
+        .form-select option { background-color: #1a1a2a; }
+
+        .form-input:focus, .form-select:focus {
+            outline: none; border-color: var(--primary-glow);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        .btn { font-family: 'Orbitron', sans-serif; transition: all 0.3s ease; border-radius: 8px; padding: 0.75rem 0; }
+        .btn-primary {
+            background: linear-gradient(45deg, var(--primary-glow), var(--secondary-glow)); border: none;
+            color: #fff; text-shadow: 0 0 3px rgba(0,0,0,0.5); box-shadow: 0 0 10px var(--primary-glow);
+        }
+        .btn-primary:hover:not(:disabled) { transform: scale(1.05); box-shadow: 0 0 20px var(--primary-glow), 0 0 10px var(--secondary-glow); }
+        .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        
+        .btn-secondary {
+            background-color: transparent; border: 1px solid var(--primary-glow); color: var(--primary-glow);
+            box-shadow: 0 0 5px rgba(0, 255, 255, 0.5) inset;
+        }
+        .btn-secondary:hover:not(:disabled) { background-color: rgba(0, 255, 255, 0.2); box-shadow: 0 0 10px rgba(0, 255, 255, 0.5); }
+        
+        .btn-icon { background: none; border: none; color: var(--primary-glow); padding: 0.5rem; }
+        .btn-icon:hover:not(:disabled) { color: var(--secondary-glow); transform: scale(1.2); }
+
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: rgba(0,0,0,0.2); }
+        ::-webkit-scrollbar-thumb { background: var(--primary-glow); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: var(--secondary-glow); }
+
+        .loader { width: 60px; height: 60px; border: 4px solid rgba(0, 255, 255, 0.2); border-top-color: var(--primary-glow); border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="text-gray-200">
+    <div id="grid-background"></div>
+    <div id="app" class="flex flex-col md:flex-row min-h-screen">
+        <aside class="w-full md:w-1/3 lg:w-1/4 p-6 holographic-panel m-4 md:m-6 flex flex-col space-y-6">
+            <header class="text-center">
+                <h1 class="text-3xl holographic-title text-cyan-300">Ad Finder PRO</h1>
+                <p class="text-sm text-cyan-500">Holographic Grid v2.0</p>
+            </header>
+            
+            <div class="space-y-4">
+                <h2 class="text-xl font-medium text-cyan-400 border-b border-cyan-500/20 pb-2">Búsqueda Táctica</h2>
+                <form id="keyword-search-form" class="space-y-4">
+                    <div class="relative">
+                        <input type="text" id="keyword-input" placeholder="Buscar por palabra clave..." class="form-input w-full p-3 pr-12">
+                        <button type="button" id="suggestion-btn" class="absolute top-1/2 right-2 -translate-y-1/2 btn-icon" title="Sugerir palabras clave con IA">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13a6 6 0 0 1-6 6 6 6 0 0 1-6-6 6 6 0 0 1 6-6V2"/><path d="M12 2v1"/><path d="M12 21v-1"/><path d="M20.9 11.2a1 1 0 0 0-1.8-1.2l-1.4 2.4"/><path d="M3.1 11.2a1 1 0 0 1 1.8-1.2l1.4 2.4"/><path d="M21 16.2a1 1 0 0 0-1-1.7l-2.4-1.4"/><path d="M3 16.2a1 1 0 0 1 1-1.7l2.4-1.4"/><path d="m15.8 4.1-1.4 2.4"/><path d="m8.2 4.1 1.4 2.4"/></svg>
+                        </button>
+                    </div>
+                    <div id="suggestions-container" class="flex flex-wrap gap-2"></div>
+                    <div>
+                        <label for="country-filter" class="text-sm font-medium text-cyan-500">País:</label>
+                        <select id="country-filter" class="form-select w-full p-2 mt-1">
+                             <option value="ALL">Todos los Países</option>
+                             <optgroup label="América del Norte">
+                                 <option value="US">Estados Unidos</option><option value="CA">Canadá</option><option value="MX">México</option>
+                             </optgroup>
+                             <optgroup label="América del Sur">
+                                 <option value="AR">Argentina</option><option value="BO">Bolivia</option><option value="BR">Brasil</option><option value="CL">Chile</option><option value="CO">Colombia</option><option value="EC">Ecuador</option><option value="PY">Paraguay</option><option value="PE">Perú</option><option value="UY">Uruguay</option><option value="VE">Venezuela</option>
+                             </optgroup>
+                             <optgroup label="Europa">
+                                 <option value="DE">Alemania</option><option value="AT">Austria</option><option value="BE">Bélgica</option><option value="DK">Dinamarca</option><option value="ES">España</option><option value="FI">Finlandia</option><option value="FR">Francia</option><option value="GR">Grecia</option><option value="NL">Holanda</option><option value="HU">Hungría</option><option value="IE">Irlanda</option><option value="IT">Italia</option><option value="NO">Noruega</option><option value="PL">Polonia</option><option value="PT">Portugal</option><option value="GB">Reino Unido</option><option value="CZ">República Checa</option><option value="RO">Rumania</option><option value="RU">Rusia</option><option value="SE">Suecia</option><option value="CH">Suiza</option><option value="TR">Turquía</option><option value="UA">Ucrania</option>
+                             </optgroup>
+                              <optgroup label="Asia">
+                                 <option value="SA">Arabia Saudita</option><option value="CN">China</option><option value="KR">Corea del Sur</option><option value="AE">Emiratos Árabes Unidos</option><option value="PH">Filipinas</option><option value="HK">Hong Kong</option><option value="IN">India</option><option value="ID">Indonesia</option><option value="IL">Israel</option><option value="JP">Japón</option><option value="MY">Malasia</option><option value="SG">Singapur</option><option value="TH">Tailandia</option><option value="TW">Taiwán</option><option value="VN">Vietnam</option>
+                             </optgroup>
+                             <optgroup label="África y Oceanía">
+                                 <option value="AU">Australia</option><option value="EG">Egipto</option><option value="MA">Marruecos</option><option value="NG">Nigeria</option><option value="NZ">Nueva Zelanda</option><option value="ZA">Sudáfrica</option>
+                             </optgroup>
+                        </select>
+                    </div>
+
+                    <div>
+                        <label for="min-days-filter" class="text-sm font-medium text-cyan-500">Días en circulación (mín):</label>
+                        <input type="number" id="min-days-filter" placeholder="Ej: 1" value="1" class="form-input w-full p-2 mt-1">
+                    </div>
+
+                    <!-- Filtros de fecha para anuncios de larga duración -->
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <label for="date-from" class="text-sm font-medium text-cyan-500">Desde:</label>
+                            <input type="date" id="date-from" class="form-input w-full p-2 mt-1" title="Anuncios que empezaron desde esta fecha">
+                        </div>
+                        <div>
+                            <label for="date-to" class="text-sm font-medium text-cyan-500">Hasta:</label>
+                            <input type="date" id="date-to" class="form-input w-full p-2 mt-1" title="Anuncios que empezaron hasta esta fecha">
+                        </div>
+                    </div>
+
+                    <!-- Tipo de búsqueda -->
+                    <div>
+                        <label for="search-type" class="text-sm font-medium text-cyan-500">Tipo de búsqueda:</label>
+                        <select id="search-type" class="form-select w-full p-2 mt-1">
+                            <option value="unordered">Palabras separadas</option>
+                            <option value="exact">Frase exacta</option>
+                        </select>
+                    </div>
+
+                    <!-- Tipo de anuncio -->
+                    <div>
+                        <label for="ad-type" class="text-sm font-medium text-cyan-500">Tipo de anuncio:</label>
+                        <select id="ad-type" class="form-select w-full p-2 mt-1">
+                            <option value="ALL">Todos los anuncios</option>
+                            <option value="POLITICAL_AND_ISSUE_ADS">Solo Políticos (con métricas)</option>
+                            <option value="FINANCIAL_PRODUCTS_AND_SERVICES_ADS">Servicios Financieros</option>
+                            <option value="EMPLOYMENT_ADS">Empleo</option>
+                            <option value="HOUSING_ADS">Vivienda</option>
+                        </select>
+                    </div>
+
+                    <!-- Tipo de media -->
+                    <div>
+                        <label for="media-type" class="text-sm font-medium text-cyan-500">Tipo de contenido:</label>
+                        <select id="media-type" class="form-select w-full p-2 mt-1">
+                            <option value="ALL">Todos</option>
+                            <option value="VIDEO">Solo Videos</option>
+                            <option value="IMAGE">Solo Imágenes</option>
+                            <option value="MEME">Solo Memes</option>
+                            <option value="NONE">Sin Media</option>
+                        </select>
+                    </div>
+
+                    <!-- Método de búsqueda -->
+                    <div class="col-span-2">
+                        <label class="text-sm font-medium text-cyan-500 mb-2 block">Método de búsqueda:</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="search-method" value="api" id="method-api" class="mr-2" checked>
+                                <span class="text-sm text-white">🚀 API (Rápido)</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="search-method" value="scraping" id="method-scraping" class="mr-2">
+                                <span class="text-sm text-white">🕷️ Inteligente</span>
+                            </label>
+                            <label class="flex items-center cursor-pointer">
+                                <input type="radio" name="search-method" value="apify" id="method-apify" class="mr-2">
+                                <span class="text-sm text-white">💎 Apify Pro</span>
+                            </label>
+                        </div>
+                        <div class="text-xs text-cyan-600 mt-1">
+                            <div class="grid grid-cols-3 gap-2">
+                                <span>Oficial FB API</span>
+                                <span>Múltiples variaciones</span>
+                                <span>Scraping profesional</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Configuración de Apify (mostrar solo cuando se selecciona) -->
+                    <div id="apify-config" class="col-span-2 hidden">
+                        <label for="apify-count" class="text-sm font-medium text-purple-400 mb-2 block">💎 Cantidad de anuncios (Apify):</label>
+                        <div class="flex items-center space-x-4">
+                            <select id="apify-count" class="form-select p-2 bg-purple-900/30 border border-purple-500 rounded text-white">
+                                <option value="50">50 anuncios</option>
+                                <option value="100" selected>100 anuncios</option>
+                                <option value="200">200 anuncios</option>
+                                <option value="500">500 anuncios</option>
+                                <option value="1000">1000 anuncios</option>
+                            </select>
+                            <span class="text-xs text-purple-300">💰 Más anuncios = mayor costo</span>
+                        </div>
+                        <p class="text-xs text-purple-400 mt-1">Apify cobra por anuncio procesado. Selecciona según tu presupuesto.</p>
+                    </div>
+
+                    <!-- Idiomas -->
+                    <div>
+                        <label for="languages" class="text-sm font-medium text-cyan-500">Idiomas:</label>
+                        <select id="languages" multiple class="form-select w-full p-2 mt-1" size="3">
+                            <option value="es">Español</option>
+                            <option value="en">Inglés</option>
+                            <option value="pt">Portugués</option>
+                            <option value="fr">Francés</option>
+                            <option value="de">Alemán</option>
+                            <option value="it">Italiano</option>
+                        </select>
+                        <p class="text-xs text-cyan-600 mt-1">Mantén Ctrl/Cmd para seleccionar múltiples</p>
+                    </div>
+
+                    <!-- Plataformas -->
+                    <div>
+                        <label for="platforms" class="text-sm font-medium text-cyan-500">Plataformas:</label>
+                        <select id="platforms" multiple class="form-select w-full p-2 mt-1" size="3">
+                            <option value="FACEBOOK">Facebook</option>
+                            <option value="INSTAGRAM">Instagram</option>
+                            <option value="AUDIENCE_NETWORK">Audience Network</option>
+                            <option value="MESSENGER">Messenger</option>
+                            <option value="WHATSAPP">WhatsApp</option>
+                        </select>
+                        <p class="text-xs text-cyan-600 mt-1">Mantén Ctrl/Cmd para seleccionar múltiples</p>
+                    </div>
+
+                    <!-- Opción de paginado -->
+                    <div class="flex items-center space-x-2 text-sm">
+                        <input type="checkbox" id="auto-pagination" checked class="form-checkbox text-cyan-500">
+                        <label for="auto-pagination" class="text-cyan-400">Obtener 5 páginas automáticamente (~500 anuncios)</label>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-full">BUSCAR ANUNCIOS</button>
+                    
+                    <!-- Presets para anuncios de larga duración -->
+                    <div class="border-t border-cyan-500/20 pt-4">
+                        <h3 class="text-sm font-medium text-cyan-400 mb-2">🎯 Búsquedas Especializadas</h3>
+                        <div class="space-y-2">
+                            <button type="button" id="preset-long-running" class="btn btn-secondary w-full text-xs py-2">
+                                Anuncios +6 meses (Videos)
+                            </button>
+                            <button type="button" id="preset-indefinite" class="btn btn-secondary w-full text-xs py-2">
+                                Solo WhatsApp/Bot (Español)
+                            </button>
+                            <button type="button" id="preset-recent-videos" class="btn btn-secondary w-full text-xs py-2">
+                                Videos Recientes (30 días)
+                            </button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+            <div class="flex-grow flex flex-col space-y-4">
+                <h2 class="text-xl font-medium text-cyan-400 border-b border-cyan-500/20 pb-2">Seguimiento de Páginas</h2>
+                <form id="add-page-form" class="space-y-2">
+                     <input type="text" id="page-id-input" placeholder="URL o ID de la Página de Facebook" class="form-input w-full p-3">
+                     <p class="text-xs text-cyan-600 my-1">Pega la URL completa o el ID numérico de la página.</p>
+                    <button type="submit" class="btn btn-secondary w-full">Añadir Página</button>
+                </form>
+                <div id="tracked-pages-list" class="flex-grow overflow-y-auto space-y-2 pr-2"></div>
+            </div>
+        </aside>
+
+        <main class="w-full md:w-2/3 lg:w-3/4 p-6 md:p-8">
+            <div id="results-container" class="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
+                 <div id="placeholder" class="col-span-full text-center py-20 opacity-50">
+                    <svg class="w-24 h-24 mx-auto text-cyan-700" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <h3 class="mt-4 text-2xl font-medium text-cyan-500 holographic-title">Esperando Comando</h3>
+                </div>
+            </div>
+            <div id="pagination-controls" class="flex justify-center items-center mt-8 space-x-4"></div>
+        </main>
+    </div>
+
+    <script type="module">
+        const API_BASE_URL = 'http://localhost:3000';
+        let nextPageUrl = null;
+        let prevPageUrl = null;
+        
+        // Manejar visibilidad de configuración Apify
+        function toggleApifyConfig() {
+            const apifyConfig = document.getElementById('apify-config');
+            const selectedMethod = document.querySelector('input[name="search-method"]:checked').value;
+            
+            if (selectedMethod === 'apify') {
+                apifyConfig.classList.remove('hidden');
+            } else {
+                apifyConfig.classList.add('hidden');
+            }
+        }
+
+        const keywordSearchForm = document.getElementById('keyword-search-form');
+        const keywordInput = document.getElementById('keyword-input');
+        const countryFilter = document.getElementById('country-filter');
+        const minDaysFilter = document.getElementById('min-days-filter');
+        const dateFromFilter = document.getElementById('date-from');
+        const dateToFilter = document.getElementById('date-to');
+        const searchTypeFilter = document.getElementById('search-type');
+        const adTypeFilter = document.getElementById('ad-type');
+        const mediaTypeFilter = document.getElementById('media-type');
+        const languagesFilter = document.getElementById('languages');
+        const platformsFilter = document.getElementById('platforms');
+        const autoPaginationCheckbox = document.getElementById('auto-pagination');
+        const addPageForm = document.getElementById('add-page-form');
+        const pageIdInput = document.getElementById('page-id-input');
+        const trackedPagesList = document.getElementById('tracked-pages-list');
+        const resultsContainer = document.getElementById('results-container');
+        const paginationControls = document.getElementById('pagination-controls');
+        const suggestionBtn = document.getElementById('suggestion-btn');
+        const suggestionsContainer = document.getElementById('suggestions-container');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTrackedPages();
+            setupPresets();
+        });
+        
+        function setupPresets() {
+            // Preset 1: Anuncios de más de 6 meses (Videos)
+            document.getElementById('preset-long-running').addEventListener('click', () => {
+                const sixMonthsAgo = new Date();
+                sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+                
+                keywordInput.value = 'marketing | ventas | negocio';
+                countryFilter.value = 'CO';
+                dateFromFilter.value = '';
+                dateToFilter.value = sixMonthsAgo.toISOString().split('T')[0];
+                mediaTypeFilter.value = 'VIDEO';
+                searchTypeFilter.value = 'unordered';
+                
+                // Limpiar selecciones múltiples
+                Array.from(languagesFilter.options).forEach(opt => opt.selected = false);
+                Array.from(platformsFilter.options).forEach(opt => opt.selected = false);
+                
+                // Seleccionar español
+                languagesFilter.querySelector('option[value="es"]').selected = true;
+                
+                fetchAds({ searchType: 'keyword', value: keywordInput.value });
+            });
+            
+            // Preset 2: Anuncios de WhatsApp/Bot en español
+            document.getElementById('preset-indefinite').addEventListener('click', () => {
+                keywordInput.value = 'whatsapp | bot | automatizacion';
+                countryFilter.value = 'CO';
+                dateFromFilter.value = '';
+                dateToFilter.value = '';
+                mediaTypeFilter.value = 'ALL';
+                searchTypeFilter.value = 'unordered';
+                
+                // Limpiar selecciones múltiples
+                Array.from(languagesFilter.options).forEach(opt => opt.selected = false);
+                Array.from(platformsFilter.options).forEach(opt => opt.selected = false);
+                
+                // Seleccionar español y Facebook/Instagram
+                languagesFilter.querySelector('option[value="es"]').selected = true;
+                platformsFilter.querySelector('option[value="FACEBOOK"]').selected = true;
+                platformsFilter.querySelector('option[value="INSTAGRAM"]').selected = true;
+                
+                fetchAds({ searchType: 'keyword', value: keywordInput.value });
+            });
+            
+            // Preset 3: Videos recientes (últimos 30 días)
+            document.getElementById('preset-recent-videos').addEventListener('click', () => {
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                
+                keywordInput.value = 'curso | entrenamiento | masterclass';
+                countryFilter.value = 'CO';
+                dateFromFilter.value = thirtyDaysAgo.toISOString().split('T')[0];
+                dateToFilter.value = '';
+                mediaTypeFilter.value = 'VIDEO';
+                searchTypeFilter.value = 'unordered';
+                
+                // Limpiar selecciones múltiples
+                Array.from(languagesFilter.options).forEach(opt => opt.selected = false);
+                Array.from(platformsFilter.options).forEach(opt => opt.selected = false);
+                
+                // Seleccionar español
+                languagesFilter.querySelector('option[value="es"]').selected = true;
+                
+                fetchAds({ searchType: 'keyword', value: keywordInput.value });
+            });
+        }
+
+        suggestionBtn.addEventListener('click', async () => {
+            const idea = keywordInput.value.trim();
+            if (!idea) {
+                alert('Por favor, escribe una idea general en el campo de búsqueda primero.');
+                return;
+            }
+            
+            // --- INICIO DE LA CORRECCIÓN ---
+            suggestionBtn.disabled = true;
+            suggestionsContainer.innerHTML = '<span class="text-cyan-400">Generando ideas con IA...</span>';
+            // --- FIN DE LA CORRECCIÓN ---
+
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/suggestions`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ idea })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Error en el servidor de IA');
+
+                suggestionsContainer.innerHTML = '';
+                data.suggestions.forEach(suggestion => {
+                    const button = document.createElement('button');
+                    button.textContent = suggestion;
+                    button.className = 'btn-secondary text-xs px-3 py-1';
+                    button.onclick = () => {
+                        keywordInput.value = suggestion;
+                        keywordSearchForm.dispatchEvent(new Event('submit'));
+                    };
+                    suggestionsContainer.appendChild(button);
+                });
+            } catch (error) {
+                suggestionsContainer.innerHTML = `<span class="text-red-400">Error: ${error.message}</span>`;
+            } finally {
+                // --- INICIO DE LA CORRECCIÓN ---
+                suggestionBtn.disabled = false; // Reactivar el botón al finalizar
+                // --- FIN DE LA CORRECCIÓN ---
+            }
+        });
+        
+        addPageForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const pageIdentifier = pageIdInput.value.trim();
+            if (!pageIdentifier) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/pages`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ pageIdentifier }),
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(result.message || 'Error desconocido');
+                pageIdInput.value = '';
+                loadTrackedPages();
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        });
+        
+        async function loadTrackedPages() {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/pages`);
+                const pages = await response.json();
+                trackedPagesList.innerHTML = '';
+                 if (pages.length === 0) {
+                    trackedPagesList.innerHTML = '<p class="text-sm text-center text-cyan-600/50">No hay páginas en seguimiento.</p>';
+                 } else {
+                    pages.forEach(page => {
+                        const pageElement = document.createElement('div');
+                        pageElement.className = 'flex items-center justify-between bg-cyan-900/20 p-3 rounded-lg text-sm cursor-pointer border border-transparent hover:border-cyan-500 transition-all';
+                        
+                        const pageNameSpan = document.createElement('span');
+                        pageNameSpan.className = 'font-medium text-cyan-300 flex-grow mr-2 truncate';
+                        pageNameSpan.textContent = page.pageName;
+                        pageNameSpan.addEventListener('click', () => fetchAds({ searchType: 'page', value: page.pageId }));
+
+                        const deleteIcon = document.createElement('span');
+                        deleteIcon.innerHTML = '&#x1F5D1;';
+                        deleteIcon.className = 'text-red-500 hover:text-red-400 cursor-pointer';
+                        deleteIcon.addEventListener('click', () => deletePage(page._id));
+
+                        pageElement.appendChild(pageNameSpan);
+                        pageElement.appendChild(deleteIcon);
+                        trackedPagesList.appendChild(pageElement);
+                    });
+                 }
+            } catch (error) {
+                console.error("Error cargando páginas:", error);
+            }
+        }
+
+        async function deletePage(pageDbId) {
+            if (!confirm('¿Estás seguro de que quieres eliminar esta página?')) return;
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/pages/${pageDbId}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error('No se pudo eliminar la página');
+                loadTrackedPages();
+            } catch (error) {
+                alert(`Error: ${error.message}`);
+            }
+        }
+        
+        keywordSearchForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const keyword = keywordInput.value.trim();
+            if (!keyword) return;
+            fetchAds({ searchType: 'keyword', value: keyword });
+        });
+
+        async function fetchAds({ searchType, value }, url = null) {
+            const isAutoPagination = autoPaginationCheckbox.checked && !url;
+            
+            if (isAutoPagination) {
+                resultsContainer.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center h-full"><div class="loader"></div><p class="mt-4 text-cyan-400 holographic-title">Obteniendo 5 páginas de anuncios...</p><p class="text-cyan-500 text-sm">Esto puede tomar unos segundos</p></div>';
+            } else {
+                resultsContainer.innerHTML = '<div class="col-span-full flex flex-col items-center justify-center h-full"><div class="loader"></div><p class="mt-4 text-cyan-400 holographic-title">Accediendo a la Matriz de Anuncios...</p></div>';
+            }
+            paginationControls.innerHTML = '';
+
+            try {
+                // Recopilar valores de idiomas seleccionados
+                const selectedLanguages = Array.from(languagesFilter.selectedOptions).map(option => option.value);
+                
+                // Recopilar valores de plataformas seleccionadas
+                const selectedPlatforms = Array.from(platformsFilter.selectedOptions).map(option => option.value);
+                
+                // Obtener método de búsqueda seleccionado
+                const searchMethod = document.querySelector('input[name="search-method"]:checked').value;
+                const useWebScraping = searchMethod === 'scraping';
+                const useApify = searchMethod === 'apify';
+                
+                // Obtener cantidad de anuncios para Apify
+                const apifyCount = useApify ? document.getElementById('apify-count').value : 200;
+                
+                const requestBody = {
+                    searchType, 
+                    value, 
+                    country: countryFilter.value, 
+                    minDays: minDaysFilter.value,
+                    dateFrom: dateFromFilter.value,
+                    dateTo: dateToFilter.value,
+                    searchPhraseType: searchTypeFilter.value,
+                    adType: adTypeFilter.value,
+                    mediaType: mediaTypeFilter.value,
+                    languages: selectedLanguages.length > 0 ? selectedLanguages : null,
+                    platforms: selectedPlatforms.length > 0 ? selectedPlatforms : null,
+                    singlePage: !isAutoPagination, // Enviar modo de paginación
+                    useWebScraping: useWebScraping, // Parámetro para búsqueda inteligente
+                    useApify: useApify, // Nuevo parámetro para Apify
+                    apifyCount: parseInt(apifyCount), // Cantidad de anuncios para Apify
+                    url
+                };
+                
+                const response = await fetch(`${API_BASE_URL}/api/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody)
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Error en la búsqueda');
+
+                nextPageUrl = data.paging?.next || null;
+                prevPageUrl = data.paging?.previous || null;
+                
+                const ads = data.data || [];
+
+                // Mostrar información de la fuente de datos
+                let sourceInfo = '';
+                if (data.source === 'apify_scraping') {
+                    sourceInfo = `<div class="col-span-full mb-4 p-3 bg-gradient-to-r from-purple-900 to-pink-900 border border-purple-400 rounded-lg">
+                        <div class="flex items-center">
+                            <span class="text-purple-300 mr-2">💎</span>
+                            <span class="text-purple-200 font-medium">Apify Scraping Profesional</span>
+                        </div>
+                        <p class="text-purple-100 text-sm mt-1">${data.message || 'Datos extraídos con tecnología de scraping profesional'}</p>
+                    </div>`;
+                } else if (data.source === 'web_scraping' || data.source === 'enhanced_api_scraping') {
+                    sourceInfo = `<div class="col-span-full mb-4 p-3 bg-purple-900 border border-purple-500 rounded-lg">
+                        <div class="flex items-center">
+                            <span class="text-purple-400 mr-2">🕷️</span>
+                            <span class="text-purple-300 font-medium">Búsqueda Inteligente Activa</span>
+                        </div>
+                        <p class="text-purple-200 text-sm mt-1">${data.message || 'Múltiples búsquedas con variaciones para mayor cobertura'}</p>
+                    </div>`;
+                } else if (data.source === 'facebook_api') {
+                    sourceInfo = `<div class="col-span-full mb-4 p-3 bg-blue-900 border border-blue-500 rounded-lg">
+                        <div class="flex items-center">
+                            <span class="text-blue-400 mr-2">🚀</span>
+                            <span class="text-blue-300 font-medium">API de Facebook</span>
+                        </div>
+                        <p class="text-blue-200 text-sm mt-1">Datos obtenidos via Facebook Graph API</p>
+                    </div>`;
+                }
+
+                if (ads.length === 0) {
+                     resultsContainer.innerHTML = sourceInfo + '<p class="col-span-full text-center text-xl text-cyan-500/50">No se encontraron anuncios activos que cumplan con los filtros.</p>';
+                } else {
+                    resultsContainer.innerHTML = sourceInfo;
+                    renderAds(ads);
+                    
+                    // Mostrar información de paginado si hay datos adicionales
+                    if (data.totalPages || data.totalAds) {
+                        const infoElement = document.createElement('div');
+                        infoElement.className = 'col-span-full text-center text-cyan-400 bg-cyan-900/10 p-4 rounded-lg mb-4';
+                        infoElement.innerHTML = `
+                            <div class="text-lg font-medium">📊 Resultados Obtenidos</div>
+                            <div class="text-sm mt-2 space-y-1">
+                                ${data.totalAds ? `<div><strong>Total de anuncios:</strong> ${data.totalAds}</div>` : ''}
+                                ${data.totalPages ? `<div><strong>Páginas procesadas:</strong> ${data.totalPages}/5</div>` : ''}
+                                ${nextPageUrl ? '<div class="text-yellow-400"><strong>⚠️ Hay más resultados disponibles</strong></div>' : '<div class="text-green-400"><strong>✅ Todos los resultados obtenidos</strong></div>'}
+                                ${data.facebookLibraryUrl ? `
+                                    <div class="mt-3 pt-2 border-t border-cyan-500/20">
+                                        <a href="${data.facebookLibraryUrl}" target="_blank" class="btn btn-secondary text-xs px-4 py-2">
+                                            🔍 Comparar con Facebook Library
+                                        </a>
+                                    </div>
+                                ` : ''}
+                            </div>
+                        `;
+                        resultsContainer.insertBefore(infoElement, resultsContainer.firstChild);
+                    }
+                }
+                updatePagination();
+
+            } catch (error) {
+                resultsContainer.innerHTML = `<p class="col-span-full text-center text-red-400">Error: ${error.message}.</p>`;
+            }
+        }
+        
+        function renderAds(ads, appendMode = false) {
+            if (!appendMode) {
+                resultsContainer.innerHTML = '';
+            } 
+            ads.forEach(ad => {
+                const adCard = document.createElement('div');
+                adCard.className = 'holographic-panel p-4 flex flex-col space-y-3';
+                const adCopy = ad.ad_creative_bodies?.[0] || 'Sin texto de anuncio.';
+                const adSnapshotUrl = ad.ad_snapshot_url || '';
+                
+                // Tags dinámicos basados en la duración y características del anuncio
+                let tags = '<span class="px-3 py-1 text-xs font-medium rounded-full bg-green-500/20 text-green-300">Activo</span>';
+                
+                // Tag para anuncios de larga duración
+                if (ad.is_long_running) {
+                    tags += ' <span class="px-3 py-1 text-xs font-medium rounded-full bg-yellow-500/20 text-yellow-300">Larga Duración</span>';
+                }
+                
+                // Tag para anuncios sin fecha de stop (corriendo indefinidamente)
+                if (ad.is_indefinite) {
+                    tags += ' <span class="px-3 py-1 text-xs font-medium rounded-full bg-purple-500/20 text-purple-300">Sin Límite</span>';
+                }
+                
+                const startDate = ad.ad_delivery_start_time ? new Date(ad.ad_delivery_start_time).toLocaleDateString('es-ES') : 'N/A';
+                const stopDate = ad.ad_delivery_stop_time ? new Date(ad.ad_delivery_stop_time).toLocaleDateString('es-ES') : 'Sin fecha límite';
+                const daysRunning = ad.days_running ? `${ad.days_running} días` : 'N/A';
+                
+                // Mostrar idiomas y plataformas
+                const languages = ad.languages && ad.languages.length > 0 ? ad.languages.join(', ') : 'N/A';
+                const platforms = ad.publisher_platforms && ad.publisher_platforms.length > 0 ? ad.publisher_platforms.join(', ') : 'N/A';
+                
+                // Mostrar información completa de enlaces creativos
+                const linkTitle = ad.ad_creative_link_titles?.[0] || '';
+                const linkDescription = ad.ad_creative_link_descriptions?.[0] || '';
+                const linkCaption = ad.ad_creative_link_captions?.[0] || '';
+                
+                let linkInfo = '';
+                if (linkTitle || linkDescription || linkCaption) {
+                    linkInfo = `
+                        <div class="bg-cyan-900/10 p-2 rounded text-xs space-y-1">
+                            ${linkTitle ? `<div><strong>🔗 Título del enlace:</strong> ${linkTitle}</div>` : ''}
+                            ${linkDescription ? `<div><strong>📝 Descripción:</strong> ${linkDescription}</div>` : ''}
+                            ${linkCaption ? `<div><strong>🏷️ Caption:</strong> ${linkCaption}</div>` : ''}
+                        </div>
+                    `;
+                }
+                
+                // Determinar si es un anuncio caliente (3+ llamas)
+                const isHotAd = (ad.hotness_score || 1) >= 3;
+                const cardBorderClass = isHotAd ? 'border-2 border-orange-500/50 shadow-lg shadow-orange-500/20' : 'border border-gray-700';
+                const cardBgClass = isHotAd ? 'bg-gradient-to-br from-gray-800/90 to-orange-900/20' : 'bg-gray-800/50';
+                
+                adCard.className = `${cardBorderClass} ${cardBgClass} rounded-xl p-4 space-y-3 hover:bg-gray-700/60 transition-all duration-300 ${isHotAd ? 'transform hover:scale-[1.02] hot-ad' : ''}`;
+                
+                adCard.innerHTML = `
+                    <!-- Header con perfil del anunciante (estilo Facebook Ads Library) -->
+                    <div class="flex items-center space-x-3 pb-3 border-b border-gray-600/30">
+                        <div class="relative">
+                            <img 
+                                src="${ad.apify_data?.page_profile_picture_url || '/api/placeholder/40/40'}" 
+                                alt="Perfil de ${ad.page_name}"
+                                class="w-10 h-10 rounded-full object-cover border-2 ${isHotAd ? 'border-orange-400' : 'border-gray-600'}"
+                                onerror="this.src='/api/placeholder/40/40'"
+                            />
+                            ${isHotAd ? '<div class="absolute -top-1 -right-1 text-xs">🔥</div>' : ''}
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <div class="flex items-center space-x-2">
+                                <h3 class="font-semibold text-white truncate text-sm">
+                                    ${ad.page_name}
+                                </h3>
+                                ${ad.apify_data?.page_verification ? '<div class="text-blue-400 text-xs">✓</div>' : ''}
+                            </div>
+                            <div class="text-xs text-gray-400">
+                                ${ad.apify_data?.page_categories?.join(', ') || 'Publicidad'}
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap gap-1">${tags}</div>
+                    </div>
+                    
+                    <!-- Estadísticas principales (prominentes) -->
+                    <div class="grid grid-cols-3 gap-3 mb-3">
+                        <div class="text-center ${isHotAd ? 'bg-orange-500/10 border border-orange-500/30' : 'bg-gray-700/30'} rounded-lg p-3 stat-box">
+                            <div class="text-lg font-bold ${isHotAd ? 'text-orange-300' : 'text-cyan-300'}">
+                                ${ad.flame_emoji || '🔥'}
+                            </div>
+                            <div class="text-xs text-gray-300 font-medium">CALOR</div>
+                            <div class="text-xs font-bold ${isHotAd ? 'text-orange-200' : 'text-gray-400'}">
+                                ${ad.hotness_score || 1}/5
+                            </div>
+                        </div>
+                        <div class="text-center ${isHotAd ? 'bg-orange-500/10 border border-orange-500/30' : 'bg-gray-700/30'} rounded-lg p-3 stat-box">
+                            <div class="text-lg font-bold ${isHotAd ? 'text-orange-300' : 'text-purple-300'}">
+                                ${ad.collation_count || 1}
+                            </div>
+                            <div class="text-xs text-gray-300 font-medium">VARIANTES</div>
+                            <div class="text-xs ${isHotAd ? 'text-orange-200' : 'text-gray-400'}">
+                                ${(ad.collation_count || 1) > 1 ? 'Múltiples' : 'Única'}
+                            </div>
+                        </div>
+                        <div class="text-center ${isHotAd ? 'bg-orange-500/10 border border-orange-500/30' : 'bg-gray-700/30'} rounded-lg p-3 stat-box">
+                            <div class="text-lg font-bold ${isHotAd ? 'text-orange-300' : 'text-green-300'}">
+                                ${ad.days_running || 0}
+                            </div>
+                            <div class="text-xs text-gray-300 font-medium">DÍAS</div>
+                            <div class="text-xs ${isHotAd ? 'text-orange-200' : 'text-gray-400'}">
+                                ${ad.is_long_running ? 'Veterano' : 'Reciente'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="aspect-square bg-black/20 rounded-lg flex items-center justify-center relative overflow-hidden group">
+                        ${ad.source === 'apify_scraping' ? `
+                            <!-- Media directa de Apify (sin Puppeteer) -->
+                            <div class="relative w-full h-full" id="ad-preview-${ad.id}">
+                                <div class="absolute inset-0">
+                                    ${ad.apify_data && ad.apify_data.videos && ad.apify_data.videos.length > 0 ? `
+                                        <!-- Video de Apify -->
+                                        <video 
+                                            src="${ad.apify_data.videos[0].video_sd_url || ad.apify_data.videos[0].video_hd_url}" 
+                                            poster="${ad.apify_data.videos[0].video_preview_image_url || ''}"
+                                            class="w-full h-full object-cover rounded-lg"
+                                            autoplay 
+                                            muted 
+                                            loop
+                                            onloadeddata="this.style.opacity='1';"
+                                            style="opacity: 0; transition: opacity 0.3s;"
+                                        ></video>
+                                        <!-- Indicador de video -->
+                                        <div class="absolute bottom-2 left-2 bg-black/80 text-white text-xs px-2 py-1 rounded flex items-center">
+                                            ▶️ Video
+                                        </div>
+                                    ` : ad.apify_data && ad.apify_data.images && ad.apify_data.images.length > 0 ? `
+                                        <!-- Imagen de Apify -->
+                                        <img 
+                                            src="${ad.apify_data.images[0].resized_image_url || ad.apify_data.images[0].original_image_url}" 
+                                            alt="Imagen del anuncio"
+                                            class="w-full h-full object-cover rounded-lg"
+                                            onload="this.style.opacity='1';"
+                                            style="opacity: 0; transition: opacity 0.3s;"
+                                        />
+                                    ` : `
+                                        <!-- Fallback: Solo texto de Apify (sin media) -->
+                                        <div class="w-full h-full bg-gradient-to-br from-purple-900/30 to-cyan-900/30 flex items-center justify-center p-4">
+                                            <div class="text-center">
+                                                <div class="text-4xl mb-2">📄</div>
+                                                <div class="text-sm text-cyan-300 font-medium">Anuncio de Texto</div>
+                                                <div class="text-xs text-gray-400 mt-1">Sin imagen/video</div>
+                                            </div>
+                                        </div>
+                                    `}
+                                </div>
+                                <!-- Badge de Apify -->
+                                <div class="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">
+                                    APIFY ⚡
+                                </div>
+                            </div>
+                        ` : (ad.source !== 'apify_scraping' && adSnapshotUrl) ? `
+                            <!-- Screenshot con Puppeteer (fallback) -->
+                            <div class="relative w-full h-full" id="ad-preview-${ad.id}">
+                                <div class="absolute inset-0">
+                                    <img 
+                                        src="/api/screenshot?url=${encodeURIComponent(adSnapshotUrl)}&adId=${ad.id}" 
+                                        alt="Screenshot del anuncio"
+                                        class="w-full h-full object-cover rounded-lg"
+                                        onload="this.style.opacity='1'; this.nextElementSibling.style.display='none';"
+                                        onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                                        style="opacity: 0; transition: opacity 0.3s;"
+                                    />
+                                    
+                                    <!-- Loading/Error fallback -->
+                                    <div class="absolute inset-0 bg-gradient-to-br from-cyan-900/20 to-purple-900/20 flex items-center justify-center" style="display: flex;">
+                                        <div class="text-center p-4 w-full">
+                                            <div class="w-16 h-16 mx-auto mb-4 bg-cyan-500/20 rounded-full flex items-center justify-center">
+                                                <svg class="w-8 h-8 text-cyan-400 animate-spin" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                                </svg>
+                                            </div>
+                                            <h3 class="text-lg font-medium text-cyan-200 mb-2">Capturando Anuncio...</h3>
+                                            <p class="text-sm text-cyan-400 mb-4">Generando screenshot con Puppeteer</p>
+                                            
+                                            <!-- Información del anuncio como preview -->
+                                            <div class="bg-black/30 rounded-lg p-3 mb-4 text-left">
+                                                <div class="text-xs text-cyan-300 mb-2">
+                                                    <strong>📄 Texto del anuncio:</strong>
+                                                </div>
+                                                <div class="text-xs text-gray-300 leading-relaxed">
+                                                    ${adCopy.substring(0, 100)}${adCopy.length > 100 ? '...' : ''}
+                                                </div>
+                                            </div>
+                                            
+                                            <div class="space-y-2">
+                                                <a href="${adSnapshotUrl}" target="_blank" class="btn btn-primary px-6 py-2 text-sm block">
+                                                    👁️ Ver Anuncio en Facebook
+                                                </a>
+                                                <button onclick="copyAdUrl('${adSnapshotUrl}')" class="btn btn-secondary px-4 py-2 text-xs block">
+                                                    📋 Copiar URL
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Controles -->
+                                <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex space-x-1">
+                                    <button onclick="refreshScreenshot('${ad.id}', '${adSnapshotUrl}')" class="btn btn-icon text-xs bg-black/50 hover:bg-black/70" title="Actualizar screenshot">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                                        </svg>
+                                    </button>
+                                    <a href="${adSnapshotUrl}" target="_blank" class="btn btn-icon text-xs bg-black/50 hover:bg-black/70" title="Abrir en nueva pestaña">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"></path>
+                                        </svg>
+                                    </a>
+                                </div>
+                            </div>
+                        ` : `
+                            <div class="text-center text-gray-500">
+                                <svg class="w-12 h-12 mx-auto mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+                                </svg>
+                                <p class="text-sm">Sin preview disponible</p>
+                            </div>
+                        `}
+                    </div>
+                    <p class="text-gray-400 text-sm flex-grow">${adCopy.substring(0, 150)}${adCopy.length > 150 ? '...' : ''}</p>
+                    
+                    <!-- Botón prominente para Facebook Ads Library -->
+                    <div class="mt-4">
+                        <a 
+                            href="${ad.apify_data?.ad_library_url || `https://www.facebook.com/ads/library/?id=${ad.ad_archive_id || ad.id}`}" 
+                            target="_blank"
+                            class="w-full btn-ads-library ${isHotAd ? 'bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow-lg shadow-orange-500/25' : 'bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700'} text-white font-semibold py-3 px-4 rounded-lg transition-all duration-300 flex items-center justify-center space-x-2 group"
+                        >
+                            <svg class="w-5 h-5 transition-transform group-hover:scale-110" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/>
+                            </svg>
+                            <span>Ver en Facebook Ads Library</span>
+                            <svg class="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/>
+                            </svg>
+                        </a>
+                    </div>
+                    
+                    ${linkInfo}
+                    
+                    <!-- Información técnica detallada (colapsada por defecto) -->
+                    <div class="mt-4">
+                        <button 
+                            class="w-full text-left text-sm font-medium text-gray-300 hover:text-white transition-colors flex items-center justify-between py-2 border-t border-gray-600/30" 
+                            onclick="toggleDetails('${ad.id}')"
+                        >
+                            <span>📊 Detalles técnicos</span>
+                            <svg class="w-4 h-4 transform transition-transform" id="chevron-${ad.id}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </button>
+                        <div id="details-${ad.id}" class="hidden">
+                            <div class="text-gray-500 pt-2 space-y-1 text-xs">
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><strong>ID:</strong> ${ad.id}</div>
+                            <div><strong>Page ID:</strong> ${ad.page_id}</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><strong>Días corriendo:</strong> ${daysRunning}</div>
+                            <div><strong>Estado:</strong> ${ad.is_indefinite ? 'Sin límite' : 'Con fecha fin'}</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><strong>🔥 Calor:</strong> ${ad.flame_emoji || ''} ${ad.hotness_score || 1}/5</div>
+                            <div><strong>📊 Variaciones:</strong> ${ad.collation_count || 1}</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><strong>Inicio:</strong> ${startDate}</div>
+                            <div><strong>Fin:</strong> ${stopDate}</div>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2">
+                            <div><strong>Idiomas:</strong> ${languages}</div>
+                            <div><strong>Plataformas:</strong> ${platforms}</div>
+                        </div>
+                        ${ad.source === 'apify_scraping' && ad.apify_data ? 
+                            `<div class="text-purple-300 text-xs bg-purple-900/20 p-2 rounded mt-2">
+                                <div class="font-semibold text-purple-200 mb-1">💎 Datos Apify:</div>
+                                ${ad.apify_data.page_like_count ? `<div><strong>👍 Likes página:</strong> ${ad.apify_data.page_like_count.toLocaleString()}</div>` : ''}
+                                ${ad.apify_data.ig_followers ? `<div><strong>📸 Seguidores IG:</strong> ${ad.apify_data.ig_followers.toLocaleString()}</div>` : ''}
+                                ${ad.apify_data.display_format ? `<div><strong>📱 Formato:</strong> ${ad.apify_data.display_format}</div>` : ''}
+                                ${ad.apify_data.cta_text ? `<div><strong>🔗 CTA:</strong> ${ad.apify_data.cta_text}</div>` : ''}
+                                ${ad.apify_data.videos && ad.apify_data.videos.length > 0 ? `<div><strong>🎥 Videos:</strong> ${ad.apify_data.videos.length}</div>` : ''}
+                                ${ad.apify_data.total_ads_from_page ? `<div><strong>📊 Total ads página:</strong> ${ad.apify_data.total_ads_from_page}</div>` : ''}
+                            </div>` : ''
+                        }
+                        ${ad.impressions && ad.impressions.note ? 
+                            `<div class="text-yellow-400 text-xs bg-yellow-900/10 p-2 rounded">
+                                <strong>⚠️ Métricas de rendimiento:</strong> Solo disponibles para anuncios políticos
+                            </div>` : 
+                            `<div class="text-green-400 text-xs bg-green-900/10 p-2 rounded">
+                                <div><strong>📊 Impresiones:</strong> ${ad.impressions.lower_bound} - ${ad.impressions.upper_bound}</div>
+                                <div><strong>💰 Gasto:</strong> ${ad.spend.lower_bound} ${ad.spend.currency}</div>
+                                ${ad.estimated_audience_size ? `<div><strong>👥 Audiencia estimada:</strong> ${ad.estimated_audience_size}</div>` : ''}
+                            </div>`
+                        }
+                            </div>
+                        </div>
+                    </div>`;
+                resultsContainer.appendChild(adCard);
+            });
+        }
+        
+        // Función para toggle de detalles técnicos
+        function toggleDetails(adId) {
+            const details = document.getElementById(`details-${adId}`);
+            const chevron = document.getElementById(`chevron-${adId}`);
+            
+            if (details.classList.contains('hidden')) {
+                details.classList.remove('hidden');
+                chevron.style.transform = 'rotate(180deg)';
+            } else {
+                details.classList.add('hidden');
+                chevron.style.transform = 'rotate(0deg)';
+            }
+        }
+        
+        // Función para copiar URL del anuncio
+        function copyAdUrl(url) {
+            navigator.clipboard.writeText(url).then(() => {
+                // Mostrar notificación temporal
+                const notification = document.createElement('div');
+                notification.className = 'fixed top-4 right-4 bg-green-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+                notification.textContent = 'URL copiada al portapapeles';
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.remove();
+                }, 2000);
+            }).catch(err => {
+                console.error('Error copiando URL:', err);
+                alert('Error al copiar URL');
+            });
+        }
+
+        // Función para refrescar screenshot
+        function refreshScreenshot(adId, adUrl) {
+            const img = document.querySelector(`#ad-preview-${adId} img`);
+            const fallback = document.querySelector(`#ad-preview-${adId} .absolute.inset-0`);
+            
+            if (img && fallback) {
+                // Mostrar loading
+                img.style.opacity = '0';
+                fallback.style.display = 'flex';
+                
+                // Forzar recarga con timestamp
+                const timestamp = new Date().getTime();
+                img.src = `/api/screenshot?url=${encodeURIComponent(adUrl)}&adId=${adId}&t=${timestamp}`;
+                
+                // Mostrar notificación
+                const notification = document.createElement('div');
+                notification.className = 'fixed top-4 right-4 bg-cyan-500 text-white px-4 py-2 rounded-lg shadow-lg z-50';
+                notification.textContent = '🔄 Actualizando screenshot...';
+                document.body.appendChild(notification);
+                
+                setTimeout(() => {
+                    notification.remove();
+                }, 3000);
+            }
+        }
+
+        // Función para alternar entre vista de iframe y vista de enlace
+        function toggleAdView(adId) {
+            const previewContainer = document.getElementById(`ad-preview-${adId}`);
+            if (!previewContainer) return;
+            
+            const iframe = previewContainer.querySelector('iframe');
+            const fallback = previewContainer.querySelector('.absolute.inset-0');
+            
+            if (iframe.style.display === 'none') {
+                // Mostrar iframe
+                iframe.style.display = 'block';
+                iframe.style.opacity = '0';
+                iframe.onload = () => iframe.style.opacity = '1';
+                fallback.style.display = 'none';
+            } else {
+                // Mostrar enlace
+                iframe.style.display = 'none';
+                fallback.style.display = 'flex';
+            }
+        }
+
+        function updatePagination() {
+            paginationControls.innerHTML = '';
+            
+            // Solo mostrar controles de paginación si el modo automático está desactivado
+            if (!autoPaginationCheckbox.checked) {
+                if (prevPageUrl) {
+                    const prevButton = document.createElement('button');
+                    prevButton.textContent = '← Anterior';
+                    prevButton.className = 'btn btn-secondary px-4';
+                    prevButton.onclick = () => fetchAds({}, prevPageUrl);
+                    paginationControls.appendChild(prevButton);
+                }
+                if (nextPageUrl) {
+                    const nextButton = document.createElement('button');
+                    nextButton.textContent = 'Siguiente →';
+                    nextButton.className = 'btn btn-secondary px-4';
+                    nextButton.onclick = () => fetchAds({}, nextPageUrl);
+                    paginationControls.appendChild(nextButton);
+                }
+            } else if (nextPageUrl) {
+                // En modo automático, mostrar botón para obtener más páginas
+                const moreButton = document.createElement('button');
+                moreButton.textContent = '🔄 Obtener 5 páginas más';
+                moreButton.className = 'btn btn-primary px-6';
+                moreButton.onclick = async () => {
+                    moreButton.disabled = true;
+                    moreButton.textContent = '⏳ Obteniendo más resultados...';
+                    
+                    try {
+                        const response = await fetch(`${API_BASE_URL}/api/search`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ singlePage: false, url: nextPageUrl })
+                        });
+                        const data = await response.json();
+                        
+                        if (data.data && data.data.length > 0) {
+                            // Agregar nuevos anuncios a los existentes
+                            renderAds(data.data, true); // true = append mode
+                            nextPageUrl = data.paging?.next || null;
+                            
+                            // Actualizar información de resultados
+                            const infoElement = document.querySelector('.col-span-full.text-center.text-cyan-400');
+                            if (infoElement && data.totalAds) {
+                                const currentTotal = parseInt(infoElement.textContent.match(/Total de anuncios: (\d+)/)?.[1] || '0');
+                                const newTotal = currentTotal + data.totalAds;
+                                infoElement.innerHTML = infoElement.innerHTML.replace(/Total de anuncios: \d+/, `Total de anuncios: ${newTotal}`);
+                            }
+                        }
+                        
+                        updatePagination();
+                    } catch (error) {
+                        console.error('Error obteniendo más páginas:', error);
+                        alert('Error obteniendo más resultados: ' + error.message);
+                    } finally {
+                        moreButton.disabled = false;
+                        moreButton.textContent = '🔄 Obtener 5 páginas más';
+                    }
+                };
+                paginationControls.appendChild(moreButton);
+            }
+        }
+        
+        // Inicializar event listeners cuando se carga la página
+        document.addEventListener('DOMContentLoaded', function() {
+            // Event listeners para cambio de método de búsqueda
+            const methodRadios = document.querySelectorAll('input[name="search-method"]');
+            methodRadios.forEach(radio => {
+                radio.addEventListener('change', toggleApifyConfig);
+            });
+            
+            // Inicializar visibilidad
+            toggleApifyConfig();
+        });
+    </script>
+</body>
+</html>
+
