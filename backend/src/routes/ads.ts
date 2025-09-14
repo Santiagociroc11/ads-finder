@@ -388,4 +388,105 @@ router.post('/test-direct-url', asyncHandler(async (req, res) => {
   }
 }));
 
+// Test endpoint using EXACT same config as working test-direct-url
+router.post('/test-pageId-direct', asyncHandler(async (req, res) => {
+  const { pageId = '1835332883255867' } = req.body;
+
+  console.log(`🧪 Testing pageId with EXACT same config as working endpoint: ${pageId}`);
+  
+  const { chromium } = await import('playwright');
+  
+  try {
+    // Use EXACT same config as test-direct-url (which works)
+    const browser = await chromium.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+      ]
+    });
+
+    const context = await browser.newContext({
+      viewport: { width: 1920, height: 1080 },
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    });
+
+    const page = await context.newPage();
+
+    // Build URL same way as AdvertiserStatsService
+    const url = `https://www.facebook.com/ads/library/?active_status=active&ad_type=all&country=ALL&is_targeted_country=false&media_type=all&search_type=page&view_all_page_id=${pageId}`;
+    
+    console.log(`📱 Navigating to: ${url}`);
+    
+    // Use EXACT same navigation as test-direct-url
+    await page.goto(url, { 
+      waitUntil: 'networkidle',
+      timeout: 30000 
+    });
+
+    // Use EXACT same wait time as test-direct-url
+    await page.waitForTimeout(5000);
+
+    // Use EXACT same extraction logic as test-direct-url
+    const countResult = await page.evaluate(() => {
+      const text = document.body.innerText;
+      
+      // Look for the specific Facebook pattern "~X.XXX resultados"
+      const tildePattern = text.match(/~(\d{1,3}(?:\.\d{3})*)\s*resultados?/i);
+      if (tildePattern) {
+        return {
+          found: true,
+          pattern: 'tilde',
+          count: parseInt(tildePattern[1].replace(/\./g, '')),
+          text: tildePattern[0]
+        };
+      }
+      
+      // Look for "X.XXX resultados" pattern (without tilde)
+      const resultadosPattern = text.match(/(\d{1,3}(?:\.\d{3})*)\s*resultados?/i);
+      if (resultadosPattern) {
+        return {
+          found: true,
+          pattern: 'resultados',
+          count: parseInt(resultadosPattern[1].replace(/\./g, '')),
+          text: resultadosPattern[0]
+        };
+      }
+      
+      return { 
+        found: false, 
+        text: text.substring(0, 1000),
+        textLength: text.length
+      };
+    });
+
+    const pageTitle = await page.title();
+    const pageContentLength = (await page.content()).length;
+    
+    res.json({
+      success: true,
+      message: 'PageId test with exact working config completed',
+      pageId: pageId,
+      url: url,
+      pageTitle: pageTitle,
+      pageContentLength: pageContentLength,
+      countResult: countResult,
+      timestamp: new Date().toISOString()
+    });
+
+  } catch (error) {
+    console.error('Error in test-pageId-direct endpoint:', error);
+    throw new CustomError(
+      error instanceof Error ? error.message : 'Error en test de pageId directo',
+      500
+    );
+  } finally {
+    if (browser) {
+      await browser.close();
+    }
+  }
+}));
+
 export default router;

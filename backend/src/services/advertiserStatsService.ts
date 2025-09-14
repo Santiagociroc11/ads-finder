@@ -44,7 +44,7 @@ export class AdvertiserStatsService {
 
       console.log(`🔍 Getting stats for pageId: ${pageId}`)
       
-      // Launch browser
+      // Launch browser with EXACT same config as working test-direct-url endpoint
       this.browser = await chromium.launch({
         headless: true,
         args: [
@@ -52,23 +52,17 @@ export class AdvertiserStatsService {
           '--disable-setuid-sandbox',
           '--disable-dev-shm-usage',
           '--disable-gpu',
-          '--disable-background-timer-throttling',
-          '--disable-backgrounding-occluded-windows',
-          '--disable-renderer-backgrounding',
-          '--disable-features=TranslateUI',
         ]
       })
 
       const context = await this.browser.newContext({
         viewport: { width: 1920, height: 1080 },
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        locale: 'en-US',
       })
 
       const page = await context.newPage()
 
-      // Set up stealth measures
-      await this.setupStealth(page)
+      // NO stealth measures - they might be causing detection
 
       // Navigate to Facebook Ad Library
       const adLibraryUrl = this.buildAdLibraryUrl(pageId, country)
@@ -79,7 +73,7 @@ export class AdvertiserStatsService {
         timeout: 30000 
       })
 
-      // Wait for content to load
+      // Wait for content to load (same as working endpoint)
       await page.waitForTimeout(5000)
 
       // Extract total count and advertiser name
@@ -213,14 +207,14 @@ export class AdvertiserStatsService {
 
   private async extractStatsFromPage(page: Page): Promise<{ totalCount: number; advertiserName?: string }> {
     try {
-      // Wait a bit more for content to load
+      // Wait for content to load (same as working endpoint)
       await page.waitForTimeout(5000)
 
       // Get page content for analysis
       const pageContent = await page.content()
       console.log(`📄 Page content length: ${pageContent.length} characters`)
 
-      // Extract advertiser name and total count
+      // Extract advertiser name and total count using the SAME logic as the working test-direct-url endpoint
       const pageData = await page.evaluate(() => {
         const text = document.body.innerText;
         
@@ -253,20 +247,25 @@ export class AdvertiserStatsService {
           if (advertiserName) break;
         }
         
-        // Extract total count - look for the specific Facebook pattern "~X.XXX resultados"
+        // Extract total count - use EXACT same logic as working test-direct-url endpoint
         let totalCount = 0;
         
-        // Look for the specific Facebook pattern "~X.XXX resultados"
+        // Look for the specific Facebook pattern "~X.XXX resultados" (EXACT same regex)
         const tildePattern = text.match(/~(\d{1,3}(?:\.\d{3})*)\s*resultados?/i);
         if (tildePattern) {
           totalCount = parseInt(tildePattern[1].replace(/\./g, ''));
+          console.log(`📊 Found tilde pattern: ${tildePattern[0]} -> ${totalCount}`);
         } else {
-          // Look for "X.XXX resultados" pattern (without tilde)
+          // Look for "X.XXX resultados" pattern (without tilde) (EXACT same regex)
           const resultadosPattern = text.match(/(\d{1,3}(?:\.\d{3})*)\s*resultados?/i);
           if (resultadosPattern) {
             totalCount = parseInt(resultadosPattern[1].replace(/\./g, ''));
+            console.log(`📊 Found resultados pattern: ${resultadosPattern[0]} -> ${totalCount}`);
           }
         }
+        
+        // Debug: log the text we're searching in
+        console.log(`📄 Searching in text (first 500 chars): ${text.substring(0, 500)}`);
         
         return { advertiserName, totalCount };
       });
