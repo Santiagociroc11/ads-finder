@@ -17,7 +17,7 @@ const queryClient = new QueryClient({
       refetchOnWindowFocus: false,
     },
     mutations: {
-      retry: 1,
+      retry: false, // Disable automatic retries for mutations to prevent duplicate Apify requests
     },
   },
 })

@@ -268,6 +268,8 @@ export function SearchPage() {
     secondary: null,
     tertiary: null
   })
+  const [searchStartTime, setSearchStartTime] = useState<number | null>(null)
+  const [elapsedTime, setElapsedTime] = useState<string>('')
 
   // Load advertiser stats when search results change
   useEffect(() => {
@@ -303,6 +305,8 @@ export function SearchPage() {
     {
       onSuccess: (data: SearchResponse) => {
         setSearchResults(data.data)
+        setSearchStartTime(null)
+        setElapsedTime('')
         toast.success(`¡Se encontraron ${data.data.length} anuncios!`)
         
         if (data.autoSaved?.saved) {
@@ -313,10 +317,39 @@ export function SearchPage() {
       },
       onError: (error: any) => {
         console.error('Search error:', error)
-        toast.error(error.response?.data?.error || 'Error en la búsqueda')
+        setSearchStartTime(null)
+        setElapsedTime('')
+        
+        // Handle timeout errors specifically
+        if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
+          toast.error('La búsqueda tardó más de 15 minutos. Apify puede estar sobrecargado. Intenta con menos anuncios o usa un método diferente.', { duration: 10000 })
+        } else if (error.response?.status === 500) {
+          toast.error('Error del servidor. Verifica que Apify esté funcionando correctamente.', { duration: 8000 })
+        } else {
+          toast.error(error.response?.data?.error || 'Error en la búsqueda')
+        }
       }
     }
   )
+
+  // Update elapsed time during search
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null
+    
+    if (searchMutation.isLoading && searchStartTime) {
+      interval = setInterval(() => {
+        const now = Date.now()
+        const elapsed = now - searchStartTime
+        const minutes = Math.floor(elapsed / 60000)
+        const seconds = Math.floor((elapsed % 60000) / 1000)
+        setElapsedTime(`${minutes}:${seconds.toString().padStart(2, '0')}`)
+      }, 1000)
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval)
+    }
+  }, [searchMutation.isLoading, searchStartTime])
 
   // AI suggestions mutation
   const suggestionsMutation = useMutation(
@@ -449,6 +482,8 @@ export function SearchPage() {
     setCarouselIndices({})
     setDebugData(null)
     setSortConfig({ primary: null, secondary: null, tertiary: null })
+    setSearchStartTime(Date.now())
+    setElapsedTime('')
 
     searchMutation.mutate(searchParams)
   }
@@ -1016,7 +1051,14 @@ export function SearchPage() {
               className="btn-primary px-8"
             >
               {searchMutation.isLoading ? (
-                <div className="loading-spinner w-5 h-5" />
+                <div className="flex items-center gap-2">
+                  <div className="loading-spinner w-5 h-5" />
+                  {searchParams.useApify ? (
+                    <span className="text-sm">💎 Apify Pro...</span>
+                  ) : (
+                    <span className="text-sm">Buscando...</span>
+                  )}
+                </div>
               ) : (
                 <Search className="w-5 h-5" />
               )}
@@ -1271,6 +1313,9 @@ export function SearchPage() {
                   <div className="text-xs text-gray-400 mt-1">
                     💡 Mínimo 10 anuncios (Apify requiere 10+) - Recomendado: 50-200
                   </div>
+                  <div className="text-xs text-yellow-400 mt-1">
+                    ⏰ Tiempo estimado: 10-15 minutos para 100+ anuncios
+                  </div>
                 </div>
               )}
             </div>
@@ -1307,8 +1352,52 @@ export function SearchPage() {
               </div>
             </div>
 
-            {/* Screenshot Progress - Only show for non-Apify searches */}
-            {searchResults.length > 0 && searchResults.some(ad => ad.ad_snapshot_url) && !searchParams.useApify && (
+          {/* Apify Search Progress */}
+          {searchMutation.isLoading && searchParams.useApify && (
+            <div className="holographic-panel p-4 mb-6">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 bg-yellow-500/20 border border-yellow-500/50 rounded-full flex items-center justify-center">
+                    <div className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-yellow-300">
+                      💎 Ejecutando Búsqueda Apify Pro
+                    </h3>
+                    <p className="text-sm text-gray-400">
+                      Procesando hasta {searchParams.apifyCount || 100} anuncios... Esto puede tomar 10-15 minutos.
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-yellow-300 font-medium">
+                    Tiempo transcurrido: {elapsedTime || '0:00'}
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    No cierres esta ventana
+                  </div>
+                </div>
+              </div>
+              
+              <div className="mt-4 bg-gray-800/50 rounded-lg p-3">
+                <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                  <span>Procesando con Apify Professional</span>
+                  <span>Timeout: 15 minutos</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div 
+                    className="bg-gradient-to-r from-yellow-500 to-yellow-400 h-2 rounded-full transition-all duration-1000" 
+                    style={{ 
+                      width: searchStartTime ? `${Math.min((Date.now() - searchStartTime) / (15 * 60 * 1000) * 100, 95)}%` : '10%' 
+                    }} 
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Screenshot Progress - Only show for non-Apify searches */}
+          {searchResults.length > 0 && searchResults.some(ad => ad.ad_snapshot_url) && !searchParams.useApify && (
               <div className="holographic-panel p-4">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">

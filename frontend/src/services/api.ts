@@ -15,7 +15,7 @@ import type {
 // Create axios instance
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || '/api',
-  timeout: 60000, // 60 seconds timeout for long-running searches
+  timeout: 900000, // 15 minutes timeout for very long-running Apify searches
   headers: {
     'Content-Type': 'application/json',
   },
