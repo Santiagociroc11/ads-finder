@@ -259,6 +259,15 @@ export function SearchPage() {
   const [debugData, setDebugData] = useState<any>(null)
   const [carouselIndices, setCarouselIndices] = useState<Record<string, number>>({})
   const [screenshots, setScreenshots] = useState<Record<string, { loading: boolean; data?: string; error?: string }>>({})
+  const [sortConfig, setSortConfig] = useState<{
+    primary: { field: string; direction: 'asc' | 'desc' } | null
+    secondary: { field: string; direction: 'asc' | 'desc' } | null
+    tertiary: { field: string; direction: 'asc' | 'desc' } | null
+  }>({
+    primary: null,
+    secondary: null,
+    tertiary: null
+  })
 
   // Load advertiser stats when search results change
   useEffect(() => {
@@ -337,6 +346,14 @@ export function SearchPage() {
     (searchId: string) => completeSearchesApi.getCompleteSearch(searchId, { page: 1, limit: 1000 }),
     {
       onSuccess: (data) => {
+        // Clear previous results before loading saved search
+        setSearchResults([])
+        setScreenshots({})
+        setExpandedAds(new Set())
+        setCarouselIndices({})
+        setDebugData(null)
+        setSortConfig({ primary: null, secondary: null, tertiary: null })
+        
         setSearchResults(data.results)
         setSearchParams(data.searchParams)
         setShowSavedSearches(false)
@@ -425,6 +442,14 @@ export function SearchPage() {
       return
     }
 
+    // Clear previous results before starting new search
+    setSearchResults([])
+    setScreenshots({})
+    setExpandedAds(new Set())
+    setCarouselIndices({})
+    setDebugData(null)
+    setSortConfig({ primary: null, secondary: null, tertiary: null })
+
     searchMutation.mutate(searchParams)
   }
 
@@ -474,6 +499,14 @@ export function SearchPage() {
       toast.error('Por favor ingresa el nombre del anunciante')
       return
     }
+    
+    // Clear previous results before starting new scraping
+    setSearchResults([])
+    setScreenshots({})
+    setExpandedAds(new Set())
+    setCarouselIndices({})
+    setDebugData(null)
+    setSortConfig({ primary: null, secondary: null, tertiary: null })
     
     scraperMutation.mutate({
       advertiserName: advertiserName.trim(),
@@ -579,6 +612,115 @@ export function SearchPage() {
       'ES': 'España'
     }
     return countryNames[countryCode || 'CO'] || countryCode || 'Colombia'
+  }
+
+  // Sorting functions
+  const getSortValue = (ad: AdData, field: string): number => {
+    switch (field) {
+      case 'days_running':
+        return ad.days_running || 0
+      case 'advertiser_active_ads':
+        const stats = advertiserStats.get(ad.page_id)
+        return stats?.totalActiveAds || 0
+      case 'collation_count':
+        return ad.collation_count || 0
+      case 'hotness_score':
+        return ad.hotness_score || 0
+      default:
+        return 0
+    }
+  }
+
+  const sortResults = (results: AdData[]): AdData[] => {
+    if (!sortConfig.primary) return results
+
+    return [...results].sort((a, b) => {
+      // Primary sort
+      const primaryA = getSortValue(a, sortConfig.primary!.field)
+      const primaryB = getSortValue(b, sortConfig.primary!.field)
+      let primaryComparison = 0
+
+      if (primaryA < primaryB) primaryComparison = -1
+      else if (primaryA > primaryB) primaryComparison = 1
+
+      if (primaryComparison !== 0) {
+        return sortConfig.primary!.direction === 'asc' ? primaryComparison : -primaryComparison
+      }
+
+      // Secondary sort (if primary values are equal)
+      if (sortConfig.secondary) {
+        const secondaryA = getSortValue(a, sortConfig.secondary.field)
+        const secondaryB = getSortValue(b, sortConfig.secondary.field)
+        let secondaryComparison = 0
+
+        if (secondaryA < secondaryB) secondaryComparison = -1
+        else if (secondaryA > secondaryB) secondaryComparison = 1
+
+        if (secondaryComparison !== 0) {
+          return sortConfig.secondary.direction === 'asc' ? secondaryComparison : -secondaryComparison
+        }
+      }
+
+      // Tertiary sort (if primary and secondary values are equal)
+      if (sortConfig.tertiary) {
+        const tertiaryA = getSortValue(a, sortConfig.tertiary.field)
+        const tertiaryB = getSortValue(b, sortConfig.tertiary.field)
+        let tertiaryComparison = 0
+
+        if (tertiaryA < tertiaryB) tertiaryComparison = -1
+        else if (tertiaryA > tertiaryB) tertiaryComparison = 1
+
+        return sortConfig.tertiary.direction === 'asc' ? tertiaryComparison : -tertiaryComparison
+      }
+
+      return 0
+    })
+  }
+
+  const handleSortChange = (level: 'primary' | 'secondary' | 'tertiary', field: string) => {
+    setSortConfig(prev => {
+      const newConfig = { ...prev }
+      
+      // If clicking the same field, cycle through: asc -> desc -> null
+      if (newConfig[level]?.field === field) {
+        if (newConfig[level]?.direction === 'asc') {
+          newConfig[level] = { field, direction: 'desc' }
+        } else if (newConfig[level]?.direction === 'desc') {
+          newConfig[level] = null
+        }
+      } else {
+        // New field, start with asc
+        newConfig[level] = { field, direction: 'asc' }
+      }
+
+      // If setting primary, clear secondary and tertiary
+      if (level === 'primary') {
+        newConfig.secondary = null
+        newConfig.tertiary = null
+      }
+      // If setting secondary, clear tertiary
+      else if (level === 'secondary') {
+        newConfig.tertiary = null
+      }
+
+      return newConfig
+    })
+  }
+
+  const getSortIcon = (level: 'primary' | 'secondary' | 'tertiary', field: string) => {
+    const config = sortConfig[level]
+    if (!config || config.field !== field) return '↕️'
+    return config.direction === 'asc' ? '↑' : '↓'
+  }
+
+  const getSortLabel = (field: string) => {
+    const labels: Record<string, string> = {
+      'days_running': 'Días corriendo',
+      'advertiser_active_ads': 'Anuncios activos del anunciante',
+      'collation_count': 'Duplicados',
+      'hotness_score': 'Puntuación de popularidad'
+    }
+    return labels[field] || field
   }
 
   // Carousel functions
@@ -1241,9 +1383,144 @@ export function SearchPage() {
             </div>
           )}
 
+          {/* Sorting Controls */}
+          {searchResults.length > 0 && (
+            <div className="holographic-panel p-4 mb-6">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-primary-300 flex items-center gap-2">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12" />
+                  </svg>
+                  Ordenación de Resultados
+                </h3>
+                <div className="text-sm text-gray-400">
+                  {searchResults.length} anuncios
+                </div>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* Primary Sort */}
+                <div>
+                  <label className="block text-sm font-medium text-primary-400 mb-2">
+                    Ordenación Principal
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['days_running', 'advertiser_active_ads', 'collation_count', 'hotness_score'].map((field) => (
+                      <button
+                        key={field}
+                        onClick={() => handleSortChange('primary', field)}
+                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                          sortConfig.primary?.field === field
+                            ? 'bg-primary-500/20 border border-primary-500/50 text-primary-300'
+                            : 'bg-gray-700/50 border border-gray-600/50 text-gray-300 hover:bg-gray-600/50'
+                        }`}
+                      >
+                        <span>{getSortLabel(field)}</span>
+                        <span className="text-lg">{getSortIcon('primary', field)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Secondary Sort */}
+                <div>
+                  <label className="block text-sm font-medium text-primary-400 mb-2">
+                    Ordenación Secundaria
+                    {sortConfig.primary && (
+                      <span className="text-xs text-gray-400 ml-2">(cuando los valores principales son iguales)</span>
+                    )}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['days_running', 'advertiser_active_ads', 'collation_count', 'hotness_score'].map((field) => (
+                      <button
+                        key={field}
+                        onClick={() => handleSortChange('secondary', field)}
+                        disabled={!sortConfig.primary}
+                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                          !sortConfig.primary
+                            ? 'bg-gray-800/50 border border-gray-700/50 text-gray-500 cursor-not-allowed'
+                            : sortConfig.secondary?.field === field
+                            ? 'bg-secondary-500/20 border border-secondary-500/50 text-secondary-300'
+                            : 'bg-gray-700/50 border border-gray-600/50 text-gray-300 hover:bg-gray-600/50'
+                        }`}
+                      >
+                        <span>{getSortLabel(field)}</span>
+                        <span className="text-lg">{getSortIcon('secondary', field)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tertiary Sort */}
+                <div>
+                  <label className="block text-sm font-medium text-primary-400 mb-2">
+                    Ordenación Terciaria
+                    {sortConfig.secondary && (
+                      <span className="text-xs text-gray-400 ml-2">(cuando los valores secundarios son iguales)</span>
+                    )}
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    {['days_running', 'advertiser_active_ads', 'collation_count', 'hotness_score'].map((field) => (
+                      <button
+                        key={field}
+                        onClick={() => handleSortChange('tertiary', field)}
+                        disabled={!sortConfig.secondary}
+                        className={`flex items-center justify-between px-3 py-2 rounded-lg text-sm transition-colors ${
+                          !sortConfig.secondary
+                            ? 'bg-gray-800/50 border border-gray-700/50 text-gray-500 cursor-not-allowed'
+                            : sortConfig.tertiary?.field === field
+                            ? 'bg-yellow-500/20 border border-yellow-500/50 text-yellow-300'
+                            : 'bg-gray-700/50 border border-gray-600/50 text-gray-300 hover:bg-gray-600/50'
+                        }`}
+                      >
+                        <span>{getSortLabel(field)}</span>
+                        <span className="text-lg">{getSortIcon('tertiary', field)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Sort Summary */}
+              {(sortConfig.primary || sortConfig.secondary || sortConfig.tertiary) && (
+                <div className="mt-4 p-3 bg-gray-800/50 rounded-lg">
+                  <div className="text-sm text-gray-300">
+                    <span className="font-medium">Ordenación activa:</span>
+                  </div>
+                  <div className="mt-2 space-y-1">
+                    {sortConfig.primary && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="w-2 h-2 bg-primary-500 rounded-full"></span>
+                        <span className="text-primary-300">
+                          {getSortLabel(sortConfig.primary.field)} {sortConfig.primary.direction === 'asc' ? '(ascendente)' : '(descendente)'}
+                        </span>
+                      </div>
+                    )}
+                    {sortConfig.secondary && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="w-2 h-2 bg-secondary-500 rounded-full"></span>
+                        <span className="text-secondary-300">
+                          {getSortLabel(sortConfig.secondary.field)} {sortConfig.secondary.direction === 'asc' ? '(ascendente)' : '(descendente)'}
+                        </span>
+                      </div>
+                    )}
+                    {sortConfig.tertiary && (
+                      <div className="flex items-center gap-2 text-sm">
+                        <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>
+                        <span className="text-yellow-300">
+                          {getSortLabel(sortConfig.tertiary.field)} {sortConfig.tertiary.direction === 'asc' ? '(ascendente)' : '(descendente)'}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Results Grid */}
           <div className="ad-grid">
-            {searchResults.map((ad) => {
+            {sortResults(searchResults).map((ad) => {
               const isExpanded = expandedAds.has(ad.id)
               const adInfo = getAdData(ad)
               const adData = adInfo.data
