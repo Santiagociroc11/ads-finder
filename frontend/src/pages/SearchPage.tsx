@@ -270,10 +270,10 @@ export function SearchPage() {
     }
   }, [searchResults])
 
-  // Generate screenshots automatically for all ads
+  // Generate screenshots automatically for all ads (only for non-Apify searches)
   useEffect(() => {
-    if (searchResults.length > 0) {
-      console.log(`📸 Iniciando generación automática de screenshots para ${searchResults.length} anuncios`)
+    if (searchResults.length > 0 && !searchParams.useApify) {
+      console.log(`📸 Iniciando generación automática de screenshots para ${searchResults.length} anuncios (scraping tradicional)`)
       
       searchResults.forEach((ad, index) => {
         if (ad.ad_snapshot_url && !screenshots[ad.id]) {
@@ -283,8 +283,10 @@ export function SearchPage() {
           }, index * 2000) // 2 segundos entre cada screenshot
         }
       })
+    } else if (searchResults.length > 0 && searchParams.useApify) {
+      console.log(`💎 Búsqueda de Apify detectada - omitiendo generación de screenshots automáticos`)
     }
-  }, [searchResults])
+  }, [searchResults, searchParams.useApify])
 
   // Search mutation
   const searchMutation = useMutation(
@@ -1163,90 +1165,52 @@ export function SearchPage() {
               </div>
             </div>
 
-            {/* Advertiser Statistics */}
-            <div className="holographic-panel p-4">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-semibold text-primary-300 flex items-center gap-2">
-                  <Users className="w-5 h-5" />
-                  Estadísticas de Anunciantes
-                </h3>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {/* Total Advertisers */}
-                <div className="stat-box">
-                  <div className="text-2xl font-bold text-primary-400">
-                    {new Set(searchResults.map(ad => ad.page_name)).size}
+            {/* Screenshot Progress - Only show for non-Apify searches */}
+            {searchResults.length > 0 && searchResults.some(ad => ad.ad_snapshot_url) && !searchParams.useApify && (
+              <div className="holographic-panel p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <span className="text-sm font-medium text-blue-300">Screenshots automáticos</span>
                   </div>
-                  <div className="text-sm text-gray-400">Anunciantes únicos</div>
-                </div>
-
-                {/* Most Active Advertiser */}
-                <div className="stat-box">
-                  <div className="text-lg font-semibold text-white truncate">
-                    {(() => {
-                      const advertiserCounts = searchResults.reduce((acc, ad) => {
-                        acc[ad.page_name] = (acc[ad.page_name] || 0) + 1
-                        return acc
-                      }, {} as Record<string, number>)
-                      const mostActive = Object.entries(advertiserCounts).sort(([,a], [,b]) => b - a)[0]
-                      return mostActive ? mostActive[0] : 'N/A'
-                    })()}
-                  </div>
-                  <div className="text-sm text-gray-400">
-                    {(() => {
-                      const advertiserCounts = searchResults.reduce((acc, ad) => {
-                        acc[ad.page_name] = (acc[ad.page_name] || 0) + 1
-                        return acc
-                      }, {} as Record<string, number>)
-                      const mostActive = Object.entries(advertiserCounts).sort(([,a], [,b]) => b - a)[0]
-                      return mostActive ? `${mostActive[1]} anuncios` : '0 anuncios'
-                    })()}
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-blue-300">
+                      {Object.values(screenshots).filter(s => s.data).length} / {searchResults.filter(ad => ad.ad_snapshot_url).length} completados
+                    </span>
+                    {Object.values(screenshots).some(s => s.loading) && (
+                      <div className="w-4 h-4 border border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                    )}
                   </div>
                 </div>
-
-                {/* Average Ads per Advertiser */}
-                <div className="stat-box">
-                  <div className="text-2xl font-bold text-secondary-400">
-                    {(searchResults.length / new Set(searchResults.map(ad => ad.page_name)).size).toFixed(1)}
-                  </div>
-                  <div className="text-sm text-gray-400">Promedio por anunciante</div>
+                
+                {/* Progress Bar */}
+                <div className="mt-2 w-full bg-gray-700 rounded-full h-2">
+                  <div 
+                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
+                    style={{
+                      width: `${(Object.values(screenshots).filter(s => s.data).length / searchResults.filter(ad => ad.ad_snapshot_url).length) * 100}%`
+                    }}
+                  />
                 </div>
               </div>
+            )}
 
-              {/* Screenshot Progress */}
-              {searchResults.length > 0 && searchResults.some(ad => ad.ad_snapshot_url) && (
-                <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      <span className="text-sm font-medium text-blue-300">Screenshots automáticos</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-blue-300">
-                        {Object.values(screenshots).filter(s => s.data).length} / {searchResults.filter(ad => ad.ad_snapshot_url).length} completados
-                      </span>
-                      {Object.values(screenshots).some(s => s.loading) && (
-                        <div className="w-4 h-4 border border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-                      )}
-                    </div>
-                  </div>
-                  
-                  {/* Progress Bar */}
-                  <div className="mt-2 w-full bg-gray-700 rounded-full h-2">
-                    <div 
-                      className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                      style={{
-                        width: `${(Object.values(screenshots).filter(s => s.data).length / searchResults.filter(ad => ad.ad_snapshot_url).length) * 100}%`
-                      }}
-                    />
-                  </div>
+            {/* Apify Search Info */}
+            {searchResults.length > 0 && searchParams.useApify && (
+              <div className="holographic-panel p-4">
+                <div className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="text-sm font-medium text-yellow-300">
+                    💎 Búsqueda de Apify - Los anuncios ya incluyen imágenes de alta calidad, no se generan screenshots adicionales
+                  </span>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Debug Panel */}
@@ -1766,8 +1730,8 @@ export function SearchPage() {
                           {isExpanded ? 'Ocultar detalles' : 'Ver más detalles'}
                         </button>
 
-                        {/* Screenshot Status */}
-                        {ad.ad_snapshot_url && (
+                        {/* Screenshot Status - Only show for non-Apify searches */}
+                        {ad.ad_snapshot_url && !searchParams.useApify && (
                           <div className="flex items-center gap-2">
                             {screenshots[ad.id]?.loading ? (
                               <div className="flex items-center gap-2 text-xs text-blue-400">
@@ -1803,8 +1767,8 @@ export function SearchPage() {
                         )}
                       </div>
 
-                      {/* Screenshot Display */}
-                      {screenshots[ad.id]?.data && (
+                      {/* Screenshot Display - Only show for non-Apify searches */}
+                      {screenshots[ad.id]?.data && !searchParams.useApify && (
                         <div className="bg-gray-900/50 border border-primary-500/30 rounded-lg overflow-hidden">
                           <div className="flex items-center justify-between p-2 bg-gray-800/50">
                             <span className="text-xs text-primary-300 font-medium flex items-center gap-1">
@@ -1852,8 +1816,8 @@ export function SearchPage() {
                         </div>
                       )}
 
-                      {/* Screenshot Error */}
-                      {screenshots[ad.id]?.error && (
+                      {/* Screenshot Error - Only show for non-Apify searches */}
+                      {screenshots[ad.id]?.error && !searchParams.useApify && (
                         <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-2">
                           <div className="flex items-center justify-between">
                             <span className="text-xs text-red-400">Error: {screenshots[ad.id].error}</span>
