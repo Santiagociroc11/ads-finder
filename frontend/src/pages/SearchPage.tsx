@@ -1323,6 +1323,50 @@ export function SearchPage() {
         </form>
       </div>
 
+      {/* Apify Search Progress - Show during search regardless of results */}
+      {searchMutation.isLoading && searchParams.useApify && (
+        <div className="holographic-panel p-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 bg-yellow-500/20 border border-yellow-500/50 rounded-full flex items-center justify-center">
+                <div className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
+              </div>
+              <div>
+                <h3 className="text-lg font-semibold text-yellow-300">
+                  💎 Ejecutando Búsqueda Apify Pro
+                </h3>
+                <p className="text-sm text-gray-400">
+                  Procesando hasta {searchParams.apifyCount || 100} anuncios... Esto puede tomar 10-15 minutos.
+                </p>
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-sm text-yellow-300 font-medium">
+                Tiempo transcurrido: {elapsedTime || '0:00'}
+              </div>
+              <div className="text-xs text-gray-400">
+                No cierres esta ventana
+              </div>
+            </div>
+          </div>
+          
+          <div className="mt-4 bg-gray-800/50 rounded-lg p-3">
+            <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+              <span>Procesando con Apify Professional</span>
+              <span>Timeout: 15 minutos</span>
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-2">
+              <div 
+                className="bg-gradient-to-r from-yellow-500 to-yellow-400 h-2 rounded-full transition-all duration-1000" 
+                style={{ 
+                  width: searchStartTime ? `${Math.min((Date.now() - searchStartTime) / (15 * 60 * 1000) * 100, 95)}%` : '10%' 
+                }} 
+              />
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Search Results */}
       {searchResults.length > 0 && (
         <div className="space-y-6">
@@ -1351,50 +1395,6 @@ export function SearchPage() {
                 </button>
               </div>
             </div>
-
-          {/* Apify Search Progress */}
-          {searchMutation.isLoading && searchParams.useApify && (
-            <div className="holographic-panel p-4 mb-6">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-8 h-8 bg-yellow-500/20 border border-yellow-500/50 rounded-full flex items-center justify-center">
-                    <div className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-yellow-300">
-                      💎 Ejecutando Búsqueda Apify Pro
-                    </h3>
-                    <p className="text-sm text-gray-400">
-                      Procesando hasta {searchParams.apifyCount || 100} anuncios... Esto puede tomar 10-15 minutos.
-                    </p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm text-yellow-300 font-medium">
-                    Tiempo transcurrido: {elapsedTime || '0:00'}
-                  </div>
-                  <div className="text-xs text-gray-400">
-                    No cierres esta ventana
-                  </div>
-                </div>
-              </div>
-              
-              <div className="mt-4 bg-gray-800/50 rounded-lg p-3">
-                <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
-                  <span>Procesando con Apify Professional</span>
-                  <span>Timeout: 15 minutos</span>
-                </div>
-                <div className="w-full bg-gray-700 rounded-full h-2">
-                  <div 
-                    className="bg-gradient-to-r from-yellow-500 to-yellow-400 h-2 rounded-full transition-all duration-1000" 
-                    style={{ 
-                      width: searchStartTime ? `${Math.min((Date.now() - searchStartTime) / (15 * 60 * 1000) * 100, 95)}%` : '10%' 
-                    }} 
-                  />
-                </div>
-              </div>
-            </div>
-          )}
 
           {/* Screenshot Progress - Only show for non-Apify searches */}
           {searchResults.length > 0 && searchResults.some(ad => ad.ad_snapshot_url) && !searchParams.useApify && (
