@@ -79,13 +79,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           
           if (response.success && response.user) {
             setUser(response.user);
+            console.log('✅ Token verified successfully, user restored');
           } else {
-            // Token is invalid, clear stored auth
+            console.warn('⚠️ Token verification failed:', response);
             clearStoredAuth();
           }
-        } catch (error) {
-          console.error('Token verification failed:', error);
-          clearStoredAuth();
+        } catch (error: any) {
+          console.error('❌ Token verification error:', error);
+          
+          // Check if it's a network error (server restarting)
+          if (error.code === 'ERR_NETWORK' || error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
+            console.log('🔄 Server appears to be restarting, keeping token for retry...');
+            // Don't clear auth data, just set user from localStorage for now
+            setUser(storedUser);
+          } else {
+            // Real authentication error, clear stored auth
+            clearStoredAuth();
+          }
         }
       }
 
@@ -188,14 +198,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         setUser(response.user);
         // Update stored user data
         localStorage.setItem(USER_KEY, JSON.stringify(response.user));
+        console.log('✅ User data refreshed successfully');
+      } else {
+        console.warn('⚠️ Failed to refresh user, clearing auth');
+        clearStoredAuth();
+        setUser(null);
+      }
+    } catch (error: any) {
+      console.error('❌ Failed to refresh user:', error);
+      
+      // Don't clear auth on network errors
+      if (error.code === 'ERR_NETWORK' || error.code === 'ECONNREFUSED' || error.message?.includes('Network Error')) {
+        console.log('🔄 Network error during refresh, keeping current session');
+        // Keep current user state
       } else {
         clearStoredAuth();
         setUser(null);
       }
-    } catch (error) {
-      console.error('Failed to refresh user:', error);
-      clearStoredAuth();
-      setUser(null);
     }
   };
 

@@ -44,6 +44,22 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
+    const method = error.config?.method?.toUpperCase() || 'UNKNOWN'
+    const url = error.config?.url || 'unknown'
+    const status = error.response?.status || 'Network Error'
+    
+    console.error(`❌ Response Error: ${method} ${url} - ${status}`)
+    
+    // Handle 401 Unauthorized - token expired or invalid
+    if (error.response?.status === 401) {
+      console.warn('🔐 Unauthorized request - token may be invalid')
+    }
+    
+    // Handle network errors (server restart, etc.)
+    if (!error.response && (error.code === 'ERR_NETWORK' || error.code === 'ECONNREFUSED')) {
+      console.warn('🔄 Network error detected - server may be restarting')
+    }
+    
     console.error('❌ Response Error:', error.response?.data || error.message)
     return Promise.reject(error)
   }
@@ -274,11 +290,6 @@ export const apiUtils = {
     return `${baseUrl}/proxy-image?url=${encodeURIComponent(imageUrl)}`
   },
 
-  // Get screenshot URL
-  getScreenshotUrl: (adId: string): string => {
-    const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
-    return `${baseUrl}/screenshots/${adId}.png`
-  },
 
   // Set authorization token
   setAuthToken: (token: string | null) => {
@@ -332,58 +343,6 @@ export const scraperApi = {
     return response.data
   },
 
-  // Generate screenshot of Facebook ad
-  getAdScreenshot: async (params: {
-    adUrl: string
-    adId: string
-    options?: {
-      width?: number
-      height?: number
-      quality?: number
-      waitTime?: number
-    }
-  }): Promise<{
-    success: boolean
-    adId: string
-    imageData?: string
-    cached: boolean
-    executionTime: number
-    imageSizeKB: number
-    message: string
-    cacheStats?: any
-    error?: string
-  }> => {
-    const response = await api.post('/ads/screenshot', params)
-    return response.data
-  },
-
-  // Get screenshot cache statistics
-  getScreenshotStats: async (): Promise<{
-    success: boolean
-    stats: {
-      size: number
-      maxSize: number
-      entries: Array<{
-        key: string
-        timestamp: number
-        accessCount: number
-        age: number
-      }>
-    }
-    message: string
-  }> => {
-    const response = await api.get('/ads/screenshot/stats')
-    return response.data
-  },
-
-  // Clear screenshot cache
-  clearScreenshotCache: async (): Promise<{
-    success: boolean
-    message: string
-  }> => {
-    const response = await api.delete('/ads/screenshot/cache')
-    return response.data
-  },
 }
 
 export default api

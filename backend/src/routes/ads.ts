@@ -5,7 +5,6 @@ import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
 import type { SearchParams, SearchResponse } from '@shared/types/index.js';
 import { FacebookScraperService } from '../services/facebookScraperService.js';
 import { AdvertiserStatsService } from '../services/advertiserStatsService.js';
-import { AdScreenshotService } from '../services/adScreenshotService.js';
 
 const router = express.Router();
 
@@ -490,101 +489,5 @@ router.post('/test-pageId-direct', asyncHandler(async (req, res) => {
   }
 }));
 
-// Lazy initialization para AdScreenshotService
-let screenshotService: AdScreenshotService | null = null;
-function getScreenshotService(): AdScreenshotService {
-  if (!screenshotService) {
-    screenshotService = new AdScreenshotService();
-  }
-  return screenshotService;
-}
-
-// POST /api/ads/screenshot - Generate screenshot of Facebook ad
-router.post('/screenshot', asyncHandler(async (req, res) => {
-  const { adUrl, adId, options = {} } = req.body;
-
-  if (!adUrl || typeof adUrl !== 'string') {
-    throw new CustomError('adUrl es requerido y debe ser una string', 400);
-  }
-
-  if (!adId || typeof adId !== 'string') {
-    throw new CustomError('adId es requerido y debe ser una string', 400);
-  }
-
-  // Validar que sea una URL de Facebook válida
-  if (!adUrl.includes('facebook.com')) {
-    throw new CustomError('Solo se permiten URLs de Facebook', 400);
-  }
-
-  const startTime = Date.now();
-  const service = getScreenshotService();
-  
-  try {
-    console.log(`📸 Iniciando screenshot para ad ${adId}: ${adUrl}`);
-    
-    const result = await service.getAdScreenshot(adUrl, adId, options);
-    const executionTime = Date.now() - startTime;
-
-    if (result.success) {
-      // Calcular tamaño de la imagen
-      const imageSizeKB = result.data ? Math.round(result.data.length / 1024) : 0;
-      
-      res.json({
-        success: true,
-        adId,
-        imageData: result.data,
-        cached: result.cached || false,
-        executionTime,
-        imageSizeKB,
-        message: result.cached 
-          ? `Screenshot obtenido de cache para ad ${adId} (${imageSizeKB}KB)`
-          : `Screenshot generado exitosamente para ad ${adId} (${imageSizeKB}KB)`,
-        cacheStats: service.getCacheStats()
-      });
-    } else {
-      res.status(500).json({
-        success: false,
-        adId,
-        error: result.error,
-        executionTime,
-        message: `Error generando screenshot para ad ${adId}: ${result.error}`
-      });
-    }
-  } catch (error) {
-    const executionTime = Date.now() - startTime;
-    console.error(`❌ Error en endpoint screenshot para ad ${adId}:`, error);
-    
-    res.status(500).json({
-      success: false,
-      adId,
-      error: error instanceof Error ? error.message : 'Error desconocido',
-      executionTime,
-      message: `Error inesperado generando screenshot para ad ${adId}`
-    });
-  }
-}));
-
-// GET /api/ads/screenshot/stats - Get screenshot cache statistics
-router.get('/screenshot/stats', asyncHandler(async (req, res) => {
-  const service = getScreenshotService();
-  const stats = service.getCacheStats();
-  
-  res.json({
-    success: true,
-    stats,
-    message: `Cache contiene ${stats.size}/${stats.maxSize} entradas`
-  });
-}));
-
-// DELETE /api/ads/screenshot/cache - Clear screenshot cache
-router.delete('/screenshot/cache', asyncHandler(async (req, res) => {
-  const service = getScreenshotService();
-  service.clearCache();
-  
-  res.json({
-    success: true,
-    message: 'Cache de screenshots limpiado exitosamente'
-  });
-}));
 
 export default router;

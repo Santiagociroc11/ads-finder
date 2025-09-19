@@ -52,8 +52,8 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(logger);
 
-// Serve static files (screenshots, etc.)
-app.use('/screenshots', express.static(path.join(__dirname, '../screenshots')));
+// Serve static files
+// Note: Screenshots functionality removed for better performance
 
 // API Routes
 app.use('/api/auth', authRoutes);

@@ -127,10 +127,10 @@ export const getDatabase = (): Db => {
 };
 
 export const collections = {
-  savedAds: databaseService.savedAds,
-  completeSearches: databaseService.completeSearches,
-  trackedPages: databaseService.trackedPages,
-  users: databaseService.users,
+  get savedAds() { return databaseService.savedAds; },
+  get completeSearches() { return databaseService.completeSearches; },
+  get trackedPages() { return databaseService.trackedPages; },
+  get users() { return databaseService.users; },
 };
 
 export { databaseService };
