@@ -27,6 +27,7 @@ import pagesRoutes from '@/routes/pages.js';
 import savedAdsRoutes from '@/routes/savedAds.js';
 import completeSearchesRoutes from '@/routes/completeSearches.js';
 import suggestionsRoutes from '@/routes/suggestions.js';
+import authRoutes from '@/routes/auth.js';
 
 // Verify critical environment variables
 if (!process.env.FACEBOOK_ACCESS_TOKEN) {
@@ -55,6 +56,7 @@ app.use(logger);
 app.use('/screenshots', express.static(path.join(__dirname, '../screenshots')));
 
 // API Routes
+app.use('/api/auth', authRoutes);
 app.use('/api/search', adsRoutes);
 app.use('/api/ads', adsRoutes); // Also mount ads routes under /api/ads for scraper endpoints
 app.use('/api/pages', pagesRoutes);

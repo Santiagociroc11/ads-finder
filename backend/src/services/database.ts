@@ -3,7 +3,8 @@ import type {
   SavedAd, 
   CompleteSearch, 
   TrackedPage,
-  CompleteSearchListItem 
+  CompleteSearchListItem,
+  User 
 } from '@shared/types/index.js';
 
 class DatabaseService {
@@ -58,6 +59,10 @@ class DatabaseService {
     return this.getDb().collection<TrackedPage>('trackedPages');
   }
 
+  get users(): Collection<User & { password: string }> {
+    return this.getDb().collection<User & { password: string }>('users');
+  }
+
   // Health check
   async isHealthy(): Promise<boolean> {
     try {
@@ -93,6 +98,11 @@ class DatabaseService {
       await this.trackedPages.createIndex({ pageId: 1 }, { unique: true });
       await this.trackedPages.createIndex({ createdAt: -1 });
 
+      // Indexes for users collection
+      await this.users.createIndex({ email: 1 }, { unique: true });
+      await this.users.createIndex({ createdAt: -1 });
+      await this.users.createIndex({ role: 1 });
+
       console.log('📊 Database indexes created successfully');
     } catch (error) {
       console.warn('⚠️  Could not create some indexes:', error);
@@ -117,9 +127,10 @@ export const getDatabase = (): Db => {
 };
 
 export const collections = {
-  savedAds: () => databaseService.savedAds,
-  completeSearches: () => databaseService.completeSearches,
-  trackedPages: () => databaseService.trackedPages,
+  savedAds: databaseService.savedAds,
+  completeSearches: databaseService.completeSearches,
+  trackedPages: databaseService.trackedPages,
+  users: databaseService.users,
 };
 
 export { databaseService };

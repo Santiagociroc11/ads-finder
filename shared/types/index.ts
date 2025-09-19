@@ -210,6 +210,40 @@ export interface AIsuggestion {
   suggestions: string[];
 }
 
+// === AUTHENTICATION TYPES ===
+export interface User {
+  _id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'user';
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AuthRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest extends AuthRequest {
+  name: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  token?: string;
+  user?: User;
+  message?: string;
+}
+
+export interface TokenPayload {
+  userId: string;
+  email: string;
+  role: string;
+  iat: number;
+  exp: number;
+}
+
 export interface SearchStats {
   overview: {
     totalSearches: number;
