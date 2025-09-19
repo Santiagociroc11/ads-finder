@@ -11,6 +11,7 @@ import {
   X
 } from 'lucide-react'
 import { useState } from 'react'
+import { UserMenu } from './auth/UserMenu'
 
 interface LayoutProps {
   children: React.ReactNode
@@ -139,14 +140,29 @@ export function Layout({ children }: LayoutProps) {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        {/* Mobile header */}
-        <header className="md:hidden bg-dark-900/80 backdrop-blur-sm border-b border-primary-500/20 p-4">
-          <button
-            className="btn-icon"
-            onClick={() => setSidebarOpen(true)}
-          >
-            <Menu className="w-5 h-5" />
-          </button>
+        {/* Header */}
+        <header className="bg-dark-900/80 backdrop-blur-sm border-b border-primary-500/20 p-4">
+          <div className="flex items-center justify-between">
+            {/* Mobile menu button */}
+            <button
+              className="md:hidden btn-icon"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            
+            {/* Desktop title (hidden on mobile) */}
+            <div className="hidden md:block">
+              <h2 className="text-lg font-semibold text-gray-100">
+                Panel de Control
+              </h2>
+            </div>
+            
+            {/* User menu */}
+            <div className="ml-auto">
+              <UserMenu />
+            </div>
+          </div>
         </header>
 
         {/* Page content */}

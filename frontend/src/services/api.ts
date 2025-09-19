@@ -9,7 +9,11 @@ import type {
   TrackedPage,
   AIsuggestion,
   SearchStats,
-  ApiResponse
+  ApiResponse,
+  AuthRequest,
+  RegisterRequest,
+  AuthResponse,
+  User
 } from '@shared/types'
 
 // Create axios instance
@@ -223,6 +227,39 @@ export const suggestionsApi = {
   },
 }
 
+// === AUTHENTICATION API ===
+export const authApi = {
+  // Register new user
+  register: async (userData: RegisterRequest): Promise<AuthResponse> => {
+    const response = await api.post('/auth/register', userData)
+    return response.data
+  },
+
+  // Login user
+  login: async (credentials: AuthRequest): Promise<AuthResponse> => {
+    const response = await api.post('/auth/login', credentials)
+    return response.data
+  },
+
+  // Get current user
+  me: async (): Promise<{ success: boolean; user: User }> => {
+    const response = await api.get('/auth/me')
+    return response.data
+  },
+
+  // Verify token
+  verifyToken: async (token: string): Promise<{ success: boolean; user: User }> => {
+    const response = await api.post('/auth/verify', { token })
+    return response.data
+  },
+
+  // Logout
+  logout: async (): Promise<{ success: boolean; message: string }> => {
+    const response = await api.post('/auth/logout')
+    return response.data
+  }
+}
+
 // === UTILITY FUNCTIONS ===
 export const apiUtils = {
   // Health check
@@ -242,6 +279,26 @@ export const apiUtils = {
     const baseUrl = import.meta.env.VITE_API_BASE_URL || ''
     return `${baseUrl}/screenshots/${adId}.png`
   },
+
+  // Set authorization token
+  setAuthToken: (token: string | null) => {
+    if (token) {
+      api.defaults.headers.common['Authorization'] = `Bearer ${token}`
+    } else {
+      delete api.defaults.headers.common['Authorization']
+    }
+  },
+
+  // Generic error handler
+  handleApiError: (error: any): string => {
+    if (error.response?.data?.message) {
+      return error.response.data.message
+    }
+    if (error.message) {
+      return error.message
+    }
+    return 'An unexpected error occurred'
+  }
 }
 
 // === SCRAPER API ===
