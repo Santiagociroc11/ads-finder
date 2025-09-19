@@ -2,12 +2,15 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 // Load environment variables FIRST - before any other imports
-// Go up one directory from backend/ to reach the root where .env is located
-const envPath = path.join(process.cwd(), '..', '.env');
+// Check if we're running from backend/ or root directory
+const envPath = process.cwd().endsWith('backend') 
+  ? path.join(process.cwd(), '..', '.env')  // Running from backend/
+  : path.join(process.cwd(), '.env');        // Running from root
 const result = dotenv.config({ path: envPath });
 console.log(`🔧 Loading .env from: ${envPath}`);
 console.log(`🔧 Dotenv result:`, result.error ? `ERROR: ${result.error.message}` : 'SUCCESS');
 console.log(`🔧 FACEBOOK_ACCESS_TOKEN loaded:`, process.env.FACEBOOK_ACCESS_TOKEN ? 'YES' : 'NO');
+console.log(`🔧 GEMINI_API_KEY loaded:`, process.env.GEMINI_API_KEY ? 'YES' : 'NO');
 
 // Now import everything else
 import express from 'express';

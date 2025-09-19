@@ -5,19 +5,29 @@ import type { AIsuggestion } from '@shared/types/index.js';
 
 const router = express.Router();
 
-// Initialize Google AI
+// Initialize Google AI (will be initialized lazily)
 let genAI: GoogleGenerativeAI | null = null;
 
-try {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (apiKey) {
-    genAI = new GoogleGenerativeAI(apiKey);
-    console.log('🤖 Google Generative AI initialized');
-  } else {
-    console.warn('⚠️ GEMINI_API_KEY not found - AI suggestions will be disabled');
+// Function to initialize Google AI lazily
+function initializeGoogleAI(): GoogleGenerativeAI | null {
+  if (genAI !== null) return genAI; // Already initialized
+  
+  try {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey) {
+      genAI = new GoogleGenerativeAI(apiKey);
+      console.log('🤖 Google Generative AI initialized');
+      return genAI;
+    } else {
+      console.warn('⚠️ GEMINI_API_KEY not found - AI suggestions will be disabled');
+      genAI = null;
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ Failed to initialize Google AI:', error);
+    genAI = null;
+    return null;
   }
-} catch (error) {
-  console.error('❌ Failed to initialize Google AI:', error);
 }
 
 // POST /api/suggestions - Generate AI keyword suggestions
@@ -28,14 +38,15 @@ router.post('/', asyncHandler(async (req, res) => {
     throw new CustomError('Se requiere una idea inicial', 400);
   }
 
-  if (!genAI) {
+  const aiService = initializeGoogleAI();
+  if (!aiService) {
     throw new CustomError('El servicio de IA no está disponible', 503);
   }
 
   try {
     console.log(`[AI] 🤖 Generating suggestions for: "${idea}"`);
     
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    const model = aiService.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
     
     const prompt = `Actúa como un experto en marketing digital y Facebook Ads. Basado en la idea general "${idea}", genera una lista de 8 palabras clave específicas y de alta intención de compra, en español, para encontrar anuncios ganadores en la biblioteca de anuncios de Facebook. Devuelve solo la lista de palabras, separadas por comas. Ejemplo: si la idea es "mascotas", devuelve "arnés para perros, comida natural para gatos, juguetes interactivos para perros, cama ortopédica para perro, fuente de agua para gatos, adiestramiento canino online, seguro para mascotas, snacks saludables para perros"`;
     
@@ -63,7 +74,8 @@ router.post('/', asyncHandler(async (req, res) => {
 
 // GET /api/suggestions/health - Check AI service health
 router.get('/health', asyncHandler(async (req, res) => {
-  const isAvailable = !!genAI;
+  const aiService = initializeGoogleAI();
+  const isAvailable = !!aiService;
   
   res.json({
     available: isAvailable,
