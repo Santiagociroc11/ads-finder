@@ -270,6 +270,8 @@ export function SearchPage() {
   // Queue for processing advertiser stats sequentially
   const [statsQueue, setStatsQueue] = useState<string[]>([])
   const [isProcessingStats, setIsProcessingStats] = useState(false)
+  const [totalStatsToLoad, setTotalStatsToLoad] = useState(0)
+  const [statsLoaded, setStatsLoaded] = useState(0)
 
   // Process stats queue one by one
   useEffect(() => {
@@ -281,6 +283,9 @@ export function SearchPage() {
         if (pageId && !advertiserStats.has(pageId)) {
           await getAdvertiserStats(pageId)
         }
+        
+        // Update progress counter
+        setStatsLoaded(prev => prev + 1)
         
         // Remove processed item and continue
         setStatsQueue(prev => prev.slice(1))
@@ -301,8 +306,17 @@ export function SearchPage() {
       const uniquePageIds = [...new Set(searchResults.map(ad => ad.page_id).filter(id => id && id !== 'N/A'))]
       console.log(`📊 Queueing ${uniquePageIds.length} advertisers for stats loading...`)
       
+      // Initialize progress counters
+      setTotalStatsToLoad(uniquePageIds.length)
+      setStatsLoaded(0)
+      
       // Clear previous queue and add new page IDs
       setStatsQueue(uniquePageIds)
+    } else {
+      // Reset counters when no results
+      setTotalStatsToLoad(0)
+      setStatsLoaded(0)
+      setStatsQueue([])
     }
   }, [searchResults])
 
@@ -316,6 +330,8 @@ export function SearchPage() {
         setSearchResults(data.data)
         setSearchStartTime(null)
         setElapsedTime('')
+        // Reset advertiser stats for new search
+        setAdvertiserStats(new Map())
         toast.success(`¡Se encontraron ${data.data.length} anuncios!`)
         
         if (data.autoSaved?.saved) {
@@ -1567,6 +1583,50 @@ export function SearchPage() {
       {/* Search Results */}
       {searchResults.length > 0 && (
         <div className="space-y-6">
+          
+          {/* Advertiser Stats Progress Bar */}
+          {totalStatsToLoad > 0 && statsLoaded < totalStatsToLoad && (
+            <div className="holographic-panel p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 bg-blue-500/20 border border-blue-500/50 rounded-full flex items-center justify-center">
+                    <div className="w-3 h-3 border-2 border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-blue-300">
+                      📊 Cargando Estadísticas de Anunciantes
+                    </h3>
+                    <p className="text-sm text-gray-400">
+                      Obteniendo anuncios activos de cada anunciante...
+                    </p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-sm text-blue-300 font-medium">
+                    {statsLoaded} de {totalStatsToLoad} completados
+                  </div>
+                  <div className="text-xs text-gray-400">
+                    {Math.round((statsLoaded / totalStatsToLoad) * 100)}% completado
+                  </div>
+                </div>
+              </div>
+              
+              <div className="bg-gray-800/50 rounded-lg p-3">
+                <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
+                  <span>Procesando anunciantes únicos</span>
+                  <span>{totalStatsToLoad - statsLoaded} restantes</span>
+                </div>
+                <div className="w-full bg-gray-700 rounded-full h-2">
+                  <div 
+                    className="bg-gradient-to-r from-blue-500 to-blue-400 h-2 rounded-full transition-all duration-500" 
+                    style={{ 
+                      width: `${Math.round((statsLoaded / totalStatsToLoad) * 100)}%` 
+                    }} 
+                  />
+                </div>
+              </div>
+            </div>
+          )}
           {/* Results Header */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
