@@ -27,7 +27,7 @@ class DatabaseService {
       // Optimized connection settings for 1000+ users
       this.client = new MongoClient(mongoUrl, {
         maxPoolSize: 50,              // Maximum 50 connections in pool
-        minPoolSize: 5,               // Minimum 5 connections always open
+        minPoolSize: 0,               // Minimum 0 connections for Docker containers
         maxIdleTimeMS: 30000,         // Close connections after 30s idle
         serverSelectionTimeoutMS: 5000, // 5s timeout for server selection
         socketTimeoutMS: 45000,       // 45s socket timeout
@@ -46,7 +46,7 @@ class DatabaseService {
       // Test the connection
       await this.db.admin().ping();
       console.log(`📦 Connected to MongoDB: ${dbName} with optimized connection pool`);
-      console.log(`📦 Pool settings: maxPool=${50}, minPool=${5}, maxIdle=${30}s`);
+      console.log(`📦 Pool settings: maxPool=${50}, minPool=${0}, maxIdle=${30}s`);
       
     } catch (error) {
       console.error('❌ MongoDB connection error:', error);

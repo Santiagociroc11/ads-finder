@@ -286,7 +286,7 @@ export function SearchPage() {
         setStatsQueue(prev => prev.slice(1))
         
         // Small delay to prevent overwhelming
-        setTimeout(() => {
+          setTimeout(() => {
           setIsProcessingStats(false)
         }, 50) // Reduced to 50ms delay between requests
       }
