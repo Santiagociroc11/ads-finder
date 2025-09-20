@@ -2,7 +2,7 @@ import express from 'express';
 import { ObjectId } from 'mongodb';
 import { collections } from '@/services/database.js';
 import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
-import type { SavedAd, AdData } from '@shared/types/index.js';
+import type { SavedAd, AdData } from '../types/shared.js';
 
 const router = express.Router();
 
@@ -125,7 +125,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   updateFields.lastViewed = new Date().toISOString();
   
   const result = await collections.savedAds.updateOne(
-    { _id: new ObjectId(id) },
+    { _id: new ObjectId(id || '') },
     { $set: updateFields }
   );
   
@@ -146,7 +146,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     throw new CustomError('ID de anuncio inválido', 400);
   }
   
-  const result = await collections.savedAds.deleteOne({ _id: new ObjectId(id) });
+  const result = await collections.savedAds.deleteOne({ _id: new ObjectId(id || '') });
   
   if (result.deletedCount === 0) {
     throw new CustomError('Anuncio guardado no encontrado', 404);

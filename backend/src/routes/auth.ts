@@ -2,7 +2,7 @@ import express from 'express';
 import { AuthService } from '../services/authService.js';
 import { authenticateToken } from '../middleware/authMiddleware.js';
 import { asyncHandler, CustomError } from '../middleware/errorHandler.js';
-import type { AuthRequest, RegisterRequest, AuthResponse } from '@shared/types/index.js';
+import type { AuthRequest, RegisterRequest, AuthResponse } from '../types/shared.js';
 
 const router = express.Router();
 

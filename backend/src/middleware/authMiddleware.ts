@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/authService.js';
-import type { User } from '@shared/types/index.js';
+import type { User } from '../types/shared.js';
 
 // Extend Express Request interface to include user
 declare global {

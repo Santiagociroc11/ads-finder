@@ -8,7 +8,7 @@ import type {
   SearchStats,
   PaginationInfo,
   CompleteSearchWithPagination 
-} from '@shared/types/index.js';
+} from '../types/shared.js';
 
 const router = express.Router();
 
@@ -141,7 +141,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
     throw new CustomError('ID de búsqueda inválido', 400);
   }
   
-  const completeSearch = await collections.completeSearches.findOne({ _id: new ObjectId(id) });
+  const completeSearch = await collections.completeSearches.findOne({ _id: new ObjectId(id || '') });
   
   if (!completeSearch) {
     throw new CustomError('Búsqueda completa no encontrada', 404);
@@ -149,7 +149,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   
   // Update access statistics
   await collections.completeSearches.updateOne(
-    { _id: new ObjectId(id) },
+    { _id: new ObjectId(id || '') },
     {
       $set: { lastAccessed: new Date().toISOString() },
       $inc: { accessCount: 1 }
@@ -193,13 +193,13 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     throw new CustomError('ID de búsqueda inválido', 400);
   }
   
-  const completeSearch = await collections.completeSearches.findOne({ _id: new ObjectId(id) });
+  const completeSearch = await collections.completeSearches.findOne({ _id: new ObjectId(id || '') });
   
   if (!completeSearch) {
     throw new CustomError('Búsqueda completa no encontrada', 404);
   }
   
-  await collections.completeSearches.deleteOne({ _id: new ObjectId(id) });
+  await collections.completeSearches.deleteOne({ _id: new ObjectId(id || '') });
   
   console.log(`[COMPLETE_SEARCH] 🗑️ Complete search deleted: "${completeSearch.searchName}" (${completeSearch.totalResults} ads)`);
   

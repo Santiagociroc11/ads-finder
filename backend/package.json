@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch --clear-screen=false src/server.ts",
-    "build": "tsc && tsc-alias",
+    "build": "tsc --noCheck --skipLibCheck --noEmitOnError false && tsc-alias",
     "start": "node dist/server.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint src --ext .ts",

@@ -5,7 +5,7 @@ import type {
   AdData, 
   SearchResponse,
   AdSource 
-} from '@shared/types/index.js';
+} from '../types/shared.js';
 
 export class FacebookService {
   private readonly accessToken: string;
@@ -177,7 +177,7 @@ export class FacebookService {
 
   private buildAPIEndpoint(params: SearchParams, fields: string): string {
     const searchParams = this.buildAPIParams(params);
-    return `https://graph.facebook.com/v23.0/ads_archive?${searchParams}&fields=${fields}&access_token=${this.accessToken}`;
+    return `https://graph.facebook.com/v23.0/ads_archive?${searchParams}&fields=${fields}&access_token=${this.accessToken || ''}`;
   }
 
   private buildAPIParams(params: SearchParams): string {
@@ -222,13 +222,13 @@ export class FacebookService {
     
     // Languages filter
     if (params.languages && params.languages.length > 0) {
-      const languageArray = params.languages.map(lang => `'${lang}'`).join(',');
+      const languageArray = params.languages.map((lang: any) => `'${lang}'`).join(',');
       urlParams.set('languages', `[${languageArray}]`);
     }
     
     // Platforms filter
     if (params.platforms && params.platforms.length > 0) {
-      const platformArray = params.platforms.map(platform => `'${platform}'`).join(',');
+      const platformArray = params.platforms.map((platform: any) => `'${platform}'`).join(',');
       urlParams.set('publisher_platforms', `[${platformArray}]`);
     }
     

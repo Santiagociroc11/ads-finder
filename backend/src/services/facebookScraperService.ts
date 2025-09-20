@@ -1,5 +1,5 @@
 import { chromium, Browser, Page } from 'playwright'
-import type { AdData } from '@shared/types'
+import type { AdData } from '../types/shared.js';
 
 export interface ScrapingOptions {
   advertiserName: string
@@ -101,19 +101,7 @@ export class FacebookScraperService {
         success: true,
         data: adsData,
         totalFound: adsData.length,
-        executionTime,
-        debug: {
-          url: adLibraryUrl,
-          finalUrl: currentUrl,
-          advertiserName: options.advertiserName,
-          country: options.country,
-          maxAds: options.maxAds,
-          extractedAt: new Date().toISOString(),
-          pageTitle,
-          adsFound: adsData.length,
-          pageDebug: debugInfo,
-          pageContentLength: pageContent.length
-        }
+        executionTime
       }
 
     } catch (error) {

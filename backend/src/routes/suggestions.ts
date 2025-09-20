@@ -1,7 +1,7 @@
 import express from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
-import type { AIsuggestion } from '@shared/types/index.js';
+import type { AIsuggestion } from '../types/shared.js';
 import { aiRateLimit } from '@/middleware/rateLimiter.js';
 import { cacheService } from '@/services/cacheService.js';
 
@@ -78,7 +78,7 @@ router.post('/', aiRateLimit, asyncHandler(async (req, res) => {
     
     const aiResponse: AIsuggestion = { suggestions };
     
-    res.json(aiResponse);
+    return res.json(aiResponse);
 
   } catch (error) {
     console.error('[AI] ❌ Error generating suggestions:', error);

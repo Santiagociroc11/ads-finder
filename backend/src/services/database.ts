@@ -13,7 +13,7 @@ import type {
   TrackedPage,
   CompleteSearchListItem,
   User 
-} from '@shared/types/index.js';
+} from '../types/shared.js';
 
 class DatabaseService {
   private client: MongoClient | null = null;
@@ -25,7 +25,7 @@ class DatabaseService {
 
     try {
       // Optimized connection settings for 1000+ users
-      this.client = new MongoClient(mongoUrl, {
+      this.client = new MongoClient(mongoUrl || 'mongodb://localhost:27017/adsfinder', {
         maxPoolSize: 50,              // Maximum 50 connections in pool
         minPoolSize: 0,               // Minimum 0 connections for Docker containers
         maxIdleTimeMS: 30000,         // Close connections after 30s idle

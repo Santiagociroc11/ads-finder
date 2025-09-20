@@ -3,7 +3,7 @@ import { ObjectId } from 'mongodb';
 import fetch from 'node-fetch';
 import { collections } from '@/services/database.js';
 import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
-import type { TrackedPage } from '@shared/types/index.js';
+import type { TrackedPage } from '../types/shared.js';
 
 const router = express.Router();
 
@@ -96,7 +96,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     throw new CustomError('ID de página inválido', 400);
   }
   
-  const result = await collections.trackedPages.deleteOne({ _id: new ObjectId(id) });
+  const result = await collections.trackedPages.deleteOne({ _id: new ObjectId(id || '') });
   
   if (result.deletedCount === 0) {
     throw new CustomError('Página rastreada no encontrada', 404);

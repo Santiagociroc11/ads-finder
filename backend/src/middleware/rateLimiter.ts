@@ -63,8 +63,8 @@ const keyGenerator = (req: Request): string => {
 // The .env loading happens in server.ts, so these variables should be available now
 
 export const searchRateLimit = rateLimit({
-  windowMs: parseInt(process.env.SEARCH_WINDOW_MS), // REQUIRED from .env
-  max: parseInt(process.env.SEARCH_RATE_LIMIT), // REQUIRED from .env
+  windowMs: parseInt(process.env.SEARCH_WINDOW_MS || '900000'), // 15 minutes default
+  max: parseInt(process.env.SEARCH_RATE_LIMIT || '10'), // 10 requests default
   message: {
     error: 'Demasiadas búsquedas realizadas',
     message: 'Has alcanzado el límite de búsquedas. Intenta nuevamente en 15 minutos.',
@@ -78,8 +78,8 @@ export const searchRateLimit = rateLimit({
 
 // Rate limiter for AI suggestions (expensive)
 export const aiRateLimit = rateLimit({
-  windowMs: parseInt(process.env.AI_WINDOW_MS), // REQUIRED from .env
-  max: parseInt(process.env.AI_RATE_LIMIT), // REQUIRED from .env
+  windowMs: parseInt(process.env.AI_WINDOW_MS || '900000'), // 15 minutes default
+  max: parseInt(process.env.AI_RATE_LIMIT || '5'), // 5 requests default
   message: {
     error: 'Demasiadas solicitudes de IA',
     message: 'Has alcanzado el límite de sugerencias de IA. Intenta nuevamente en 15 minutos.',
@@ -93,8 +93,8 @@ export const aiRateLimit = rateLimit({
 
 // Rate limiter for scraping (very expensive)
 export const scrapingRateLimit = rateLimit({
-  windowMs: parseInt(process.env.SCRAPING_WINDOW_MS), // REQUIRED from .env
-  max: parseInt(process.env.SCRAPING_RATE_LIMIT), // REQUIRED from .env
+  windowMs: parseInt(process.env.SCRAPING_WINDOW_MS || '3600000'), // 1 hour default
+  max: parseInt(process.env.SCRAPING_RATE_LIMIT || '3'), // 3 requests default
   message: {
     error: 'Demasiadas solicitudes de stats',
     message: 'Has alcanzado el límite de estadísticas. Intenta nuevamente en 15 minutos.',
@@ -108,8 +108,8 @@ export const scrapingRateLimit = rateLimit({
 
 // General API rate limiter
 export const apiRateLimit = rateLimit({
-  windowMs: parseInt(process.env.API_WINDOW_MS), // REQUIRED from .env
-  max: parseInt(process.env.API_RATE_LIMIT), // REQUIRED from .env
+  windowMs: parseInt(process.env.API_WINDOW_MS || '60000'), // 1 minute default
+  max: parseInt(process.env.API_RATE_LIMIT || '100'), // 100 requests default
   message: {
     error: 'Demasiadas solicitudes',
     message: 'Has realizado demasiadas solicitudes. Intenta nuevamente en un minuto.',

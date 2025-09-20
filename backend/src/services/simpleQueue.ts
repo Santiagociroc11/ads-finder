@@ -40,7 +40,7 @@ export class SimpleQueue {
         retries: 0,
         maxRetries,
         createdAt: new Date(),
-        userId,
+        userId: userId || 'anonymous',
         cancelled: false,
         abortController: new AbortController(), // Create AbortController for each job
         resolve,
@@ -50,7 +50,7 @@ export class SimpleQueue {
       // Insert job in priority order
       let inserted = false;
       for (let i = 0; i < this.queue.length; i++) {
-        if (this.queue[i].priority < priority) {
+        if (this.queue[i] && this.queue[i].priority < priority) {
           this.queue.splice(i, 0, job);
           inserted = true;
           break;

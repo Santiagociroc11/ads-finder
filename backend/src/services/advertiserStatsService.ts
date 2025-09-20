@@ -3,7 +3,7 @@ import { browserPool } from './browserPool.js'
 
 export interface AdvertiserStats {
   pageId: string
-  advertiserName?: string
+  advertiserName: string
   totalActiveAds: number
   lastUpdated: string
 }
@@ -31,15 +31,7 @@ export class AdvertiserStatsService {
         return {
           success: true,
           stats: cached,
-          executionTime: Date.now() - startTime,
-          debug: {
-            url: this.buildAdLibraryUrl(pageId, country),
-            pageId,
-            country,
-            extractedAt: new Date().toISOString(),
-            cacheHit: true,
-            cacheAge: Date.now() - new Date(cached.lastUpdated).getTime()
-          }
+          executionTime: Date.now() - startTime
         }
       }
 
@@ -90,7 +82,7 @@ export class AdvertiserStatsService {
 
       const stats: AdvertiserStats = {
         pageId,
-        advertiserName,
+        advertiserName: advertiserName || 'Unknown',
         totalActiveAds: totalCount,
         lastUpdated: new Date().toISOString()
       }
@@ -104,20 +96,7 @@ export class AdvertiserStatsService {
         return {
           success: true,
           stats,
-          executionTime,
-          debug: {
-            url: adLibraryUrl,
-            finalUrl: currentUrl,
-            pageId,
-            advertiserName,
-            country,
-            extractedAt: new Date().toISOString(),
-            cacheHit: false,
-            pageTitle,
-            totalCount,
-            pageDebug: debugInfo,
-            pageContentLength: pageContent.length
-          }
+          executionTime
         }
 
       } finally {
@@ -134,11 +113,11 @@ export class AdvertiserStatsService {
         console.log(`⏰ Timeout for pageId ${pageId}, returning default stats`)
         return {
           success: true,
-          data: {
+          stats: {
             totalActiveAds: 0,
             advertiserName: 'Unknown (Timeout)',
             pageId: pageId,
-            source: 'timeout_fallback'
+            lastUpdated: new Date().toISOString()
           },
           executionTime
         }

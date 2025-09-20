@@ -2,7 +2,7 @@ import express from 'express';
 import { FacebookService } from '@/services/facebookService.js';
 import { collections } from '@/services/database.js';
 import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
-import type { SearchParams, SearchResponse } from '@shared/types/index.js';
+import type { SearchParams, SearchResponse } from '../types/shared.js';
 import { FacebookScraperService } from '../services/facebookScraperService.js';
 import { AdvertiserStatsService } from '../services/advertiserStatsService.js';
 import { searchRateLimit, scrapingRateLimit } from '@/middleware/rateLimiter.js';
@@ -80,9 +80,9 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
               apifyCount: searchParams.apifyCount
             },
             stats: {
-              avgHotnessScore: searchResult.data.reduce((sum, ad) => sum + (ad.hotness_score || 0), 0) / searchResult.data.length,
-              longRunningAds: searchResult.data.filter(ad => ad.is_long_running).length,
-              topPages: [...new Set(searchResult.data.map(ad => ad.page_name))].slice(0, 10)
+              avgHotnessScore: searchResult.data.reduce((sum: number, ad: any) => sum + (ad.hotness_score || 0), 0) / searchResult.data.length,
+              longRunningAds: searchResult.data.filter((ad: any) => ad.is_long_running).length,
+              topPages: [...new Set(searchResult.data.map((ad: any) => ad.page_name))].slice(0, 10)
             },
             lastAccessed: new Date().toISOString(),
             accessCount: 1
@@ -115,7 +115,7 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
     // Check which ads are already saved
     if (searchResult.data.length > 0) {
       try {
-        const adIds = searchResult.data.map(ad => ad.id);
+        const adIds = searchResult.data.map((ad: any) => ad.id);
         const savedAds = await collections.savedAds.find(
           { 'adData.id': { $in: adIds } }
         ).toArray();
@@ -123,7 +123,7 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
         const savedAdIds = new Set(savedAds.map(savedAd => savedAd.adData.id));
         
         // Mark ads that are already saved
-        searchResult.data.forEach(ad => {
+        searchResult.data.forEach((ad: any) => {
           ad.isSaved = savedAdIds.has(ad.id);
           if (ad.isSaved) {
             const savedAdData = savedAds.find(savedAd => savedAd.adData.id === ad.id);
@@ -138,7 +138,7 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
           }
         });
         
-        const savedCount = searchResult.data.filter(ad => ad.isSaved).length;
+        const savedCount = searchResult.data.filter((ad: any) => ad.isSaved).length;
         if (savedCount > 0) {
           console.log(`[SAVED_ADS] 📌 ${savedCount} of ${searchResult.data.length} ads already saved`);
         }
@@ -150,7 +150,7 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
     }
 
     // Sort by hotness score
-    searchResult.data.sort((a, b) => {
+    searchResult.data.sort((a: any, b: any) => {
       // First by hotness score (descending)
       if (b.hotness_score !== a.hotness_score) {
         return b.hotness_score - a.hotness_score;
@@ -234,8 +234,7 @@ router.post('/scrape-advertiser', scrapingRateLimit, asyncHandler(async (req, re
       advertiserName,
       message: result.success 
         ? `Successfully scraped ${result.totalFound} ads from ${advertiserName}`
-        : `Failed to scrape ads: ${result.error}`,
-      debug: result.debug
+        : `Failed to scrape ads: ${result.error}`
     });
 
   } catch (error) {
@@ -274,23 +273,22 @@ router.post('/advertiser-stats', authenticateToken, scrapingRateLimit, asyncHand
     // Use queue instead of direct execution for better concurrency control
     const result = await advertiserStatsQueue.add('advertiser-stats', { pageId, country }, 5, 2, userId);
 
-    console.log(`[STATS] ✅ Stats retrieval completed: ${result.stats?.totalActiveAds || 0} total ads`);
+    console.log(`[STATS] ✅ Stats retrieval completed: ${(result as any).stats?.totalActiveAds || 0} total ads`);
     
     const responseData = {
-      success: result.success,
+      success: (result as any).success,
       pageId,
-      advertiserName: result.stats?.advertiserName,
-      totalActiveAds: result.stats?.totalActiveAds || 0,
-      lastUpdated: result.stats?.lastUpdated,
-      executionTime: result.executionTime,
-      message: result.success 
-        ? `Found ${result.stats?.totalActiveAds || 0} total active ads for ${result.stats?.advertiserName || pageId}`
-        : `Failed to get stats: ${result.error}`,
-      debug: result.debug
+      advertiserName: (result as any).stats?.advertiserName,
+      totalActiveAds: (result as any).stats?.totalActiveAds || 0,
+      lastUpdated: (result as any).stats?.lastUpdated,
+      executionTime: (result as any).executionTime,
+      message: (result as any).success 
+        ? `Found ${(result as any).stats?.totalActiveAds || 0} total active ads for ${(result as any).stats?.advertiserName || pageId}`
+        : `Failed to get stats: ${(result as any).error}`
     };
 
     // Cache successful results for 30 minutes
-    if (result.success) {
+    if ((result as any).success) {
       cacheService.setAdvertiserStats(pageId, responseData, 30 * 60);
       console.log(`[STATS] 💾 Cached stats for pageId: ${pageId}`);
     }
@@ -373,9 +371,10 @@ router.post('/test-direct-url', asyncHandler(async (req, res) => {
   console.log(`🧪 Testing direct URL: ${url}`);
   
   const { chromium } = await import('playwright');
+  let browser: any = null;
   
   try {
-    const browser = await chromium.launch({
+    browser = await chromium.launch({
       headless: true,
       args: [
         '--no-sandbox',
@@ -463,10 +462,11 @@ router.post('/test-pageId-direct', asyncHandler(async (req, res) => {
   console.log(`🧪 Testing pageId with EXACT same config as working endpoint: ${pageId}`);
   
   const { chromium } = await import('playwright');
+  let browser: any = null;
   
   try {
     // Use EXACT same config as test-direct-url (which works)
-    const browser = await chromium.launch({
+    browser = await chromium.launch({
       headless: true,
       args: [
         '--no-sandbox',

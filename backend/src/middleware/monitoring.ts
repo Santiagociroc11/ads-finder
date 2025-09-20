@@ -182,12 +182,12 @@ export const monitoringMiddleware = (req: Request, res: Response, next: NextFunc
   const startTime = Date.now();
 
   // Override res.end to capture response time
-  const originalEnd = res.end;
-  res.end = function(chunk?: any, encoding?: any) {
+  const originalEnd = res.end.bind(res);
+  res.end = function(chunk?: any, encoding?: any): Response {
     const responseTime = Date.now() - startTime;
     monitoring.trackRequest(req, res, responseTime);
-    originalEnd.call(this, chunk, encoding);
-  };
+    return originalEnd(chunk, encoding);
+  } as any;
 
   next();
 };

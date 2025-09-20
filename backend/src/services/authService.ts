@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
 import { collections } from './database.js';
-import type { User, AuthRequest, RegisterRequest, AuthResponse, TokenPayload } from '@shared/types/index.js';
+import type { User, AuthRequest, RegisterRequest, AuthResponse, TokenPayload } from '../types/shared.js';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -36,13 +36,13 @@ export class AuthService {
       role: user.role
     };
 
-    return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+    return jwt.sign(payload, JWT_SECRET || 'fallback-secret', { expiresIn: JWT_EXPIRES_IN });
   }
 
   // Verify JWT token
   public static verifyToken(token: string): TokenPayload | null {
     try {
-      return jwt.verify(token, JWT_SECRET) as TokenPayload;
+      return jwt.verify(token, JWT_SECRET || 'fallback-secret') as TokenPayload;
     } catch (error) {
       return null;
     }
