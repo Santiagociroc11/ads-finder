@@ -3,6 +3,9 @@
 # Environment files (Easypanel handles these)
 .env
 .env.*
+# But allow example files
+!.env.example
+!**/.env.example
 
 # Development
 node_modules

@@ -107,7 +107,18 @@ class MonitoringService {
 
   getMetrics(): SystemMetrics {
     this.updateMemoryStats();
-    return JSON.parse(JSON.stringify(this.metrics));
+    // Return a proper copy that preserves Map objects
+    return {
+      requests: {
+        total: this.metrics.requests.total,
+        byEndpoint: new Map(this.metrics.requests.byEndpoint),
+        byStatus: new Map(this.metrics.requests.byStatus),
+        errors: this.metrics.requests.errors
+      },
+      performance: { ...this.metrics.performance },
+      memory: { ...this.metrics.memory },
+      uptime: this.metrics.uptime
+    };
   }
 
   getHealthStatus(): { status: 'healthy' | 'warning' | 'critical'; issues: string[] } {
@@ -210,9 +221,11 @@ export const getHealthData = () => {
         ? Math.round((metrics.requests.errors / metrics.requests.total) * 100 * 100) / 100
         : 0
     },
-    topEndpoints: Array.from(metrics.requests.byEndpoint.entries())
-      .sort(([,a], [,b]) => b - a)
-      .slice(0, 5)
-      .map(([endpoint, count]) => ({ endpoint, count }))
+    topEndpoints: metrics.requests.byEndpoint instanceof Map 
+      ? Array.from(metrics.requests.byEndpoint.entries())
+          .sort(([,a], [,b]) => b - a)
+          .slice(0, 5)
+          .map(([endpoint, count]) => ({ endpoint, count }))
+      : []
   };
 };

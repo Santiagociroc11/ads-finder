@@ -15,6 +15,7 @@ WORKDIR /app/backend
 COPY backend/package*.json ./
 RUN npm install && npm cache clean --force
 COPY backend/ ./
+COPY backend/.env.example ./.env
 RUN npm run build
 
 # Stage 3: Production runtime
@@ -29,10 +30,14 @@ RUN npm install --only=production && npm cache clean --force
 # Copy built applications
 WORKDIR /app
 COPY --from=backend-build /app/backend/dist ./backend/dist
+COPY --from=backend-build /app/backend/.env ./.env
 COPY --from=frontend-build /app/frontend/dist ./frontend/dist
 
 # Copy package.json for start script
 COPY package.json ./
+
+# Set Docker environment variable like Evolution API
+ENV DOCKER_ENV=true
 
 # Create non-root user for security
 RUN addgroup -g 1001 -S nodejs && \
