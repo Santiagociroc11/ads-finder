@@ -96,6 +96,7 @@ export class BrowserPool {
   private async createBrowser(): Promise<BrowserInstance> {
     const browser = await chromium.launch({
       headless: true,
+      executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
       args: [
         '--no-sandbox',
         '--disable-setuid-sandbox',
@@ -112,7 +113,12 @@ export class BrowserPool {
         '--disable-plugins',
         '--disable-images', // Disable image loading to save memory
         '--aggressive-cache-discard',
-        '--memory-pressure-off'
+        '--memory-pressure-off',
+        '--disable-background-networking',
+        '--disable-default-apps',
+        '--disable-sync',
+        '--no-first-run',
+        '--disable-translate'
       ]
     });
 
