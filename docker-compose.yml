@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  # Base de datos MongoDB
+  mongodb:
+    image: mongo:7
+    container_name: ads-finder-db
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: ${DB_PASSWORD:-adsfinder123}
+      MONGO_INITDB_DATABASE: adFinder
+    volumes:
+      - mongodb_data:/data/db
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    ports:
+      - "27017:27017"
+    networks:
+      - ads-finder-network
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/adFinder --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Aplicación principal
+  ads-finder:
+    build: .
+    container_name: ads-finder-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      # Base de datos
+      MONGO_URL: mongodb://admin:${DB_PASSWORD:-adsfinder123}@mongodb:27017/adFinder?authSource=admin
+      DB_NAME: adFinder
+      
+      # APIs (DEBES CONFIGURAR ESTAS)
+      FACEBOOK_ACCESS_TOKEN: ${FACEBOOK_ACCESS_TOKEN}
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      APIFY_API_TOKEN: ${APIFY_API_TOKEN}
+      
+      # JWT
+      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-this-in-production}
+      
+      # Rate Limiting
+      SEARCH_RATE_LIMIT_WINDOW: 3600000
+      SEARCH_RATE_LIMIT_MAX: 100
+      AI_RATE_LIMIT_WINDOW: 3600000
+      AI_RATE_LIMIT_MAX: 50
+      SCRAPING_RATE_LIMIT_WINDOW: 900000
+      SCRAPING_RATE_LIMIT_MAX: 50
+      API_RATE_LIMIT_WINDOW: 900000
+      API_RATE_LIMIT_MAX: 1000
+      
+      # Cache
+      SEARCH_CACHE_TTL: 1800
+      STATS_CACHE_TTL: 3600
+      AI_CACHE_TTL: 7200
+      SEARCH_CACHE_MAX_ITEMS: 1000
+      STATS_CACHE_MAX_ITEMS: 5000
+      AI_CACHE_MAX_ITEMS: 500
+      
+      # Browser Pool
+      MAX_BROWSERS: 3
+      BROWSER_IDLE_TIME: 300000
+      BROWSER_LIFE_TIME: 1800000
+      BROWSER_CLEANUP_INTERVAL: 60000
+      
+      # Monitoring
+      SLOW_REQUEST_THRESHOLD: 5000
+      HIGH_MEMORY_THRESHOLD: 85
+      HIGH_RESPONSE_TIME_THRESHOLD: 2000
+      
+      # External APIs
+      FACEBOOK_API_TIMEOUT: 900000
+      APIFY_TIMEOUT: 900000
+      
+      # App
+      NODE_ENV: production
+      PORT: 3000
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks:
+      - ads-finder-network
+    volumes:
+      - app_logs:/app/logs
+      - app_temp:/app/temp
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }).on('error', () => { process.exit(1) })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+volumes:
+  mongodb_data:
+    driver: local
+  app_logs:
+    driver: local
+  app_temp:
+    driver: local
+
+networks:
+  ads-finder-network:
+    driver: bridge
