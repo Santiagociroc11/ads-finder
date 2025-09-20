@@ -6,7 +6,6 @@ import {
   Sparkles, 
   Filter,
   Download,
-  Eye,
   Bookmark,
   ExternalLink,
   Calendar,
@@ -20,9 +19,6 @@ import {
   MessageCircle,
   Heart,
   Globe,
-  Play,
-  ChevronRight,
-  ChevronDown,
   Info
 } from 'lucide-react'
 
@@ -247,13 +243,14 @@ export function SearchPage() {
     mediaType: 'ALL',
     searchPhraseType: 'unordered',
     useApify: false,
-    apifyCount: 100
+    apifyCount: 100,
+    languages: ['es'] // Default to Spanish
   })
 
   const [searchResults, setSearchResults] = useState<AdData[]>([])
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
   const [showSavedSearches, setShowSavedSearches] = useState(false)
-  const [expandedAds, setExpandedAds] = useState<Set<string>>(new Set())
+  const [expandedTexts, setExpandedTexts] = useState<Set<string>>(new Set())
   const [advertiserStats, setAdvertiserStats] = useState<Map<string, { totalActiveAds: number; loading: boolean }>>(new Map())
   const [debugMode, setDebugMode] = useState(false)
   const [debugData, setDebugData] = useState<any>(null)
@@ -363,8 +360,7 @@ export function SearchPage() {
       onSuccess: (data) => {
         // Clear previous results before loading saved search
         setSearchResults([])
-        setScreenshots({})
-        setExpandedAds(new Set())
+        setExpandedTexts(new Set())
         setCarouselIndices({})
         setDebugData(null)
         setSortConfig({ primary: null, secondary: null, tertiary: null })
@@ -372,6 +368,10 @@ export function SearchPage() {
         setSearchResults(data.results)
         setSearchParams(data.searchParams)
         setShowSavedSearches(false)
+        
+        // Hide advanced filters after loading saved search
+        setIsAdvancedOpen(false)
+        
         toast.success(`¡${data.results.length} anuncios cargados desde memoria!`)
       },
       onError: (error: any) => {
@@ -459,13 +459,15 @@ export function SearchPage() {
 
     // Clear previous results before starting new search
     setSearchResults([])
-    setScreenshots({})
-    setExpandedAds(new Set())
+    setExpandedTexts(new Set())
     setCarouselIndices({})
     setDebugData(null)
     setSortConfig({ primary: null, secondary: null, tertiary: null })
     setSearchStartTime(Date.now())
     setElapsedTime('')
+    
+    // Hide advanced filters after search
+    setIsAdvancedOpen(false)
 
     searchMutation.mutate(searchParams)
   }
@@ -519,11 +521,13 @@ export function SearchPage() {
     
     // Clear previous results before starting new scraping
     setSearchResults([])
-    setScreenshots({})
-    setExpandedAds(new Set())
+    setExpandedTexts(new Set())
     setCarouselIndices({})
     setDebugData(null)
     setSortConfig({ primary: null, secondary: null, tertiary: null })
+    
+    // Hide advanced filters after search
+    setIsAdvancedOpen(false)
     
     scraperMutation.mutate({
       advertiserName: advertiserName.trim(),
@@ -587,20 +591,7 @@ export function SearchPage() {
     return new Date(dateString).toLocaleDateString('es-ES')
   }
 
-  const formatDateDetailed = (dateString: string | null) => {
-    if (!dateString) return 'N/A'
-    return new Date(dateString).toLocaleString('es-ES')
-  }
 
-  const toggleAdExpansion = (adId: string) => {
-    const newExpanded = new Set(expandedAds)
-    if (newExpanded.has(adId)) {
-      newExpanded.delete(adId)
-    } else {
-      newExpanded.add(adId)
-    }
-    setExpandedAds(newExpanded)
-  }
 
   const getPublisherPlatformIcon = (platform: string) => {
     switch (platform) {
@@ -621,14 +612,106 @@ export function SearchPage() {
 
   const getCountryName = (countryCode: string | undefined) => {
     const countryNames: Record<string, string> = {
+      // América Latina
       'CO': 'Colombia',
-      'US': 'Estados Unidos',
       'MX': 'México',
-      'BR': 'Brasil',
       'AR': 'Argentina',
-      'ES': 'España'
+      'BR': 'Brasil',
+      'CL': 'Chile',
+      'PE': 'Perú',
+      'VE': 'Venezuela',
+      'EC': 'Ecuador',
+      'UY': 'Uruguay',
+      'PY': 'Paraguay',
+      'BO': 'Bolivia',
+      'CR': 'Costa Rica',
+      'PA': 'Panamá',
+      'GT': 'Guatemala',
+      'DO': 'República Dominicana',
+      
+      // América del Norte
+      'US': 'Estados Unidos',
+      'CA': 'Canadá',
+      
+      // Europa
+      'ES': 'España',
+      'GB': 'Reino Unido',
+      'FR': 'Francia',
+      'DE': 'Alemania',
+      'IT': 'Italia',
+      'PT': 'Portugal',
+      'NL': 'Países Bajos',
+      'BE': 'Bélgica',
+      'CH': 'Suiza',
+      'AT': 'Austria',
+      'SE': 'Suecia',
+      'NO': 'Noruega',
+      'DK': 'Dinamarca',
+      'FI': 'Finlandia',
+      
+      // Asia-Pacífico
+      'AU': 'Australia',
+      'NZ': 'Nueva Zelanda',
+      'JP': 'Japón',
+      'KR': 'Corea del Sur',
+      'SG': 'Singapur',
+      'HK': 'Hong Kong',
+      'MY': 'Malasia',
+      'TH': 'Tailandia',
+      'PH': 'Filipinas',
+      'IN': 'India',
+      
+      // Otros
+      'ZA': 'Sudáfrica',
+      'EG': 'Egipto',
+      'NG': 'Nigeria',
+      'IL': 'Israel',
+      'TR': 'Turquía',
+      'AE': 'Emiratos Árabes Unidos'
     }
     return countryNames[countryCode || 'CO'] || countryCode || 'Colombia'
+  }
+
+  const getLanguageName = (languageCode: string) => {
+    const languageNames: Record<string, string> = {
+      // Principales
+      'es': 'Español',
+      'en': 'Inglés',
+      'pt': 'Portugués',
+      'fr': 'Francés',
+      'de': 'Alemán',
+      'it': 'Italiano',
+      
+      // Asiáticos
+      'zh': 'Chino',
+      'cmn': 'Chino Mandarín',
+      'yue': 'Cantonés',
+      'ja': 'Japonés',
+      'ko': 'Coreano',
+      'hi': 'Hindi',
+      'th': 'Tailandés',
+      'vi': 'Vietnamita',
+      
+      // Otros
+      'ar': 'Árabe',
+      'ru': 'Ruso',
+      'nl': 'Holandés',
+      'sv': 'Sueco',
+      'no': 'Noruego',
+      'da': 'Danés',
+      'fi': 'Finlandés',
+      'pl': 'Polaco',
+      'tr': 'Turco',
+      'he': 'Hebreo'
+    }
+    return languageNames[languageCode] || languageCode
+  }
+
+  const getLanguagesDisplay = (languages: string[] | undefined) => {
+    if (!languages || languages.length === 0) return 'Todos los idiomas'
+    if (languages.length === 1) return getLanguageName(languages[0])
+    if (languages.length <= 3) return languages.map(getLanguageName).join(', ')
+    return `${languages.slice(0, 2).map(getLanguageName).join(', ')} +${languages.length - 2} más`
   }
 
   // Sorting functions
@@ -1099,13 +1182,121 @@ export function SearchPage() {
                   onChange={(e) => setSearchParams(prev => ({ ...prev, country: e.target.value }))}
                   className="form-select w-full"
                 >
-                  <option value="CO">Colombia</option>
-                  <option value="US">United States</option>
-                  <option value="MX">Mexico</option>
-                  <option value="BR">Brazil</option>
-                  <option value="AR">Argentina</option>
-                  <option value="ES">Spain</option>
+                  <optgroup label="🌎 América Latina">
+                    <option value="CO">🇨🇴 Colombia</option>
+                    <option value="MX">🇲🇽 México</option>
+                    <option value="AR">🇦🇷 Argentina</option>
+                    <option value="BR">🇧🇷 Brasil</option>
+                    <option value="CL">🇨🇱 Chile</option>
+                    <option value="PE">🇵🇪 Perú</option>
+                    <option value="VE">🇻🇪 Venezuela</option>
+                    <option value="EC">🇪🇨 Ecuador</option>
+                    <option value="UY">🇺🇾 Uruguay</option>
+                    <option value="PY">🇵🇾 Paraguay</option>
+                    <option value="BO">🇧🇴 Bolivia</option>
+                    <option value="CR">🇨🇷 Costa Rica</option>
+                    <option value="PA">🇵🇦 Panamá</option>
+                    <option value="GT">🇬🇹 Guatemala</option>
+                    <option value="DO">🇩🇴 República Dominicana</option>
+                  </optgroup>
+                  
+                  <optgroup label="🌍 América del Norte">
+                    <option value="US">🇺🇸 Estados Unidos</option>
+                    <option value="CA">🇨🇦 Canadá</option>
+                  </optgroup>
+                  
+                  <optgroup label="🌍 Europa">
+                    <option value="ES">🇪🇸 España</option>
+                    <option value="GB">🇬🇧 Reino Unido</option>
+                    <option value="FR">🇫🇷 Francia</option>
+                    <option value="DE">🇩🇪 Alemania</option>
+                    <option value="IT">🇮🇹 Italia</option>
+                    <option value="PT">🇵🇹 Portugal</option>
+                    <option value="NL">🇳🇱 Países Bajos</option>
+                    <option value="BE">🇧🇪 Bélgica</option>
+                    <option value="CH">🇨🇭 Suiza</option>
+                    <option value="AT">🇦🇹 Austria</option>
+                    <option value="SE">🇸🇪 Suecia</option>
+                    <option value="NO">🇳🇴 Noruega</option>
+                    <option value="DK">🇩🇰 Dinamarca</option>
+                    <option value="FI">🇫🇮 Finlandia</option>
+                  </optgroup>
+                  
+                  <optgroup label="🌏 Asia-Pacífico">
+                    <option value="AU">🇦🇺 Australia</option>
+                    <option value="NZ">🇳🇿 Nueva Zelanda</option>
+                    <option value="JP">🇯🇵 Japón</option>
+                    <option value="KR">🇰🇷 Corea del Sur</option>
+                    <option value="SG">🇸🇬 Singapur</option>
+                    <option value="HK">🇭🇰 Hong Kong</option>
+                    <option value="MY">🇲🇾 Malasia</option>
+                    <option value="TH">🇹🇭 Tailandia</option>
+                    <option value="PH">🇵🇭 Filipinas</option>
+                    <option value="IN">🇮🇳 India</option>
+                  </optgroup>
+                  
+                  <optgroup label="🌍 Otros">
+                    <option value="ZA">🇿🇦 Sudáfrica</option>
+                    <option value="EG">🇪🇬 Egipto</option>
+                    <option value="NG">🇳🇬 Nigeria</option>
+                    <option value="IL">🇮🇱 Israel</option>
+                    <option value="TR">🇹🇷 Turquía</option>
+                    <option value="AE">🇦🇪 Emiratos Árabes Unidos</option>
+                  </optgroup>
                 </select>
+              </div>
+
+              {/* Languages */}
+              <div>
+                <label className="block text-sm font-medium text-primary-400 mb-2">
+                  Idiomas
+                </label>
+                <select
+                  multiple
+                  value={searchParams.languages || []}
+                  onChange={(e) => {
+                    const selectedLanguages = Array.from(e.target.selectedOptions, option => option.value);
+                    setSearchParams(prev => ({ ...prev, languages: selectedLanguages }));
+                  }}
+                  className="form-select w-full h-32"
+                  size={6}
+                >
+                  <optgroup label="🌎 Idiomas Principales">
+                    <option value="es">🇪🇸 Español</option>
+                    <option value="en">🇺🇸 Inglés</option>
+                    <option value="pt">🇧🇷 Portugués</option>
+                    <option value="fr">🇫🇷 Francés</option>
+                    <option value="de">🇩🇪 Alemán</option>
+                    <option value="it">🇮🇹 Italiano</option>
+                  </optgroup>
+                  
+                  <optgroup label="🌏 Idiomas Asiáticos">
+                    <option value="zh">🇨🇳 Chino (Mandarín)</option>
+                    <option value="cmn">🇨🇳 Chino Mandarín (CMN)</option>
+                    <option value="yue">🇭🇰 Cantonés (YUE)</option>
+                    <option value="ja">🇯🇵 Japonés</option>
+                    <option value="ko">🇰🇷 Coreano</option>
+                    <option value="hi">🇮🇳 Hindi</option>
+                    <option value="th">🇹🇭 Tailandés</option>
+                    <option value="vi">🇻🇳 Vietnamita</option>
+                  </optgroup>
+                  
+                  <optgroup label="🌍 Otros Idiomas">
+                    <option value="ar">🇸🇦 Árabe</option>
+                    <option value="ru">🇷🇺 Ruso</option>
+                    <option value="nl">🇳🇱 Holandés</option>
+                    <option value="sv">🇸🇪 Sueco</option>
+                    <option value="no">🇳🇴 Noruego</option>
+                    <option value="da">🇩🇰 Danés</option>
+                    <option value="fi">🇫🇮 Finlandés</option>
+                    <option value="pl">🇵🇱 Polaco</option>
+                    <option value="tr">🇹🇷 Turco</option>
+                    <option value="he">🇮🇱 Hebreo</option>
+                  </optgroup>
+                </select>
+                <p className="text-xs text-gray-400 mt-1">
+                  Mantén presionado Ctrl (Cmd en Mac) para seleccionar múltiples idiomas
+                </p>
               </div>
 
               {/* Minimum Days */}
@@ -1315,52 +1506,6 @@ export function SearchPage() {
               </div>
             </div>
 
-          {/* Screenshot Progress - Only show for non-Apify searches */}
-          {searchResults.length > 0 && searchResults.some(ad => ad.ad_snapshot_url) && !searchParams.useApify && (
-              <div className="holographic-panel p-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
-                    </svg>
-                    <span className="text-sm font-medium text-blue-300">Screenshots automáticos</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-blue-300">
-                      {Object.values(screenshots).filter(s => s.data).length} / {searchResults.filter(ad => ad.ad_snapshot_url).length} completados
-                    </span>
-                    {Object.values(screenshots).some(s => s.loading) && (
-                      <div className="w-4 h-4 border border-blue-400/30 border-t-blue-400 rounded-full animate-spin" />
-                    )}
-                  </div>
-                </div>
-                
-                {/* Progress Bar */}
-                <div className="mt-2 w-full bg-gray-700 rounded-full h-2">
-                  <div 
-                    className="bg-blue-500 h-2 rounded-full transition-all duration-300"
-                    style={{
-                      width: `${(Object.values(screenshots).filter(s => s.data).length / searchResults.filter(ad => ad.ad_snapshot_url).length) * 100}%`
-                    }}
-                  />
-                </div>
-              </div>
-            )}
-
-            {/* Apify Search Info */}
-            {searchResults.length > 0 && searchParams.useApify && (
-              <div className="holographic-panel p-4">
-                <div className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span className="text-sm font-medium text-yellow-300">
-                    💎 Búsqueda de Apify - Los anuncios ya incluyen imágenes de alta calidad, no se generan screenshots adicionales
-                  </span>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Debug Panel */}
@@ -1529,7 +1674,6 @@ export function SearchPage() {
           {/* Results Grid */}
           <div className="ad-grid">
             {sortResults(searchResults).map((ad) => {
-              const isExpanded = expandedAds.has(ad.id)
               const adInfo = getAdData(ad)
               const adData = adInfo.data
               
@@ -1648,29 +1792,151 @@ export function SearchPage() {
 
                   {/* Ad Content */}
                   <div className="ad-content space-y-3">
+                    {/* Facebook API Traditional Layout */}
+                    {ad.source === 'facebook_api' ? (
+                      <div className="facebook-api-layout space-y-3">
+                        {/* Body Text */}
+                        {ad.ad_creative_bodies && ad.ad_creative_bodies.length > 0 && (
+                          <div className="facebook-body">
+                            {(() => {
+                              const bodyText = ad.ad_creative_bodies[0]
+                              const isLongText = bodyText.length > 200
+                              const isExpanded = expandedTexts.has(`${ad.id}_facebook_body`)
+                              const shouldTruncate = isLongText && !isExpanded
+                              
+                              return (
+                                <>
+                                  <p className={`ad-body ${shouldTruncate ? 'line-clamp-3' : ''}`}>
+                                    {shouldTruncate ? `${bodyText.slice(0, 200)}...` : bodyText}
+                                  </p>
+                                  {isLongText && (
+                                    <button
+                                      onClick={() => {
+                                        const newSet = new Set(expandedTexts)
+                                        if (isExpanded) {
+                                          newSet.delete(`${ad.id}_facebook_body`)
+                                        } else {
+                                          newSet.add(`${ad.id}_facebook_body`)
+                                        }
+                                        setExpandedTexts(newSet)
+                                      }}
+                                      className="text-xs text-primary-400 hover:text-primary-300 mt-1 transition-colors"
+                                    >
+                                      {isExpanded ? 'Ver menos' : 'Ver más'}
+                                    </button>
+                                  )}
+                                </>
+                              )
+                            })()}
+                          </div>
+                        )}
+
+                        {/* Multimedia Content */}
+                        {(adInfo.images && adInfo.images.length > 0) && (
+                          <div className="facebook-multimedia">
+                            {adInfo.images[0] && (
+                              <img 
+                                src={adInfo.images[0].resized_image_url || adInfo.images[0].original_image_url} 
+                                alt="Ad creative"
+                                className="w-full h-64 object-cover rounded-lg"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none'
+                                }}
+                              />
+                            )}
+                          </div>
+                        )}
+                        
+                        {(adInfo.videos && adInfo.videos.length > 0) && (
+                          <div className="facebook-multimedia">
+                            {adInfo.videos[0] && (
+                              <video 
+                                src={adInfo.videos[0].video_hd_url || adInfo.videos[0].video_sd_url}
+                                className="w-full h-64 object-cover rounded-lg"
+                                controls
+                                poster={adInfo.videos[0].video_preview_image_url}
+                              />
+                            )}
+                          </div>
+                        )}
+
+                        {/* Link Card Layout */}
+                        {(ad.ad_creative_link_titles || ad.ad_creative_link_descriptions || ad.ad_creative_link_captions) && (
+                          <div className="facebook-link-card bg-gray-800/30 border border-gray-700 rounded-lg p-4">
+                            {/* Title and CTA Button Row */}
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              {/* Title (Left side) */}
+                              {ad.ad_creative_link_titles && ad.ad_creative_link_titles.length > 0 && (
+                                <div className="flex-1">
+                                  <h4 className="text-white font-medium text-sm leading-tight">
+                                    {ad.ad_creative_link_titles[0]}
+                                  </h4>
+                                </div>
+                              )}
+                              
+                              {/* CTA Button (Right side) */}
+                              {ad.ad_creative_link_captions && ad.ad_creative_link_captions.length > 0 && (
+                                <div className="flex-shrink-0">
+                                  <a
+                                    href={ad.ad_creative_link_captions[0].startsWith('http') 
+                                      ? ad.ad_creative_link_captions[0] 
+                                      : `https://${ad.ad_creative_link_captions[0]}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-medium text-sm transition-colors inline-block"
+                                  >
+                                    CTA
+                                  </a>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Description (Below) */}
+                            {ad.ad_creative_link_descriptions && ad.ad_creative_link_descriptions.length > 0 && (
+                              <div className="facebook-description">
+                                <p className="text-sm text-gray-300 leading-relaxed">
+                                  {ad.ad_creative_link_descriptions[0]}
+                                </p>
+                              </div>
+                            )}
+
+                            {/* Link Destination (Below description) */}
+                            {ad.ad_creative_link_captions && ad.ad_creative_link_captions.length > 0 && (
+                              <div className="facebook-link-destination mt-2">
+                                <p className="text-blue-400 text-sm font-medium">
+                                  {ad.ad_creative_link_captions[0]}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      /* Apify Pro Layout - Keep existing structure */
+                      <>
                     {/* Creative Bodies */}
                     {adInfo.body && (
                       <div>
                         {(() => {
                           const isLongText = adInfo.body.length > 200
-                          const isExpanded = expandedAds.has(`${ad.id}_body`)
+                              const isExpanded = expandedTexts.has(`${ad.id}_body`)
                           const shouldTruncate = isLongText && !isExpanded
                           
                           return (
                             <>
-                              <p className={`text-sm text-gray-300 leading-relaxed ${shouldTruncate ? 'line-clamp-3' : ''}`}>
+                                  <p className={`ad-body ${shouldTruncate ? 'line-clamp-3' : ''}`}>
                                 {shouldTruncate ? `${adInfo.body.slice(0, 200)}...` : adInfo.body}
                               </p>
                               {isLongText && (
                                 <button
                                   onClick={() => {
-                                    const newSet = new Set(expandedAds)
+                                        const newSet = new Set(expandedTexts)
                                     if (isExpanded) {
                                       newSet.delete(`${ad.id}_body`)
                                     } else {
                                       newSet.add(`${ad.id}_body`)
                                     }
-                                    setExpandedAds(newSet)
+                                        setExpandedTexts(newSet)
                                   }}
                                   className="text-xs text-primary-400 hover:text-primary-300 mt-1 transition-colors"
                                 >
@@ -1681,6 +1947,8 @@ export function SearchPage() {
                           )
                         })()}
                       </div>
+                        )}
+                      </>
                     )}
 
                     {/* Collation Count Badge - Near images to show duplicates */}
@@ -1971,6 +2239,10 @@ export function SearchPage() {
                         <MapPin className="w-3 h-3" />
                         {searchParams.country}
                       </div>
+                      <div className="flex items-center gap-1">
+                        <Globe className="w-3 h-3" />
+                        {getLanguagesDisplay(searchParams.languages)}
+                      </div>
                       {ad.collation_count > 1 && (
                         <div className="flex items-center gap-1">
                           <Users className="w-3 h-3" />
@@ -2001,284 +2273,13 @@ export function SearchPage() {
                     )}
 
                     {/* Action Buttons */}
-                    <div className="border-t border-primary-500/20 pt-2 space-y-2">
-                      <div className="flex items-center justify-between">
+                    <div className="flex justify-center pt-2 border-t border-primary-500/20">
                         <button
-                          onClick={() => toggleAdExpansion(ad.id)}
-                          className="flex items-center gap-2 text-xs text-primary-400 hover:text-primary-300 transition-colors"
-                        >
-                          {isExpanded ? (
-                            <ChevronDown className="w-3 h-3" />
-                          ) : (
-                            <ChevronRight className="w-3 h-3" />
-                          )}
-                          {isExpanded ? 'Ocultar detalles' : 'Ver más detalles'}
-                        </button>
-
-                      </div>
-
-
-                    </div>
-
-                    {/* Expanded Details */}
-                    {isExpanded && (
-                      <div className="space-y-3 pt-3 border-t border-primary-500/20">
-                        {/* Campaign Dates */}
-                        {(adData.start_date_formatted || adData.end_date_formatted) && (
-                          <div className="text-xs space-y-1">
-                            <div className="flex items-center gap-1 text-primary-400">
-                              <Calendar className="w-3 h-3" />
-                              <span>Fechas de campaña:</span>
-                            </div>
-                            <div className="ml-4 space-y-1 text-gray-400">
-                              {adData.start_date_formatted && (
-                                <div>Inicio: {formatDateDetailed(adData.start_date_formatted)}</div>
-                              )}
-                              {adData.end_date_formatted && (
-                                <div>Fin: {formatDateDetailed(adData.end_date_formatted)}</div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Spend and Impressions */}
-                        {(adData.spend || adData.impressions_with_index?.impressions_text) && (
-                          <div className="text-xs space-y-1">
-                            <div className="flex items-center gap-1 text-primary-400">
-                              <DollarSign className="w-3 h-3" />
-                              <span>Métricas:</span>
-                            </div>
-                            <div className="ml-4 space-y-1 text-gray-400">
-                              {adData.spend && (
-                                <div>Gasto: {adData.spend}</div>
-                              )}
-                              {adData.impressions_with_index?.impressions_text && (
-                                <div>Impresiones: {adData.impressions_with_index.impressions_text}</div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Page Details */}
-                        {adInfo.pageInfo.profileUri && (
-                          <div className="text-xs space-y-1">
-                            <div className="flex items-center gap-1 text-primary-400">
-                              <Globe className="w-3 h-3" />
-                              <span>Página:</span>
-                            </div>
-                            <div className="ml-4">
-                              <a 
-                                href={adInfo.pageInfo.profileUri}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-blue-400 hover:text-blue-300 underline"
-                              >
-                                Ver página de Facebook
-                              </a>
-                            </div>
-                          </div>
-                        )}
-
-                        {/* Categories and Targeting */}
-                        {adData.categories && adData.categories.length > 0 && (
-                          <div className="text-xs space-y-1">
-                            <div className="flex items-center gap-1 text-primary-400">
-                              <Info className="w-3 h-3" />
-                              <span>Categorías:</span>
-                            </div>
-                            <div className="ml-4 flex flex-wrap gap-1">
-                              {adData.categories.map((category: string, index: number) => (
-                                <span key={index} className="bg-gray-700/50 px-2 py-1 rounded text-xs">
-                                  {category}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* All Cards with Facebook Ad Layout */}
-                        {adInfo.cards && adInfo.cards.length > 0 && (
-                          <div className="text-xs space-y-3">
-                            <div className="flex items-center gap-1 text-primary-400">
-                              <Image className="w-3 h-3" />
-                              <span>Todos los anuncios del carrusel ({adInfo.cards.length}):</span>
-                            </div>
-                            <div className="ml-4 space-y-4">
-                              {adInfo.cards.map((card: any, index: number) => (
-                                <div key={index} className="bg-gray-800/30 border border-gray-700 rounded-lg overflow-hidden">
-                                  {/* Card Image */}
-                                  {card.resized_image_url && (
-                                    <div className="relative">
-                                      <img 
-                                        src={card.resized_image_url} 
-                                        alt={card.title || `Anuncio ${index + 1}`}
-                                        className="w-full h-64 object-cover"
-                                        onError={(e) => {
-                                          const target = e.target as HTMLImageElement;
-                                          target.src = card.original_image_url || card.resized_image_url;
-                                        }}
-                                      />
-                                      {/* Platform overlay */}
-                                      <div className="absolute top-2 right-2">
-                                        <div className="bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                                          {getPublisherPlatformIcon('FACEBOOK')}
-                                          <span>Facebook</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Card Content - Facebook Ad Style */}
-                                  <div className="p-3 space-y-2">
-                                    {/* Card Title */}
-                                    {card.title && (
-                                      <h4 className="font-semibold text-white text-sm leading-tight">
-                                        {card.title}
-                                      </h4>
-                                    )}
-                                    
-                                    {/* Card Body/Description */}
-                                    {card.body && card.body.trim() && (
-                                      <p className="text-gray-300 text-xs leading-relaxed line-clamp-2">
-                                        {card.body.length > 150 ? `${card.body.slice(0, 150)}...` : card.body}
-                                      </p>
-                                    )}
-                                    
-                                    {/* CTA Button with Destination */}
-                                    {card.cta_text && (
-                                      <div className="pt-2">
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex-1">
-                                            <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors">
-                                              {card.cta_text}
-                                            </button>
-                                          </div>
-                                          <div className="text-xs text-gray-400 ml-3">
-                                            {card.link_url ? (
-                                              <div className="flex items-center gap-1">
+                        onClick={() => window.open(ad.ad_snapshot_url || adData.ad_library_url, '_blank')}
+                        className="btn-secondary text-xs px-4 py-2 flex items-center gap-2"
+                      >
                                                 <ExternalLink className="w-3 h-3" />
-                                                <span>Enlace externo</span>
-                                              </div>
-                                            ) : card.cta_type === 'MESSAGE_PAGE' ? (
-                                              <div className="flex items-center gap-1">
-                                                <MessageCircle className="w-3 h-3" />
-                                                <span>WhatsApp</span>
-                                              </div>
-                                            ) : card.cta_type === 'CONTACT_US' ? (
-                                              <div className="flex items-center gap-1">
-                                                <MessageCircle className="w-3 h-3" />
-                                                <span>Mensaje</span>
-                                              </div>
-                                            ) : (
-                                              <div className="flex items-center gap-1">
-                                                <Globe className="w-3 h-3" />
-                                                <span>Página</span>
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )}
-                                    
-                                    {/* Link URL if available */}
-                                    {card.link_url && (
-                                      <div className="text-xs text-blue-400 truncate">
-                                        <a href={card.link_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                          {card.link_url}
-                                        </a>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* All Images */}
-                        {adInfo.images && adInfo.images.length > 0 && (
-                          <div className="text-xs space-y-2">
-                            <div className="flex items-center gap-1 text-primary-400">
-                              <Image className="w-3 h-3" />
-                              <span>Todas las imágenes ({adInfo.images.length}):</span>
-                            </div>
-                            <div className="ml-4 grid grid-cols-2 gap-2">
-                              {adInfo.images.map((image: any, index: number) => (
-                                <div key={index} className="relative">
-                                  <img 
-                                    src={image.original_image_url || image.resized_image_url} 
-                                    alt={`Imagen ${index + 1}`}
-                                    className="w-full h-48 object-cover rounded border border-gray-700"
-                                    onError={(e) => {
-                                      const target = e.target as HTMLImageElement;
-                                      target.src = image.resized_image_url || image.original_image_url;
-                                    }}
-                                  />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* All Videos */}
-                        {adInfo.videos && adInfo.videos.length > 0 && (
-                          <div className="text-xs space-y-2">
-                            <div className="flex items-center gap-1 text-primary-400">
-                              <Video className="w-3 h-3" />
-                              <span>Todos los videos ({adInfo.videos.length}):</span>
-                            </div>
-                            <div className="ml-4 space-y-3">
-                              {adInfo.videos.map((video: any, index: number) => (
-                                <div key={index} className="space-y-2">
-                                  {video.video_hd_url || video.video_sd_url ? (
-                                    <video 
-                                      className="w-full h-72 object-cover rounded border border-gray-700"
-                                      controls
-                                      poster={video.video_preview_image_url}
-                                      preload="metadata"
-                                    >
-                                      {video.video_hd_url && (
-                                        <source src={video.video_hd_url} type="video/mp4" />
-                                      )}
-                                      {video.video_sd_url && (
-                                        <source src={video.video_sd_url} type="video/mp4" />
-                                      )}
-                                      Tu navegador no soporta videos HTML5.
-                                    </video>
-                                  ) : video.video_preview_image_url ? (
-                                    <div className="relative">
-                                      <img 
-                                        src={video.video_preview_image_url} 
-                                        alt={`Video preview ${index + 1}`}
-                                        className="w-full h-72 object-cover rounded border border-gray-700"
-                                      />
-                                      <div className="absolute inset-0 flex items-center justify-center">
-                                        <div className="bg-black/70 rounded-full p-3">
-                                          <Play className="w-8 h-8 text-white" />
-                                        </div>
-                                      </div>
-                                    </div>
-                                  ) : null}
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-
-                      {/* Action Buttons */}
-                      <div className="flex gap-2 pt-2 border-t border-primary-500/20">
-                        <button className="btn-secondary text-xs px-3 py-1 flex-1">
-                          <Eye className="w-3 h-3 mr-1" />
-                          Ver
-                        </button>
-                        <button 
-                          onClick={() => window.open(ad.ad_snapshot_url || adData.ad_library_url, '_blank')}
-                          className="btn-secondary text-xs px-3 py-1 flex-1"
-                        >
-                          <ExternalLink className="w-3 h-3 mr-1" />
-                          Original
+                        Ir al anuncio
                         </button>
                       </div>
                     </div>

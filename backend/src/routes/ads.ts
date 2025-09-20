@@ -5,6 +5,8 @@ import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
 import type { SearchParams, SearchResponse } from '@shared/types/index.js';
 import { FacebookScraperService } from '../services/facebookScraperService.js';
 import { AdvertiserStatsService } from '../services/advertiserStatsService.js';
+import { searchRateLimit, scrapingRateLimit } from '@/middleware/rateLimiter.js';
+import { cacheService } from '@/services/cacheService.js';
 
 const router = express.Router();
 
@@ -18,7 +20,7 @@ function getFacebookService(): FacebookService {
 }
 
 // POST /api/search - Main search endpoint
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', searchRateLimit, asyncHandler(async (req, res) => {
   const searchParams: SearchParams = req.body;
   
   // Validate required fields
@@ -29,15 +31,35 @@ router.post('/', asyncHandler(async (req, res) => {
   console.log(`[SEARCH] 🔍 Starting search: "${searchParams.value}" (${searchParams.searchType})`);
   
   try {
-    // Execute search using FacebookService
-    let searchResult: SearchResponse = await getFacebookService().searchAds(searchParams);
+    // Check cache first (only for non-Apify searches to avoid cost issues)
+    let searchResult: SearchResponse;
+    
+    if (!searchParams.useApify) {
+      const cacheKey = cacheService.generateSearchKey(searchParams);
+      const cachedResult = cacheService.getSearchResult(cacheKey);
+      
+      if (cachedResult) {
+        console.log(`[CACHE] ✅ Using cached search result for: "${searchParams.value}"`);
+        searchResult = cachedResult;
+      } else {
+        // Execute search using FacebookService
+        searchResult = await getFacebookService().searchAds(searchParams);
+        
+        // Cache the result for 1 hour
+        cacheService.setSearchResult(cacheKey, searchResult, 60 * 60);
+        console.log(`[CACHE] 💾 Cached search result for: "${searchParams.value}"`);
+      }
+    } else {
+      // Don't cache Apify results due to cost implications
+      searchResult = await getFacebookService().searchAds(searchParams);
+    }
     
     // Auto-save complete search for Apify results
     if (searchParams.useApify && searchResult.data.length > 0) {
       try {
         const searchName = `Apify-${searchParams.value}-${searchParams.country || 'CO'}-${new Date().toISOString().split('T')[0]}`;
         
-        const existingSearch = await collections.completeSearches().findOne({ searchName });
+        const existingSearch = await collections.completeSearches.findOne({ searchName });
         
         if (!existingSearch) {
           const completeSearchData = {
@@ -64,7 +86,7 @@ router.post('/', asyncHandler(async (req, res) => {
             accessCount: 1
           };
           
-          await collections.completeSearches().insertOne(completeSearchData as any);
+          await collections.completeSearches.insertOne(completeSearchData as any);
           
           searchResult.autoSaved = {
             saved: true,
@@ -92,7 +114,7 @@ router.post('/', asyncHandler(async (req, res) => {
     if (searchResult.data.length > 0) {
       try {
         const adIds = searchResult.data.map(ad => ad.id);
-        const savedAds = await collections.savedAds().find(
+        const savedAds = await collections.savedAds.find(
           { 'adData.id': { $in: adIds } }
         ).toArray();
         
@@ -181,7 +203,7 @@ router.get('/multiple-pages', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/ads/scrape-advertiser - Scrape all ads from a specific advertiser
-router.post('/scrape-advertiser', asyncHandler(async (req, res) => {
+router.post('/scrape-advertiser', scrapingRateLimit, asyncHandler(async (req, res) => {
   const { advertiserName, maxAds = 50, country = 'CO', useStealth = true } = req.body;
 
   if (!advertiserName || typeof advertiserName !== 'string') {
@@ -226,7 +248,7 @@ router.post('/scrape-advertiser', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/ads/advertiser-stats - Get total active ads count for a page by pageId
-router.post('/advertiser-stats', asyncHandler(async (req, res) => {
+router.post('/advertiser-stats', scrapingRateLimit, asyncHandler(async (req, res) => {
   const { pageId, country = 'ALL' } = req.body;
 
   if (!pageId || typeof pageId !== 'string') {
@@ -235,6 +257,16 @@ router.post('/advertiser-stats', asyncHandler(async (req, res) => {
 
   console.log(`[STATS] 📊 Getting stats for pageId: ${pageId}`);
   
+  // Check cache first
+  const cachedStats = cacheService.getAdvertiserStats(pageId);
+  if (cachedStats) {
+    console.log(`[STATS] ✅ Using cached stats for pageId: ${pageId}`);
+    return res.json({
+      ...cachedStats,
+      cached: true
+    });
+  }
+  
   const statsService = new AdvertiserStatsService();
   
   try {
@@ -242,7 +274,7 @@ router.post('/advertiser-stats', asyncHandler(async (req, res) => {
 
     console.log(`[STATS] ✅ Stats retrieval completed: ${result.stats?.totalActiveAds || 0} total ads`);
     
-    res.json({
+    const responseData = {
       success: result.success,
       pageId,
       advertiserName: result.stats?.advertiserName,
@@ -253,7 +285,15 @@ router.post('/advertiser-stats', asyncHandler(async (req, res) => {
         ? `Found ${result.stats?.totalActiveAds || 0} total active ads for ${result.stats?.advertiserName || pageId}`
         : `Failed to get stats: ${result.error}`,
       debug: result.debug
-    });
+    };
+
+    // Cache successful results for 30 minutes
+    if (result.success) {
+      cacheService.setAdvertiserStats(pageId, responseData, 30 * 60);
+      console.log(`[STATS] 💾 Cached stats for pageId: ${pageId}`);
+    }
+    
+    res.json(responseData);
 
   } catch (error) {
     console.error(`[STATS] ❌ Stats retrieval failed:`, error);

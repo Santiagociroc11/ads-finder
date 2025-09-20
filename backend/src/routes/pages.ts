@@ -49,7 +49,7 @@ router.post('/', asyncHandler(async (req, res) => {
     }
 
     // Check if page is already tracked
-    const existingPage = await collections.trackedPages().findOne({ pageId: fbData.id });
+    const existingPage = await collections.trackedPages.findOne({ pageId: fbData.id });
     if (existingPage) {
       throw new CustomError('La página ya está siendo rastreada', 409);
     }
@@ -60,7 +60,7 @@ router.post('/', asyncHandler(async (req, res) => {
       createdAt: new Date().toISOString()
     };
 
-    const result = await collections.trackedPages().insertOne(newPage as any);
+    const result = await collections.trackedPages.insertOne(newPage as any);
     
     console.log(`[PAGES] ✅ New page tracked: ${fbData.name} (${fbData.id})`);
     
@@ -80,7 +80,7 @@ router.post('/', asyncHandler(async (req, res) => {
 
 // GET /api/pages - Get all tracked pages
 router.get('/', asyncHandler(async (req, res) => {
-  const pages = await collections.trackedPages()
+  const pages = await collections.trackedPages
     .find()
     .sort({ createdAt: -1 })
     .toArray();
@@ -96,7 +96,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     throw new CustomError('ID de página inválido', 400);
   }
   
-  const result = await collections.trackedPages().deleteOne({ _id: new ObjectId(id) });
+  const result = await collections.trackedPages.deleteOne({ _id: new ObjectId(id) });
   
   if (result.deletedCount === 0) {
     throw new CustomError('Página rastreada no encontrada', 404);

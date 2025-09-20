@@ -1,4 +1,5 @@
 import { chromium, Browser, Page } from 'playwright'
+import { browserPool } from './browserPool.js'
 
 export interface AdvertiserStats {
   pageId: string
@@ -44,40 +45,25 @@ export class AdvertiserStatsService {
 
       console.log(`🔍 Getting stats for pageId: ${pageId}`)
       
-      // Launch browser with EXACT same config as working test-direct-url endpoint
-      this.browser = await chromium.launch({
-        headless: true,
-        args: [
-          '--no-sandbox',
-          '--disable-setuid-sandbox',
-          '--disable-dev-shm-usage',
-          '--disable-gpu',
-        ]
-      })
+      // Get browser from pool instead of creating new one
+      const browserInstance = await browserPool.getBrowser()
+      const page = browserInstance.page
 
-      const context = await this.browser.newContext({
-        viewport: { width: 1920, height: 1080 },
-        userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      })
+      try {
+        // Navigate to Facebook Ad Library
+        const adLibraryUrl = this.buildAdLibraryUrl(pageId, country)
+        console.log(`📱 Navigating to: ${adLibraryUrl}`)
+        
+        await page.goto(adLibraryUrl, { 
+          waitUntil: 'networkidle',
+          timeout: 30000 
+        })
 
-      const page = await context.newPage()
+        // Wait for content to load (same as working endpoint)
+        await page.waitForTimeout(5000)
 
-      // NO stealth measures - they might be causing detection
-
-      // Navigate to Facebook Ad Library
-      const adLibraryUrl = this.buildAdLibraryUrl(pageId, country)
-      console.log(`📱 Navigating to: ${adLibraryUrl}`)
-      
-      await page.goto(adLibraryUrl, { 
-        waitUntil: 'networkidle',
-        timeout: 30000 
-      })
-
-      // Wait for content to load (same as working endpoint)
-      await page.waitForTimeout(5000)
-
-      // Extract total count and advertiser name
-      const { totalCount, advertiserName } = await this.extractStatsFromPage(page)
+        // Extract total count and advertiser name
+        const { totalCount, advertiserName } = await this.extractStatsFromPage(page)
 
       // Get page content for debug
       const pageContent = await page.content()
@@ -115,23 +101,28 @@ export class AdvertiserStatsService {
       const executionTime = Date.now() - startTime
       console.log(`✅ Stats extraction completed in ${executionTime}ms. Found ${totalCount} total ads for ${advertiserName || pageId}`)
 
-      return {
-        success: true,
-        stats,
-        executionTime,
-        debug: {
-          url: adLibraryUrl,
-          finalUrl: currentUrl,
-          pageId,
-          advertiserName,
-          country,
-          extractedAt: new Date().toISOString(),
-          cacheHit: false,
-          pageTitle,
-          totalCount,
-          pageDebug: debugInfo,
-          pageContentLength: pageContent.length
+        return {
+          success: true,
+          stats,
+          executionTime,
+          debug: {
+            url: adLibraryUrl,
+            finalUrl: currentUrl,
+            pageId,
+            advertiserName,
+            country,
+            extractedAt: new Date().toISOString(),
+            cacheHit: false,
+            pageTitle,
+            totalCount,
+            pageDebug: debugInfo,
+            pageContentLength: pageContent.length
+          }
         }
+
+      } finally {
+        // Release browser back to pool instead of closing
+        await browserPool.releaseBrowser(browserInstance)
       }
 
     } catch (error) {
@@ -142,11 +133,6 @@ export class AdvertiserStatsService {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
         executionTime
-      }
-    } finally {
-      if (this.browser) {
-        await this.browser.close()
-        this.browser = null
       }
     }
   }

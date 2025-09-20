@@ -16,13 +16,29 @@ class DatabaseService {
     const dbName = process.env.DB_NAME || 'adFinder';
 
     try {
-      this.client = new MongoClient(mongoUrl);
+      // Optimized connection settings for 1000+ users
+      this.client = new MongoClient(mongoUrl, {
+        maxPoolSize: 50,              // Maximum 50 connections in pool
+        minPoolSize: 5,               // Minimum 5 connections always open
+        maxIdleTimeMS: 30000,         // Close connections after 30s idle
+        serverSelectionTimeoutMS: 5000, // 5s timeout for server selection
+        socketTimeoutMS: 45000,       // 45s socket timeout
+        family: 4,                    // Use IPv4, skip IPv6 resolution
+        connectTimeoutMS: 10000,      // 10s connection timeout
+        heartbeatFrequencyMS: 10000,  // Heartbeat every 10s
+        retryWrites: true,            // Retry failed writes
+        retryReads: true,             // Retry failed reads
+        compressors: ['zlib'],        // Enable compression
+        zlibCompressionLevel: 6,      // Compression level
+      });
+      
       await this.client.connect();
       this.db = this.client.db(dbName);
       
       // Test the connection
       await this.db.admin().ping();
-      console.log(`📦 Connected to MongoDB: ${dbName}`);
+      console.log(`📦 Connected to MongoDB: ${dbName} with optimized connection pool`);
+      console.log(`📦 Pool settings: maxPool=${50}, minPool=${5}, maxIdle=${30}s`);
       
     } catch (error) {
       console.error('❌ MongoDB connection error:', error);
@@ -93,6 +109,18 @@ class DatabaseService {
       await this.completeSearches.createIndex({ 'metadata.country': 1 });
       await this.completeSearches.createIndex({ 'metadata.searchTerm': 1 });
       await this.completeSearches.createIndex({ lastAccessed: -1 });
+      
+      // Additional performance indexes for 1000+ users
+      await this.completeSearches.createIndex({ 
+        'metadata.searchTerm': 'text',
+        'metadata.country': 1,
+        executedAt: -1 
+      }, { background: true });
+      await this.completeSearches.createIndex({ 
+        source: 1, 
+        'metadata.country': 1, 
+        executedAt: -1 
+      }, { background: true });
 
       // Indexes for trackedPages collection
       await this.trackedPages.createIndex({ pageId: 1 }, { unique: true });

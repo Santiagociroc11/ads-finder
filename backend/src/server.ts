@@ -17,9 +17,11 @@ import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 
-import { connectDatabase } from '@/services/database.js';
+import { connectDatabase, databaseService } from '@/services/database.js';
 import { errorHandler } from '@/middleware/errorHandler.js';
 import { logger } from '@/middleware/logger.js';
+import { apiRateLimit } from '@/middleware/rateLimiter.js';
+import { monitoringMiddleware, getHealthData } from '@/middleware/monitoring.js';
 
 // Import routes AFTER dotenv is configured
 import adsRoutes from '@/routes/ads.js';
@@ -52,6 +54,12 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(logger);
 
+// Apply monitoring to all requests
+app.use(monitoringMiddleware);
+
+// Apply general rate limiting to all API routes
+app.use('/api/', apiRateLimit);
+
 // Serve static files
 // Note: Screenshots functionality removed for better performance
 
@@ -63,6 +71,27 @@ app.use('/api/pages', pagesRoutes);
 app.use('/api/saved-ads', savedAdsRoutes);
 app.use('/api/complete-searches', completeSearchesRoutes);
 app.use('/api/suggestions', suggestionsRoutes);
+
+// Health check endpoint
+app.get('/api/health', async (req, res) => {
+  try {
+    const healthData = getHealthData();
+    const dbHealthy = await databaseService.isHealthy();
+    
+    res.json({
+      ...healthData,
+      database: dbHealthy ? 'connected' : 'disconnected',
+      version: '2.0.0',
+      environment: process.env.NODE_ENV || 'development'
+    });
+  } catch (error) {
+    res.status(500).json({
+      status: 'critical',
+      error: 'Health check failed',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // Serve frontend static files in production
 if (process.env.NODE_ENV === 'production') {

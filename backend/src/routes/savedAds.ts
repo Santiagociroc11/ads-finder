@@ -15,7 +15,7 @@ router.post('/', asyncHandler(async (req, res) => {
   }
 
   // Check if ad is already saved
-  const existingAd = await collections.savedAds().findOne({ 'adData.id': adData.id });
+  const existingAd = await collections.savedAds.findOne({ 'adData.id': adData.id });
   if (existingAd) {
     throw new CustomError('Este anuncio ya está guardado', 409);
   }
@@ -35,7 +35,7 @@ router.post('/', asyncHandler(async (req, res) => {
     }
   };
 
-  const result = await collections.savedAds().insertOne(newSavedAd as any);
+  const result = await collections.savedAds.insertOne(newSavedAd as any);
   
   console.log(`[SAVED_ADS] ✅ New ad saved: ${adData.page_name} (ID: ${adData.id})`);
   
@@ -82,7 +82,7 @@ router.get('/', asyncHandler(async (req, res) => {
       sort = { savedAt: -1 };
   }
   
-  let query = collections.savedAds().find(filter).sort(sort);
+  let query = collections.savedAds.find(filter).sort(sort);
   if (limit) {
     query = query.limit(parseInt(limit as string));
   }
@@ -90,7 +90,7 @@ router.get('/', asyncHandler(async (req, res) => {
   const savedAds = await query.toArray();
   
   // Get stats
-  const stats = await collections.savedAds().aggregate([
+  const stats = await collections.savedAds.aggregate([
     {
       $group: {
         _id: null,
@@ -124,7 +124,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   if (isFavorite !== undefined) updateFields.isFavorite = isFavorite;
   updateFields.lastViewed = new Date().toISOString();
   
-  const result = await collections.savedAds().updateOne(
+  const result = await collections.savedAds.updateOne(
     { _id: new ObjectId(id) },
     { $set: updateFields }
   );
@@ -146,7 +146,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     throw new CustomError('ID de anuncio inválido', 400);
   }
   
-  const result = await collections.savedAds().deleteOne({ _id: new ObjectId(id) });
+  const result = await collections.savedAds.deleteOne({ _id: new ObjectId(id) });
   
   if (result.deletedCount === 0) {
     throw new CustomError('Anuncio guardado no encontrado', 404);
@@ -159,7 +159,7 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 
 // GET /api/saved-ads/collections - Get available collections
 router.get('/collections', asyncHandler(async (req, res) => {
-  const collections_data = await collections.savedAds().aggregate([
+  const collections_data = await collections.savedAds.aggregate([
     {
       $group: {
         _id: '$collection',
@@ -175,7 +175,7 @@ router.get('/collections', asyncHandler(async (req, res) => {
 
 // GET /api/saved-ads/tags - Get available tags
 router.get('/tags', asyncHandler(async (req, res) => {
-  const tags = await collections.savedAds().aggregate([
+  const tags = await collections.savedAds.aggregate([
     { $unwind: '$tags' },
     { $group: { _id: '$tags', count: { $sum: 1 } } },
     { $sort: { count: -1 } }
@@ -200,7 +200,7 @@ router.post('/bulk', asyncHandler(async (req, res) => {
   };
 
   // Check which ads already exist
-  const existingAdIds = await collections.savedAds().find(
+  const existingAdIds = await collections.savedAds.find(
     { 'adData.id': { $in: ads.map((ad: AdData) => ad.id) } }
   ).toArray();
   const existingIds = new Set(existingAdIds.map(ad => ad.adData.id));
@@ -243,7 +243,7 @@ router.post('/bulk', asyncHandler(async (req, res) => {
 
   // Save ads in bulk
   if (adsToSave.length > 0) {
-    const insertResult = await collections.savedAds().insertMany(adsToSave as any[]);
+    const insertResult = await collections.savedAds.insertMany(adsToSave as any[]);
     results.saved = insertResult.insertedCount;
     
     // Update details with success

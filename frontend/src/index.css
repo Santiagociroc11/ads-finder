@@ -161,7 +161,7 @@
   /* Card hover effects */
   .ad-card {
     @apply holographic-panel p-6 transition-all duration-300 hover:scale-102 cursor-pointer;
-    min-height: 600px;
+    min-height: 400px;
     max-height: none;
     display: flex;
     flex-direction: column;
@@ -184,7 +184,7 @@
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    min-height: 200px;
+    min-height: 120px;
   }
 
   /* Responsive media containers */
@@ -199,6 +199,111 @@
   .ad-card:hover {
     @apply shadow-xl;
     transform: translateY(-2px) scale(1.02);
+  }
+
+  /* Ad text styling */
+  .ad-card .ad-body {
+    @apply text-sm text-gray-300 leading-relaxed whitespace-pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    hyphens: auto;
+    line-height: 1.6;
+    margin-bottom: 0.5rem;
+  }
+
+  .ad-card .ad-body.line-clamp-3 {
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Facebook API Traditional Layout Styles */
+  .facebook-api-layout {
+    @apply space-y-4;
+  }
+
+  .facebook-body .ad-body {
+    @apply text-sm text-gray-100 leading-relaxed whitespace-pre-wrap;
+    font-size: 0.95rem;
+    line-height: 1.5;
+  }
+
+  .facebook-multimedia {
+    @apply relative;
+  }
+
+  .facebook-multimedia img,
+  .facebook-multimedia video {
+    @apply w-full rounded-lg border border-gray-700/50;
+    max-height: 400px;
+    object-fit: cover;
+  }
+
+  .facebook-link-card {
+    @apply bg-gray-800/30 border border-gray-700 rounded-lg p-4;
+  }
+
+  .facebook-link-card h4 {
+    @apply text-white font-medium text-sm leading-tight;
+  }
+
+  .facebook-link-card a.bg-blue-600 {
+    @apply hover:bg-blue-700 text-white font-medium rounded-lg transition-colors;
+    padding: 8px 16px;
+    font-size: 0.875rem;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    background-color: #2563eb;
+  }
+
+  .facebook-link-card a.bg-blue-600:hover {
+    background-color: #1d4ed8;
+  }
+
+  .facebook-description p {
+    @apply text-sm text-gray-300 leading-relaxed;
+    font-size: 0.9rem;
+    line-height: 1.5;
+  }
+
+  .facebook-link-destination a {
+    @apply text-blue-400 hover:text-blue-300 text-sm font-medium;
+    text-decoration: none;
+  }
+
+  .facebook-link-destination a:hover {
+    @apply underline;
+  }
+
+  /* Multiple select styling */
+  select[multiple] {
+    @apply bg-dark-800 border-primary-500/30 text-gray-100;
+    scrollbar-width: thin;
+    scrollbar-color: #6366f1 #1f2937;
+  }
+
+  select[multiple]::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  select[multiple]::-webkit-scrollbar-track {
+    @apply bg-dark-800;
+  }
+
+  select[multiple]::-webkit-scrollbar-thumb {
+    @apply bg-primary-500 rounded;
+  }
+
+  select[multiple]::-webkit-scrollbar-thumb:hover {
+    @apply bg-primary-400;
+  }
+
+  select[multiple] option:checked {
+    @apply bg-primary-600 text-white;
+  }
+
+  select[multiple] option:hover {
+    @apply bg-primary-500/20;
   }
 
   /* Pagination styles */

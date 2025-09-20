@@ -21,7 +21,7 @@ router.post('/', asyncHandler(async (req, res) => {
   }
 
   // Check if search name already exists
-  const existingSearch = await collections.completeSearches().findOne({ searchName });
+  const existingSearch = await collections.completeSearches.findOne({ searchName });
   if (existingSearch) {
     throw new CustomError('Ya existe una búsqueda con este nombre', 409);
   }
@@ -50,7 +50,7 @@ router.post('/', asyncHandler(async (req, res) => {
     accessCount: 0
   };
 
-  const result = await collections.completeSearches().insertOne(newCompleteSearch as any);
+  const result = await collections.completeSearches.insertOne(newCompleteSearch as any);
   
   console.log(`[COMPLETE_SEARCH] ✅ Complete search saved: "${searchName}" with ${results.length} ads`);
   
@@ -98,7 +98,7 @@ router.get('/', asyncHandler(async (req, res) => {
     // results: 0  // Explicitly exclude results
   };
   
-  let query = collections.completeSearches().find({}, { projection }).sort(sort);
+  let query = collections.completeSearches.find({}, { projection }).sort(sort);
   if (limit) {
     query = query.limit(parseInt(limit as string));
   }
@@ -114,7 +114,7 @@ router.get('/', asyncHandler(async (req, res) => {
   } as CompleteSearchListItem));
   
   // Global stats
-  const globalStats = await collections.completeSearches().aggregate([
+  const globalStats = await collections.completeSearches.aggregate([
     {
       $group: {
         _id: null,
@@ -141,14 +141,14 @@ router.get('/:id', asyncHandler(async (req, res) => {
     throw new CustomError('ID de búsqueda inválido', 400);
   }
   
-  const completeSearch = await collections.completeSearches().findOne({ _id: new ObjectId(id) });
+  const completeSearch = await collections.completeSearches.findOne({ _id: new ObjectId(id) });
   
   if (!completeSearch) {
     throw new CustomError('Búsqueda completa no encontrada', 404);
   }
   
   // Update access statistics
-  await collections.completeSearches().updateOne(
+  await collections.completeSearches.updateOne(
     { _id: new ObjectId(id) },
     {
       $set: { lastAccessed: new Date().toISOString() },
@@ -193,13 +193,13 @@ router.delete('/:id', asyncHandler(async (req, res) => {
     throw new CustomError('ID de búsqueda inválido', 400);
   }
   
-  const completeSearch = await collections.completeSearches().findOne({ _id: new ObjectId(id) });
+  const completeSearch = await collections.completeSearches.findOne({ _id: new ObjectId(id) });
   
   if (!completeSearch) {
     throw new CustomError('Búsqueda completa no encontrada', 404);
   }
   
-  await collections.completeSearches().deleteOne({ _id: new ObjectId(id) });
+  await collections.completeSearches.deleteOne({ _id: new ObjectId(id) });
   
   console.log(`[COMPLETE_SEARCH] 🗑️ Complete search deleted: "${completeSearch.searchName}" (${completeSearch.totalResults} ads)`);
   
@@ -238,7 +238,7 @@ router.get('/search', asyncHandler(async (req, res) => {
     filter.totalResults = { $gte: parseInt(minResults as string) };
   }
   
-  const searches = await collections.completeSearches()
+  const searches = await collections.completeSearches
     .find(filter, {
       projection: {
         results: 0 // Don't include full results in search
@@ -258,7 +258,7 @@ router.get('/search', asyncHandler(async (req, res) => {
 // GET /api/complete-searches/stats - Get detailed statistics
 router.get('/stats', asyncHandler(async (req, res) => {
   // Overview stats
-  const stats = await collections.completeSearches().aggregate([
+  const stats = await collections.completeSearches.aggregate([
     {
       $group: {
         _id: null,
@@ -274,21 +274,21 @@ router.get('/stats', asyncHandler(async (req, res) => {
   ]).toArray();
   
   // Top countries
-  const topCountries = await collections.completeSearches().aggregate([
+  const topCountries = await collections.completeSearches.aggregate([
     { $group: { _id: '$metadata.country', count: { $sum: 1 }, totalAds: { $sum: '$totalResults' } } },
     { $sort: { count: -1 } },
     { $limit: 10 }
   ]).toArray();
   
   // Top search terms
-  const topTerms = await collections.completeSearches().aggregate([
+  const topTerms = await collections.completeSearches.aggregate([
     { $group: { _id: '$metadata.searchTerm', count: { $sum: 1 }, totalAds: { $sum: '$totalResults' } } },
     { $sort: { count: -1 } },
     { $limit: 10 }
   ]).toArray();
   
   // Most accessed searches
-  const mostAccessed = await collections.completeSearches().aggregate([
+  const mostAccessed = await collections.completeSearches.aggregate([
     { $match: { accessCount: { $gt: 0 } } },
     { $sort: { accessCount: -1 } },
     { $limit: 5 },
@@ -297,7 +297,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
   
   // Estimated cost savings
   const apifySearchCount = stats[0]?.apifySearches || 0;
-  const avgApifyResults = await collections.completeSearches().aggregate([
+  const avgApifyResults = await collections.completeSearches.aggregate([
     { $match: { source: 'apify_scraping' } },
     { $group: { _id: null, avgResults: { $avg: '$totalResults' } } }
   ]).toArray();

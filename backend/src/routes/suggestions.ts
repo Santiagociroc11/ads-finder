@@ -2,6 +2,8 @@ import express from 'express';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
 import type { AIsuggestion } from '@shared/types/index.js';
+import { aiRateLimit } from '@/middleware/rateLimiter.js';
+import { cacheService } from '@/services/cacheService.js';
 
 const router = express.Router();
 
@@ -31,11 +33,22 @@ function initializeGoogleAI(): GoogleGenerativeAI | null {
 }
 
 // POST /api/suggestions - Generate AI keyword suggestions
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', aiRateLimit, asyncHandler(async (req, res) => {
   const { idea } = req.body;
   
   if (!idea) {
     throw new CustomError('Se requiere una idea inicial', 400);
+  }
+
+  // Check cache first
+  const cachedSuggestions = cacheService.getAISuggestion(idea);
+  if (cachedSuggestions) {
+    console.log(`[AI] ✅ Using cached suggestions for: "${idea}"`);
+    return res.json({
+      success: true,
+      suggestions: cachedSuggestions,
+      cached: true
+    });
   }
 
   const aiService = initializeGoogleAI();
@@ -45,7 +58,7 @@ router.post('/', asyncHandler(async (req, res) => {
 
   try {
     console.log(`[AI] 🤖 Generating suggestions for: "${idea}"`);
-    
+
     const model = aiService.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
     
     const prompt = `Actúa como un experto en marketing digital y Facebook Ads. Basado en la idea general "${idea}", genera una lista de 8 palabras clave específicas y de alta intención de compra, en español, para encontrar anuncios ganadores en la biblioteca de anuncios de Facebook. Devuelve solo la lista de palabras, separadas por comas. Ejemplo: si la idea es "mascotas", devuelve "arnés para perros, comida natural para gatos, juguetes interactivos para perros, cama ortopédica para perro, fuente de agua para gatos, adiestramiento canino online, seguro para mascotas, snacks saludables para perros"`;
@@ -58,6 +71,10 @@ router.post('/', asyncHandler(async (req, res) => {
     const suggestions = text.split(',').map(s => s.trim()).filter(s => s.length > 0);
     
     console.log(`[AI] ✅ Generated ${suggestions.length} suggestions`);
+    
+    // Cache the suggestions for 24 hours
+    cacheService.setAISuggestion(idea, suggestions, 24 * 60 * 60);
+    console.log(`[AI] 💾 Cached suggestions for: "${idea}"`);
     
     const aiResponse: AIsuggestion = { suggestions };
     
