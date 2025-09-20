@@ -1,12 +1,27 @@
 import rateLimit from 'express-rate-limit';
 import { Request, Response } from 'express';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load .env variables first (same logic as server.ts)
+const envPath = process.cwd().endsWith('backend') 
+  ? path.join(process.cwd(), '..', '.env')
+  : path.join(process.cwd(), '.env');
+dotenv.config({ path: envPath });
+
+console.log('🎯 RATE LIMITS FROM .ENV (rateLimiter.ts):');
+console.log(`📊 SEARCH_RATE_LIMIT: ${process.env.SEARCH_RATE_LIMIT}`);
+console.log(`⏰ SEARCH_WINDOW_MS: ${process.env.SEARCH_WINDOW_MS}`);
+console.log(`🤖 AI_RATE_LIMIT: ${process.env.AI_RATE_LIMIT}`);
+console.log(`🕷️ SCRAPING_RATE_LIMIT: ${process.env.SCRAPING_RATE_LIMIT}`);
+console.log(`🌐 API_RATE_LIMIT: ${process.env.API_RATE_LIMIT}`);
 
 // Store for rate limiting (in-memory for now, Redis for production)
 const store = new Map<string, { count: number; resetTime: number }>();
 
 // Custom store implementation for rate limiting
 class CustomStore {
-  incr(key: string, callback: (error: Error | null, result?: { totalHits: number; resetTime?: Date }) => void) {
+  incr(key: string, callback: (error: Error | null, result?: number) => void) {
     const now = Date.now();
     const windowMs = 15 * 60 * 1000; // 15 minutes
     
@@ -16,12 +31,12 @@ class CustomStore {
       // New window or expired
       const newRecord = { count: 1, resetTime: now + windowMs };
       store.set(key, newRecord);
-      callback(null, { totalHits: 1, resetTime: new Date(newRecord.resetTime) });
+      callback(null, 1);
     } else {
       // Increment existing
       record.count++;
       store.set(key, record);
-      callback(null, { totalHits: record.count, resetTime: new Date(record.resetTime) });
+      callback(null, record.count);
     }
   }
 
@@ -45,9 +60,11 @@ const keyGenerator = (req: Request): string => {
 };
 
 // Rate limiter for search endpoints (most critical)
+// The .env loading happens in server.ts, so these variables should be available now
+
 export const searchRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 20, // 20 searches per 15 minutes per user
+  windowMs: parseInt(process.env.SEARCH_WINDOW_MS), // REQUIRED from .env
+  max: parseInt(process.env.SEARCH_RATE_LIMIT), // REQUIRED from .env
   message: {
     error: 'Demasiadas búsquedas realizadas',
     message: 'Has alcanzado el límite de búsquedas. Intenta nuevamente en 15 minutos.',
@@ -61,8 +78,8 @@ export const searchRateLimit = rateLimit({
 
 // Rate limiter for AI suggestions (expensive)
 export const aiRateLimit = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // 10 AI requests per 15 minutes per user
+  windowMs: parseInt(process.env.AI_WINDOW_MS), // REQUIRED from .env
+  max: parseInt(process.env.AI_RATE_LIMIT), // REQUIRED from .env
   message: {
     error: 'Demasiadas solicitudes de IA',
     message: 'Has alcanzado el límite de sugerencias de IA. Intenta nuevamente en 15 minutos.',
@@ -76,12 +93,12 @@ export const aiRateLimit = rateLimit({
 
 // Rate limiter for scraping (very expensive)
 export const scrapingRateLimit = rateLimit({
-  windowMs: 60 * 60 * 1000, // 1 hour
-  max: 5, // 5 scraping requests per hour per user
+  windowMs: parseInt(process.env.SCRAPING_WINDOW_MS), // REQUIRED from .env
+  max: parseInt(process.env.SCRAPING_RATE_LIMIT), // REQUIRED from .env
   message: {
-    error: 'Demasiadas solicitudes de scraping',
-    message: 'Has alcanzado el límite de scraping. Intenta nuevamente en 1 hora.',
-    retryAfter: 60 * 60
+    error: 'Demasiadas solicitudes de stats',
+    message: 'Has alcanzado el límite de estadísticas. Intenta nuevamente en 15 minutos.',
+    retryAfter: 15 * 60
   },
   standardHeaders: true,
   legacyHeaders: false,
@@ -91,8 +108,8 @@ export const scrapingRateLimit = rateLimit({
 
 // General API rate limiter
 export const apiRateLimit = rateLimit({
-  windowMs: 1 * 60 * 1000, // 1 minute
-  max: 100, // 100 requests per minute per user
+  windowMs: parseInt(process.env.API_WINDOW_MS), // REQUIRED from .env
+  max: parseInt(process.env.API_RATE_LIMIT), // REQUIRED from .env
   message: {
     error: 'Demasiadas solicitudes',
     message: 'Has realizado demasiadas solicitudes. Intenta nuevamente en un minuto.',

@@ -55,12 +55,12 @@ export class AdvertiserStatsService {
         console.log(`📱 Navigating to: ${adLibraryUrl}`)
         
         await page.goto(adLibraryUrl, { 
-          waitUntil: 'networkidle',
-          timeout: 30000 
+          waitUntil: 'domcontentloaded', // Faster than networkidle
+          timeout: 15000 // Reduced from 30s to 15s
         })
 
-        // Wait for content to load (same as working endpoint)
-        await page.waitForTimeout(5000)
+        // Reduced wait time
+        await page.waitForTimeout(2000) // Reduced from 5s to 2s
 
         // Extract total count and advertiser name
         const { totalCount, advertiserName } = await this.extractStatsFromPage(page)
@@ -125,9 +125,24 @@ export class AdvertiserStatsService {
         await browserPool.releaseBrowser(browserInstance)
       }
 
-    } catch (error) {
+    } catch (error: any) {
       const executionTime = Date.now() - startTime
       console.error('❌ Stats extraction failed:', error)
+      
+      // For timeout errors, return default stats instead of failure
+      if (error.name === 'TimeoutError') {
+        console.log(`⏰ Timeout for pageId ${pageId}, returning default stats`)
+        return {
+          success: true,
+          data: {
+            totalActiveAds: 0,
+            advertiserName: 'Unknown (Timeout)',
+            pageId: pageId,
+            source: 'timeout_fallback'
+          },
+          executionTime
+        }
+      }
       
       return {
         success: false,

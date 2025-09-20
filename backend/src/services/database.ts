@@ -1,4 +1,12 @@
 import { MongoClient, Db, Collection } from 'mongodb';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load .env variables first (same logic as server.ts)
+const envPath = process.cwd().endsWith('backend') 
+  ? path.join(process.cwd(), '..', '.env')
+  : path.join(process.cwd(), '.env');
+dotenv.config({ path: envPath });
 import type { 
   SavedAd, 
   CompleteSearch, 
@@ -12,8 +20,8 @@ class DatabaseService {
   private db: Db | null = null;
 
   async connect(): Promise<void> {
-    const mongoUrl = process.env.MONGO_URL || 'mongodb://localhost:27017';
-    const dbName = process.env.DB_NAME || 'adFinder';
+    const mongoUrl = process.env.MONGO_URL; // REQUIRED from .env
+    const dbName = process.env.DB_NAME; // REQUIRED from .env
 
     try {
       // Optimized connection settings for 1000+ users

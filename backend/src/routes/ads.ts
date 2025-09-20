@@ -6,7 +6,9 @@ import type { SearchParams, SearchResponse } from '@shared/types/index.js';
 import { FacebookScraperService } from '../services/facebookScraperService.js';
 import { AdvertiserStatsService } from '../services/advertiserStatsService.js';
 import { searchRateLimit, scrapingRateLimit } from '@/middleware/rateLimiter.js';
+import { authenticateToken } from '@/middleware/authMiddleware.js';
 import { cacheService } from '@/services/cacheService.js';
+import { advertiserStatsQueue } from '@/services/simpleQueue.js';
 
 const router = express.Router();
 
@@ -20,7 +22,7 @@ function getFacebookService(): FacebookService {
 }
 
 // POST /api/search - Main search endpoint
-router.post('/', searchRateLimit, asyncHandler(async (req, res) => {
+router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, res) => {
   const searchParams: SearchParams = req.body;
   
   // Validate required fields
@@ -248,14 +250,15 @@ router.post('/scrape-advertiser', scrapingRateLimit, asyncHandler(async (req, re
 }));
 
 // POST /api/ads/advertiser-stats - Get total active ads count for a page by pageId
-router.post('/advertiser-stats', scrapingRateLimit, asyncHandler(async (req, res) => {
+router.post('/advertiser-stats', authenticateToken, scrapingRateLimit, asyncHandler(async (req, res) => {
   const { pageId, country = 'ALL' } = req.body;
 
   if (!pageId || typeof pageId !== 'string') {
     throw new CustomError('pageId is required and must be a string', 400);
   }
 
-  console.log(`[STATS] 📊 Getting stats for pageId: ${pageId}`);
+  const userId = (req as any).user?._id?.toString() || 'anonymous';
+  console.log(`[STATS] 📊 Getting stats for pageId: ${pageId} (user: ${userId})`);
   
   // Check cache first
   const cachedStats = cacheService.getAdvertiserStats(pageId);
@@ -267,10 +270,9 @@ router.post('/advertiser-stats', scrapingRateLimit, asyncHandler(async (req, res
     });
   }
   
-  const statsService = new AdvertiserStatsService();
-  
   try {
-    const result = await statsService.getAdvertiserStats(pageId, country);
+    // Use queue instead of direct execution for better concurrency control
+    const result = await advertiserStatsQueue.add('advertiser-stats', { pageId, country }, 5, 2, userId);
 
     console.log(`[STATS] ✅ Stats retrieval completed: ${result.stats?.totalActiveAds || 0} total ads`);
     
@@ -301,9 +303,35 @@ router.post('/advertiser-stats', scrapingRateLimit, asyncHandler(async (req, res
       error instanceof Error ? error.message : 'Error al obtener estadísticas del anunciante',
       500
     );
-  } finally {
-    await statsService.close();
   }
+}));
+
+// Cancel pending jobs for current user
+router.post('/cancel-pending', authenticateToken, asyncHandler(async (req, res) => {
+  const userId = (req as any).user?._id?.toString() || 'anonymous';
+  
+  console.log(`[CANCEL] 🚫 Cancelling pending jobs for user: ${userId}`);
+  
+  // Respond immediately and process cancellation in background
+  res.json({
+    success: true,
+    message: 'Cancellation request received',
+    cancelledCount: 0, // Will be updated in background
+    remainingJobs: 0,
+    userId: userId === 'anonymous' ? 'anonymous' : 'authenticated',
+    immediate: true
+  });
+  
+  // Process cancellation in background without blocking response
+  setImmediate(() => {
+    try {
+      const cancelledCount = advertiserStatsQueue.cancelUserJobs(userId);
+      const remainingJobs = advertiserStatsQueue.getUserPendingJobs(userId);
+      console.log(`[CANCEL] ✅ Background cancellation completed: ${cancelledCount} jobs cancelled, ${remainingJobs} remaining`);
+    } catch (error) {
+      console.error(`[CANCEL] ❌ Background cancellation failed:`, error);
+    }
+  });
 }));
 
 // Test endpoint to verify debug functionality

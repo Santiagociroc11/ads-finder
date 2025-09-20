@@ -3,9 +3,17 @@ import jwt from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
 import { collections } from './database.js';
 import type { User, AuthRequest, RegisterRequest, AuthResponse, TokenPayload } from '@shared/types/index.js';
+import dotenv from 'dotenv';
+import path from 'path';
+
+// Load .env variables first (same logic as server.ts)
+const envPath = process.cwd().endsWith('backend') 
+  ? path.join(process.cwd(), '..', '.env')
+  : path.join(process.cwd(), '.env');
+dotenv.config({ path: envPath });
 
 // JWT Secret - in production this should be a strong secret from environment variables
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET; // REQUIRED from .env
 const JWT_EXPIRES_IN = '7d'; // Token expires in 7 days
 
 export class AuthService {

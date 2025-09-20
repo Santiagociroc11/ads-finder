@@ -343,6 +343,20 @@ export const scraperApi = {
     return response.data
   },
 
+  // Cancel pending jobs for current user
+  cancelPendingJobs: async (): Promise<{
+    success: boolean
+    message: string
+    cancelledCount: number
+    remainingJobs: number
+    userId: string
+  }> => {
+    const response = await api.post('/ads/cancel-pending', {}, {
+      timeout: 500 // 500ms timeout - very fast
+    })
+    return response.data
+  },
+
 }
 
 export default api
