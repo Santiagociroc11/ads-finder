@@ -72,18 +72,19 @@ app.use('/api/saved-ads', savedAdsRoutes);
 app.use('/api/complete-searches', completeSearchesRoutes);
 app.use('/api/suggestions', suggestionsRoutes);
 
-// Health check endpoint
+// Health check endpoint with monitoring data
 app.get('/api/health', async (req, res) => {
   try {
     const healthData = getHealthData();
     
     res.json({
       ...healthData,
-      database: 'connected', // Simplified for now
+      database: 'connected',
       version: '2.0.0',
       environment: process.env.NODE_ENV || 'development'
     });
   } catch (error) {
+    console.error('Health check error:', error);
     res.status(500).json({
       status: 'critical',
       error: 'Health check failed',
@@ -102,14 +103,6 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
-    timestamp: new Date().toISOString(),
-    version: '2.0.0'
-  });
-});
 
 // Error handling middleware
 app.use(errorHandler);

@@ -104,7 +104,15 @@ export class BrowserPool {
         '--disable-web-security',
         '--disable-features=VizDisplayCompositor',
         '--memory-pressure-off',
-        '--max_old_space_size=4096'
+        '--max_old_space_size=2048', // Reduced from 4096
+        '--disable-background-timer-throttling',
+        '--disable-backgrounding-occluded-windows',
+        '--disable-renderer-backgrounding',
+        '--disable-extensions',
+        '--disable-plugins',
+        '--disable-images', // Disable image loading to save memory
+        '--aggressive-cache-discard',
+        '--memory-pressure-off'
       ]
     });
 
@@ -203,9 +211,9 @@ export class BrowserPool {
 
 // Global browser pool instance
 export const browserPool = new BrowserPool({
-  maxBrowsers: 3, // Conservative for production
-  maxIdleTime: 5 * 60 * 1000, // 5 minutes
-  maxLifeTime: 30 * 60 * 1000 // 30 minutes
+  maxBrowsers: 2, // More conservative for production
+  maxIdleTime: 2 * 60 * 1000, // 2 minutes - more aggressive cleanup
+  maxLifeTime: 10 * 60 * 1000 // 10 minutes - shorter lifetime
 });
 
 // Graceful shutdown
