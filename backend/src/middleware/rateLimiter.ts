@@ -41,8 +41,7 @@ class CustomStore {
 // Key generator that includes user ID if available
 const keyGenerator = (req: Request): string => {
   const userId = req.user?._id || 'anonymous';
-  const ip = req.ip || req.connection.remoteAddress || 'unknown';
-  return `${userId}:${ip}`;
+  return `user:${userId}`;
 };
 
 // Rate limiter for search endpoints (most critical)
@@ -57,10 +56,7 @@ export const searchRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
-  store: new CustomStore() as any,
-  onLimitReached: (req: Request, res: Response) => {
-    console.log(`🚨 Rate limit reached for search: ${keyGenerator(req)}`);
-  }
+  store: new CustomStore() as any
 });
 
 // Rate limiter for AI suggestions (expensive)
@@ -75,10 +71,7 @@ export const aiRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
-  store: new CustomStore() as any,
-  onLimitReached: (req: Request, res: Response) => {
-    console.log(`🚨 Rate limit reached for AI: ${keyGenerator(req)}`);
-  }
+  store: new CustomStore() as any
 });
 
 // Rate limiter for scraping (very expensive)
@@ -93,10 +86,7 @@ export const scrapingRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
-  store: new CustomStore() as any,
-  onLimitReached: (req: Request, res: Response) => {
-    console.log(`🚨 Rate limit reached for scraping: ${keyGenerator(req)}`);
-  }
+  store: new CustomStore() as any
 });
 
 // General API rate limiter
@@ -111,10 +101,7 @@ export const apiRateLimit = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   keyGenerator,
-  store: new CustomStore() as any,
-  onLimitReached: (req: Request, res: Response) => {
-    console.log(`🚨 Rate limit reached for API: ${keyGenerator(req)}`);
-  }
+  store: new CustomStore() as any
 });
 
 // Cleanup old entries periodically

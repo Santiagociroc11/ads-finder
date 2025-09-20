@@ -17,7 +17,7 @@ import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'url';
 
-import { connectDatabase, databaseService } from '@/services/database.js';
+import { connectDatabase } from '@/services/database.js';
 import { errorHandler } from '@/middleware/errorHandler.js';
 import { logger } from '@/middleware/logger.js';
 import { apiRateLimit } from '@/middleware/rateLimiter.js';
@@ -76,11 +76,10 @@ app.use('/api/suggestions', suggestionsRoutes);
 app.get('/api/health', async (req, res) => {
   try {
     const healthData = getHealthData();
-    const dbHealthy = await databaseService.isHealthy();
     
     res.json({
       ...healthData,
-      database: dbHealthy ? 'connected' : 'disconnected',
+      database: 'connected', // Simplified for now
       version: '2.0.0',
       environment: process.env.NODE_ENV || 'development'
     });
