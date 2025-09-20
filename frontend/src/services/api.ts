@@ -14,7 +14,7 @@ import type {
   RegisterRequest,
   AuthResponse,
   User
-} from '@shared/types'
+} from '../types/shared'
 
 // Create axios instance
 const api = axios.create({

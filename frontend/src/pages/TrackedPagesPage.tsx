@@ -1,5 +1,5 @@
-import React from 'react'
-import { Users, Plus, Trash2, ExternalLink } from 'lucide-react'
+import { } from 'react'
+import { Users, Plus } from 'lucide-react'
 
 export function TrackedPagesPage() {
   return (

@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 
 import { searchApi, suggestionsApi, savedAdsApi, completeSearchesApi, scraperApi } from '@/services/api'
-import type { SearchParams, AdData, SearchResponse } from '@shared/types'
+import type { SearchParams, AdData, SearchResponse } from '../types/shared'
 
 // Smart Image Component with original proportions
 const SmartImage = ({ 
@@ -359,10 +359,10 @@ export function SearchPage() {
 
   // Update elapsed time during search
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
+    let interval: number | null = null
     
     if (searchMutation.isLoading && searchStartTime) {
-      interval = setInterval(() => {
+      interval = window.setInterval(() => {
         const now = Date.now()
         const elapsed = now - searchStartTime
         const minutes = Math.floor(elapsed / 60000)
@@ -372,7 +372,7 @@ export function SearchPage() {
     }
     
     return () => {
-      if (interval) clearInterval(interval)
+      if (interval) window.clearInterval(interval)
     }
   }, [searchMutation.isLoading, searchStartTime])
 
@@ -1099,7 +1099,7 @@ export function SearchPage() {
               <input
                 type="text"
                 value={searchParams.value}
-                onChange={(e) => setSearchParams(prev => ({ ...prev, value: e.target.value }))}
+                onChange={(e) => setSearchParams((prev: SearchParams) => ({ ...prev, value: e.target.value }))}
                 placeholder="Ingresa palabra clave o término de búsqueda..."
                 className="form-input w-full pr-20"
               />
@@ -1177,11 +1177,11 @@ export function SearchPage() {
                 🤖 Sugerencias de IA:
               </label>
               <div className="flex flex-wrap gap-2">
-                {suggestionsMutation.data.suggestions.map((suggestion, index) => (
+                {suggestionsMutation.data.suggestions.map((suggestion: string, index: number) => (
                   <button
                     key={index}
                     type="button"
-                    onClick={() => setSearchParams(prev => ({ ...prev, value: suggestion }))}
+                    onClick={() => setSearchParams((prev: SearchParams) => ({ ...prev, value: suggestion }))}
                     className="tag hover:bg-primary-500/30 transition-colors"
                   >
                     {suggestion}

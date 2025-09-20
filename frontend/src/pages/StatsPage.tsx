@@ -1,4 +1,4 @@
-import React from 'react'
+import { } from 'react'
 import { useQuery } from 'react-query'
 import { BarChart3, TrendingUp, DollarSign, Globe } from 'lucide-react'
 import { completeSearchesApi } from '@/services/api'

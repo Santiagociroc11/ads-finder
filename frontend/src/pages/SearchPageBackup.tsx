@@ -23,7 +23,7 @@ import {
 } from 'lucide-react'
 
 import { searchApi, suggestionsApi, savedAdsApi, completeSearchesApi, scraperApi } from '@/services/api'
-import type { SearchParams, AdData, SearchResponse } from '@shared/types'
+import type { SearchParams, AdData, SearchResponse } from '../types/shared'
 
 // Smart Image Component with original proportions
 const SmartImage = ({ 
@@ -343,10 +343,10 @@ export function SearchPage() {
 
   // Update elapsed time during search
   useEffect(() => {
-    let interval: NodeJS.Timeout | null = null
+    let interval: number | null = null
     
     if (searchMutation.isLoading && searchStartTime) {
-      interval = setInterval(() => {
+      interval = window.setInterval(() => {
         const now = Date.now()
         const elapsed = now - searchStartTime
         const minutes = Math.floor(elapsed / 60000)
@@ -356,7 +356,7 @@ export function SearchPage() {
     }
     
     return () => {
-      if (interval) clearInterval(interval)
+      if (interval) window.clearInterval(interval)
     }
   }, [searchMutation.isLoading, searchStartTime])
 

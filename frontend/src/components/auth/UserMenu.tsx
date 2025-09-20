@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { User, LogOut, Settings, ChevronDown } from 'lucide-react';
+import { LogOut, Settings, ChevronDown } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import toast from 'react-hot-toast';
 
@@ -101,7 +101,7 @@ export const UserMenu: React.FC = () => {
               onClick={() => {
                 setIsOpen(false);
                 // TODO: Add profile settings functionality
-                toast.info('Configuración próximamente');
+                toast('Configuración próximamente');
               }}
               className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
             >
