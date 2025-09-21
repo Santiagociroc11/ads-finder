@@ -111,6 +111,10 @@ export interface SearchParams {
   useWebScraping?: boolean;
   useApify?: boolean;
   apifyCount?: number;
+  // New pagination parameters
+  page?: number;        // Page number (1-based)
+  limit?: number;       // Results per page (default: 20)
+  offset?: number;      // Skip results (calculated from page)
 }
 
 export interface SearchResponse {
@@ -120,6 +124,15 @@ export interface SearchResponse {
   paging?: {
     next?: string;
   } | null;
+  // New pagination info
+  pagination?: {
+    currentPage: number;
+    totalPages: number;
+    totalResults: number;
+    pageSize: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+  };
   source: string;
   message?: string;
   facebookLibraryUrl?: string;

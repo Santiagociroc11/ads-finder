@@ -1,4 +1,4 @@
-import { highConcurrencyScraperService } from './highConcurrencyScraperService.js'
+import { balancedScraperService } from './balancedScraperService.js'
 
 export interface AdvertiserStats {
   pageId: string
@@ -16,20 +16,35 @@ export interface AdvertiserStatsResult {
 
 export class AdvertiserStatsService {
   async getAdvertiserStats(pageId: string, country: string = 'ALL'): Promise<AdvertiserStatsResult> {
-    console.log(`🔍 Getting stats for pageId: ${pageId} using HIGH CONCURRENCY approach`);
+    console.log(`🔍 Getting stats for pageId: ${pageId} using BALANCED SCRAPER approach`);
     
-    // Delegate to the high concurrency scraper service
-    return await highConcurrencyScraperService.getAdvertiserStats(pageId, country);
+    try {
+      const result = await balancedScraperService.getAdvertiserStats(pageId, country);
+      
+      if (result.success) {
+        console.log(`✅ Balanced scraper successful: ${result.stats?.totalActiveAds || 0} ads`);
+      }
+      
+      return result;
+      
+    } catch (error) {
+      console.error(`❌ Balanced scraper failed for ${pageId}:`, error);
+      return {
+        success: false,
+        error: `Balanced scraper failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        executionTime: 0
+      };
+    }
   }
 
   // Performance monitoring
   getCacheStats() {
-    return highConcurrencyScraperService.getPerformanceStats();
+    return balancedScraperService.getPerformanceStats();
   }
 
   // Cache management
   clearCache() {
-    highConcurrencyScraperService.clearCache();
+    balancedScraperService.clearCache();
   }
 }
 

@@ -26,8 +26,9 @@ import savedAdsRoutes from '@/routes/savedAds.js';
 import completeSearchesRoutes from '@/routes/completeSearches.js';
 import suggestionsRoutes from '@/routes/suggestions.js';
 import authRoutes from '@/routes/auth.js';
-import testHtmlScraperRoutes from '@/routes/test-html-scraper.js';
 import concurrencyMonitorRoutes from '@/routes/concurrency-monitor.js';
+import scraperComparisonRoutes from '@/routes/scraper-comparison.js';
+import httpDiagnosticRoutes from '@/routes/http-diagnostic.js';
 import { monitor } from '@/middleware/concurrencyMonitor.js';
 
 // Verify critical environment variables
@@ -71,8 +72,9 @@ app.use('/api/pages', pagesRoutes);
 app.use('/api/saved-ads', savedAdsRoutes);
 app.use('/api/complete-searches', completeSearchesRoutes);
 app.use('/api/suggestions', suggestionsRoutes);
-app.use('/api/test-html-scraper', testHtmlScraperRoutes);
 app.use('/api/concurrency-monitor', concurrencyMonitorRoutes);
+app.use('/api/scraper-comparison', scraperComparisonRoutes);
+app.use('/api/http-diagnostic', httpDiagnosticRoutes);
 
 // Health check endpoint with monitoring data
 app.get('/api/health', async (req, res) => {

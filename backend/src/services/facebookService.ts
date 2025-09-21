@@ -3,9 +3,9 @@ import { ApifyClient } from 'apify-client';
 import type { 
   SearchParams, 
   AdData, 
-  SearchResponse,
-  AdSource 
+  SearchResponse
 } from '../types/shared.js';
+import { AdSource } from '../types/shared.js';
 
 export class FacebookService {
   private readonly accessToken: string;
@@ -51,15 +51,34 @@ export class FacebookService {
         throw new Error(data.error?.message || 'Facebook API error');
       }
 
-      const processedAds = this.processAdsData(data.data || [], 'facebook_api');
+      const processedAds = this.processAdsData(data.data || [], AdSource.FACEBOOK_API);
+      
+      // Calculate pagination info
+      const currentPage = params.page || 1;
+      const pageSize = params.limit || 20;
+      const hasNextPage = !!(data.paging?.next);
+      const hasPrevPage = currentPage > 1;
+      
+      // For Facebook API, we can't know total count without fetching all pages
+      // So we estimate based on current results
+      const estimatedTotal = hasNextPage ? (currentPage * pageSize) + 1 : (currentPage - 1) * pageSize + processedAds.length;
+      const totalPages = Math.ceil(estimatedTotal / pageSize);
       
       return {
         data: processedAds,
         totalAds: processedAds.length,
-        totalPages: 1,
+        totalPages: totalPages,
         paging: data.paging || null,
+        pagination: {
+          currentPage,
+          totalPages,
+          totalResults: estimatedTotal,
+          pageSize,
+          hasNextPage,
+          hasPrevPage
+        },
         source: 'facebook_api',
-        message: `Found ${processedAds.length} ads via Facebook API`
+        message: `Page ${currentPage}: ${processedAds.length} ads via Facebook API`
       };
 
     } catch (error) {
@@ -77,7 +96,12 @@ export class FacebookService {
     
     try {
       const searchUrl = this.buildApifySearchUrl(params);
-      const maxAds = params.apifyCount || 200;
+      
+      // Smart pagination for Apify
+      const pageSize = params.limit || 20;
+      const currentPage = params.page || 1;
+      const offset = (currentPage - 1) * pageSize;
+      const maxAds = Math.min(params.apifyCount || 200, offset + pageSize);
 
       const input = {
         urls: [{ url: searchUrl }],
@@ -92,17 +116,34 @@ export class FacebookService {
       const run = await this.apifyClient.actor("XtaWFhbtfxyzqrFmd").call(input);
       const { items } = await this.apifyClient.dataset(run.defaultDatasetId).listItems();
 
-      const processedAds = this.processApifyData(items);
+      const allProcessedAds = this.processApifyData(items);
       
-      console.log(`[APIFY] ✅ Successfully scraped ${processedAds.length} ads`);
+      // Apply pagination to the results
+      const paginatedAds = allProcessedAds.slice(offset, offset + pageSize);
+      
+      console.log(`[APIFY] ✅ Successfully scraped ${allProcessedAds.length} ads, showing page ${currentPage} (${paginatedAds.length} ads)`);
+
+      // Calculate pagination info
+      const totalResults = allProcessedAds.length;
+      const totalPages = Math.ceil(totalResults / pageSize);
+      const hasNextPage = currentPage < totalPages;
+      const hasPrevPage = currentPage > 1;
 
       return {
-        data: processedAds,
-        totalAds: processedAds.length,
-        totalPages: 1,
+        data: paginatedAds,
+        totalAds: paginatedAds.length,
+        totalPages: totalPages,
         paging: null,
+        pagination: {
+          currentPage,
+          totalPages,
+          totalResults,
+          pageSize,
+          hasNextPage,
+          hasPrevPage
+        },
         source: 'apify_scraping',
-        message: `Scraped ${processedAds.length} ads with Apify Professional`
+        message: `Page ${currentPage}/${totalPages}: ${paginatedAds.length} ads via Apify Professional`
       };
 
     } catch (error) {
@@ -156,17 +197,37 @@ export class FacebookService {
       }
 
       const uniqueAds = Array.from(allAds).map(adStr => JSON.parse(adStr));
-      const processedAds = this.processAdsData(uniqueAds, 'web_scraping');
+      const allProcessedAds = this.processAdsData(uniqueAds, AdSource.WEB_SCRAPING);
       
-      console.log(`[SCRAPING] ✅ Found ${processedAds.length} unique ads`);
+      // Apply pagination to the results
+      const pageSize = params.limit || 20;
+      const currentPage = params.page || 1;
+      const offset = (currentPage - 1) * pageSize;
+      const paginatedAds = allProcessedAds.slice(offset, offset + pageSize);
+      
+      console.log(`[SCRAPING] ✅ Found ${allProcessedAds.length} unique ads, showing page ${currentPage} (${paginatedAds.length} ads)`);
+
+      // Calculate pagination info
+      const totalResults = allProcessedAds.length;
+      const totalPages = Math.ceil(totalResults / pageSize);
+      const hasNextPage = currentPage < totalPages;
+      const hasPrevPage = currentPage > 1;
 
       return {
-        data: processedAds,
-        totalAds: processedAds.length,
-        totalPages: 1,
+        data: paginatedAds,
+        totalAds: paginatedAds.length,
+        totalPages: totalPages,
         paging: null,
+        pagination: {
+          currentPage,
+          totalPages,
+          totalResults,
+          pageSize,
+          hasNextPage,
+          hasPrevPage
+        },
         source: 'web_scraping',
-        message: `Enhanced scraping found ${processedAds.length} unique ads`
+        message: `Page ${currentPage}/${totalPages}: ${paginatedAds.length} ads via enhanced web scraping`
       };
 
     } catch (error) {
@@ -185,7 +246,15 @@ export class FacebookService {
     
     urlParams.set('ad_type', params.adType || 'ALL');
     urlParams.set('ad_active_status', 'ACTIVE');
-    urlParams.set('limit', '100');
+    
+    // Smart pagination support
+    const limit = params.limit || 20; // Default 20 per page
+    const offset = params.offset || ((params.page || 1) - 1) * limit;
+    
+    urlParams.set('limit', limit.toString());
+    if (offset > 0) {
+      urlParams.set('after', offset.toString()); // Facebook pagination cursor
+    }
     
     if (params.searchType === 'keyword') {
       urlParams.set('search_terms', params.value);
@@ -477,7 +546,7 @@ export class FacebookService {
       }
     }
 
-    const processedAds = this.processAdsData(allResults, 'facebook_api');
+    const processedAds = this.processAdsData(allResults, AdSource.FACEBOOK_API);
     
     return {
       data: processedAds,

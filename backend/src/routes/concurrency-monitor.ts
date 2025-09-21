@@ -1,7 +1,7 @@
 import express from 'express';
 import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
 import { monitor } from '../middleware/concurrencyMonitor.js';
-import { highConcurrencyScraperService } from '../services/highConcurrencyScraperService.js';
+import { balancedScraperService } from '../services/balancedScraperService.js';
 
 const router = express.Router();
 
@@ -9,7 +9,7 @@ const router = express.Router();
 router.get('/', asyncHandler(async (req, res) => {
   try {
     const systemMetrics = monitor.getMetrics();
-    const scraperStats = highConcurrencyScraperService.getPerformanceStats();
+    const scraperStats = balancedScraperService.getPerformanceStats();
     const detailedReport = monitor.getDetailedReport();
     const alerts = monitor.checkAlerts();
 
@@ -34,12 +34,12 @@ router.get('/', asyncHandler(async (req, res) => {
       scraper: {
         cacheHitRate: scraperStats.cacheHitRate,
         cacheSize: scraperStats.cacheSize,
-        activeConnections: scraperStats.activeConnections,
+        activeRequests: scraperStats.activeRequests,
         queuedRequests: scraperStats.queuedRequests,
-        batchQueueSize: scraperStats.batchQueueSize,
-        avgResponseTime: scraperStats.avgResponseTime,
         totalRequests: scraperStats.totalRequests,
-        errors: scraperStats.errors
+        successfulScrapes: scraperStats.successfulScrapes,
+        errors: scraperStats.errors,
+        successRate: scraperStats.successRate
       },
       alerts: {
         critical: alerts.critical,
@@ -72,7 +72,7 @@ router.get('/', asyncHandler(async (req, res) => {
 router.post('/reset', asyncHandler(async (req, res) => {
   try {
     monitor.reset();
-    highConcurrencyScraperService.clearCache();
+    balancedScraperService.clearCache();
 
     res.json({
       success: true,
@@ -108,7 +108,7 @@ router.get('/load-test/:requests', asyncHandler(async (req, res) => {
 
     const promises = Array.from({ length: numRequests }, (_, i) => {
       const pageId = testPageIds[i % testPageIds.length];
-      return highConcurrencyScraperService.getAdvertiserStats(pageId, 'ALL');
+      return balancedScraperService.getAdvertiserStats(pageId, 'ALL');
     });
 
     const startTime = Date.now();
@@ -128,7 +128,7 @@ router.get('/load-test/:requests', asyncHandler(async (req, res) => {
         avgTimePerRequest: `${((endTime - startTime) / numRequests).toFixed(0)}ms`
       },
       systemState: monitor.getMetrics(),
-      scraperStats: highConcurrencyScraperService.getPerformanceStats()
+      scraperStats: balancedScraperService.getPerformanceStats()
     });
 
   } catch (error) {
@@ -140,7 +140,7 @@ router.get('/load-test/:requests', asyncHandler(async (req, res) => {
 // GET /api/concurrency-monitor/capacity - Check if system can handle 1000 users
 router.get('/capacity', asyncHandler(async (req, res) => {
   const metrics = monitor.getMetrics();
-  const scraperStats = highConcurrencyScraperService.getPerformanceStats();
+  const scraperStats = balancedScraperService.getPerformanceStats();
 
   // Capacity analysis
   const currentCapacity = metrics.activeRequests;
