@@ -1,4 +1,4 @@
-import { htmlScraperService } from './htmlScraperService.js'
+import { highConcurrencyScraperService } from './highConcurrencyScraperService.js'
 
 export interface AdvertiserStats {
   pageId: string
@@ -16,24 +16,20 @@ export interface AdvertiserStatsResult {
 
 export class AdvertiserStatsService {
   async getAdvertiserStats(pageId: string, country: string = 'ALL'): Promise<AdvertiserStatsResult> {
-    console.log(`🔍 Getting stats for pageId: ${pageId} using HTTP+AI approach`);
+    console.log(`🔍 Getting stats for pageId: ${pageId} using HIGH CONCURRENCY approach`);
     
-    // Delegate to the new HTML scraper service
-    return await htmlScraperService.getAdvertiserStats({
-      pageId,
-      country,
-      maxRetries: 3
-    });
+    // Delegate to the high concurrency scraper service
+    return await highConcurrencyScraperService.getAdvertiserStats(pageId, country);
   }
 
-  // Legacy method for cache management
+  // Performance monitoring
   getCacheStats() {
-    return htmlScraperService.getCacheStats();
+    return highConcurrencyScraperService.getPerformanceStats();
   }
 
-  // Legacy method for cache clearing  
+  // Cache management
   clearCache() {
-    htmlScraperService.clearCache();
+    highConcurrencyScraperService.clearCache();
   }
 }
 
