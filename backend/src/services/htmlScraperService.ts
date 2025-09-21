@@ -1,6 +1,5 @@
-import { httpPoolService } from './httpPoolService.js';
-import { geminiPoolService } from './geminiPoolService.js';
-import { multiLevelCache } from './multiLevelCache.js';
+import fetch from 'node-fetch';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { AdvertiserStats, AdvertiserStatsResult } from '../types/shared.js';
 
 interface HtmlScrapingOptions {
@@ -16,8 +15,14 @@ interface ScriptContent {
 }
 
 export class HtmlScraperService {
+  private cache = new Map<string, AdvertiserStats>();
+  private genAI: GoogleGenerativeAI | null = null;
+
   constructor() {
-    console.log('🌐 HTML Scraper Service initialized with multi-level caching and pooling');
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (apiKey) {
+      this.genAI = new GoogleGenerativeAI(apiKey);
+    }
   }
 
   async getAdvertiserStats(options: HtmlScrapingOptions): Promise<AdvertiserStatsResult> {
@@ -25,9 +30,8 @@ export class HtmlScraperService {
     const startTime = Date.now();
 
     try {
-      // Check multi-level cache first
-      const cacheKey = `advertiser-stats:${pageId}:${country}`;
-      const cached = await multiLevelCache.get<AdvertiserStats>(cacheKey);
+      // Check cache first
+      const cached = this.getCachedStats(pageId);
       if (cached) {
         console.log(`📊 Using cached stats for pageId ${pageId}: ${cached.totalActiveAds} ads`);
         return {
@@ -42,12 +46,8 @@ export class HtmlScraperService {
       // Build Facebook Ads Library URL
       const adLibraryUrl = this.buildAdLibraryUrl(pageId, country);
       
-      // Fetch HTML content using HTTP pool
-      const htmlContent = await httpPoolService.fetchHtml({
-        url: adLibraryUrl,
-        timeout: 30000,
-        retries: maxRetries
-      });
+      // Fetch HTML content
+      const htmlContent = await this.fetchHtmlContent(adLibraryUrl, maxRetries);
       
       // Extract script tags
       const scriptContents = this.extractScriptTags(htmlContent);
@@ -62,8 +62,8 @@ export class HtmlScraperService {
         lastUpdated: new Date().toISOString()
       };
 
-      // Cache the result in multi-level cache
-      await multiLevelCache.set(cacheKey, stats, 1800); // 30 minutes
+      // Cache the result
+      this.cache.set(pageId, stats);
 
       const executionTime = Date.now() - startTime;
       console.log(`✅ HTML+AI analysis completed in ${executionTime}ms. Found ${aiAnalysis.totalActiveAds} total ads for ${aiAnalysis.advertiserName || pageId}`);
@@ -116,6 +116,52 @@ export class HtmlScraperService {
     return `${baseUrl}?${params.toString()}`;
   }
 
+  private async fetchHtmlContent(url: string, maxRetries: number): Promise<string> {
+    let lastError: Error | null = null;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log(`🌐 Fetching HTML (attempt ${attempt}/${maxRetries}): ${url}`);
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate, br',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+            'Sec-Fetch-Dest': 'document',
+            'Sec-Fetch-Mode': 'navigate',
+            'Sec-Fetch-Site': 'none',
+            'Cache-Control': 'max-age=0'
+          },
+          timeout: 30000 // 30 seconds timeout
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+
+        const html = await response.text();
+        console.log(`✅ HTML fetched successfully (${html.length} characters)`);
+        return html;
+
+      } catch (error) {
+        lastError = error as Error;
+        console.warn(`⚠️ Attempt ${attempt} failed:`, error instanceof Error ? error.message : error);
+        
+        if (attempt < maxRetries) {
+          const delay = attempt * 2000; // Progressive delay: 2s, 4s, 6s
+          console.log(`⏳ Waiting ${delay}ms before retry...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+      }
+    }
+
+    throw lastError || new Error('Failed to fetch HTML after all retries');
+  }
 
   private extractScriptTags(html: string): ScriptContent[] {
     const scriptContents: ScriptContent[] = [];
@@ -210,8 +256,10 @@ Si no encuentras información clara, devuelve totalActiveAds: 0 y advertiserName
 `;
 
     try {
-      // Use the new Gemini pool service for better concurrency
-      const text = await geminiPoolService.analyzeContent(prompt, 5); // High priority
+      const model = this.genAI.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+      const result = await model.generateContent(prompt);
+      const response = await result.response;
+      const text = response.text();
 
       console.log(`🤖 Gemini AI response: ${text.substring(0, 200)}...`);
 
@@ -236,14 +284,32 @@ Si no encuentras información clara, devuelve totalActiveAds: 0 y advertiserName
     }
   }
 
+  private getCachedStats(pageId: string): AdvertiserStats | null {
+    const cached = this.cache.get(pageId);
+    if (!cached) return null;
+
+    // Check if cache is still valid (30 minutes)
+    const cacheAge = Date.now() - new Date(cached.lastUpdated).getTime();
+    const maxAge = 30 * 60 * 1000; // 30 minutes
+
+    if (cacheAge > maxAge) {
+      this.cache.delete(pageId);
+      return null;
+    }
+
+    return cached;
+  }
 
   clearCache(): void {
-    multiLevelCache.clear();
+    this.cache.clear();
     console.log('🗑️ HTML scraper cache cleared');
   }
 
   getCacheStats() {
-    return multiLevelCache.getStats();
+    return {
+      size: this.cache.size,
+      keys: Array.from(this.cache.keys())
+    };
   }
 }
 
