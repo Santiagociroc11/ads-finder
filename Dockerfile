@@ -22,20 +22,7 @@ RUN npm run build
 FROM node:18-alpine AS production
 WORKDIR /app
 
-# Install system dependencies for Playwright
-RUN apk add --no-cache \
-    chromium \
-    nss \
-    freetype \
-    freetype-dev \
-    harfbuzz \
-    ca-certificates \
-    ttf-freefont \
-    && rm -rf /var/cache/apk/*
-
-# Tell Playwright to use system Chromium
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# No need for Playwright dependencies - using HTTP + Gemini AI
 
 # Install production dependencies for backend
 COPY backend/package*.json ./backend/

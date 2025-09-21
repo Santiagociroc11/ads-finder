@@ -26,7 +26,6 @@
     "mongodb": "^6.1.0",
     "node-cache": "^5.1.2",
     "node-fetch": "^3.3.2",
-    "playwright": "^1.55.0",
     "redis": "^5.8.2"
   },
   "devDependencies": {

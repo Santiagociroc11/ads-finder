@@ -26,6 +26,7 @@ import savedAdsRoutes from '@/routes/savedAds.js';
 import completeSearchesRoutes from '@/routes/completeSearches.js';
 import suggestionsRoutes from '@/routes/suggestions.js';
 import authRoutes from '@/routes/auth.js';
+import scalabilityMonitorRoutes from '@/routes/scalability-monitor.js';
 
 // Verify critical environment variables
 if (!process.env.FACEBOOK_ACCESS_TOKEN) {
@@ -67,6 +68,7 @@ app.use('/api/pages', pagesRoutes);
 app.use('/api/saved-ads', savedAdsRoutes);
 app.use('/api/complete-searches', completeSearchesRoutes);
 app.use('/api/suggestions', suggestionsRoutes);
+app.use('/api/scalability-monitor', scalabilityMonitorRoutes);
 
 // Health check endpoint with monitoring data
 app.get('/api/health', async (req, res) => {
