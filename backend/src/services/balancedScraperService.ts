@@ -1,12 +1,6 @@
 import fetch from 'node-fetch';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import type { AdvertiserStats, AdvertiserStatsResult } from '../types/shared.js';
 
-interface ScriptContent {
-  content: string;
-  type: string;
-  size: number;
-}
 
 interface BatchRequest {
   pageId: string;
@@ -17,11 +11,10 @@ interface BatchRequest {
 
 export class BalancedScraperService {
   private cache = new Map<string, { data: AdvertiserStats; timestamp: number }>();
-  private genAI: GoogleGenerativeAI | null = null;
   private batchQueue: BatchRequest[] = [];
   private batchTimer: NodeJS.Timeout | null = null;
   private activeRequests = 0;
-  private maxConcurrent = 20; // Reduced from 100 for better accuracy
+  private maxConcurrent = 20;
   private stats = {
     totalRequests: 0,
     cacheHits: 0,
@@ -30,15 +23,11 @@ export class BalancedScraperService {
   };
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey) {
-      this.genAI = new GoogleGenerativeAI(apiKey);
-    }
-
-    console.log(`⚖️ Balanced Scraper Service initialized:
+    console.log(`⚖️ Direct Pattern Scraper Service initialized:
     ┌─ Max Concurrent: ${this.maxConcurrent}
-    ├─ Batch Size: 5 (smaller for accuracy)
-    └─ Cache TTL: 30 minutes`);
+    ├─ Batch Size: 5
+    ├─ Cache TTL: 30 minutes
+    └─ Method: Direct HTML pattern extraction`);
   }
 
   async getAdvertiserStats(pageId: string, country: string = 'ALL'): Promise<AdvertiserStatsResult> {
@@ -134,7 +123,7 @@ export class BalancedScraperService {
     const startTime = Date.now();
     
     try {
-      console.log(`🔍 Scraping pageId: ${pageId} with balanced approach`);
+      console.log(`🔍 Scraping pageId: ${pageId} with direct pattern extraction`);
       
       // Build Facebook Ads Library URL (same as original)
       const adLibraryUrl = this.buildAdLibraryUrl(pageId, country);
@@ -142,29 +131,18 @@ export class BalancedScraperService {
       // Fetch HTML content with proper timeout
       const htmlContent = await this.fetchHtmlContent(adLibraryUrl);
       
-      // Try direct extraction first (much faster and more accurate)
+      // Direct extraction only (fast and accurate)
       const directCount = this.extractDirectAdsCount(htmlContent);
-      let aiAnalysis: { totalActiveAds: number; advertiserName: string | null };
+      const advertiserName = this.extractAdvertiserName(htmlContent);
       
-      if (directCount !== null) {
-        // Direct extraction successful
-        const advertiserName = this.extractAdvertiserName(htmlContent);
-        aiAnalysis = {
-          totalActiveAds: directCount,
-          advertiserName: advertiserName || 'Unknown'
-        };
-        console.log(`✅ Direct extraction successful for ${pageId}: ${directCount} ads`);
-      } else {
-        // Fallback to AI analysis
-        console.log(`🤖 Falling back to AI analysis for ${pageId}`);
-        const scriptContents = this.extractScriptTagsImproved(htmlContent);
-        aiAnalysis = await this.analyzeWithGeminiImproved(scriptContents, pageId);
+      if (directCount === null) {
+        throw new Error('Could not extract ads count from Facebook page');
       }
       
       const stats: AdvertiserStats = {
         pageId,
-        advertiserName: aiAnalysis.advertiserName || 'Unknown',
-        totalActiveAds: aiAnalysis.totalActiveAds,
+        advertiserName: advertiserName || 'Unknown',
+        totalActiveAds: directCount,
         lastUpdated: new Date().toISOString()
       };
 
@@ -175,7 +153,7 @@ export class BalancedScraperService {
       const executionTime = Date.now() - startTime;
       this.stats.successfulScrapes++;
 
-      console.log(`✅ Balanced scrape completed for ${pageId}: ${aiAnalysis.totalActiveAds} ads in ${executionTime}ms`);
+      console.log(`✅ Direct scrape completed for ${pageId}: ${directCount} ads, advertiser: ${advertiserName || 'Unknown'} in ${executionTime}ms`);
 
       return {
         success: true,
@@ -185,7 +163,7 @@ export class BalancedScraperService {
 
     } catch (error) {
       this.stats.errors++;
-      console.error(`❌ Balanced scraping failed for ${pageId}:`, error);
+      console.error(`❌ Direct pattern scraping failed for ${pageId}:`, error);
       
       return {
         success: false,
@@ -247,86 +225,6 @@ export class BalancedScraperService {
     }
   }
 
-  private extractScriptTagsImproved(html: string): ScriptContent[] {
-    const scriptContents: ScriptContent[] = [];
-    
-    // Look for specific Facebook Relay data patterns that contain the count
-    const scriptRegex = /<script[^>]*data-sjs[^>]*>([\s\S]*?)<\/script>/gi;
-    let match;
-
-    while ((match = scriptRegex.exec(html)) !== null) {
-      const scriptContent = match[1].trim();
-      
-      // Target specific patterns that contain the ads count
-      if (scriptContent.length > 100 && (
-        scriptContent.includes('RelayPrefetchedStreamCache') ||
-        scriptContent.includes('AdLibraryFoundationRootQueryRelayPreloader') ||
-        scriptContent.includes('search_results_connection') ||
-        scriptContent.includes('ad_library_main') ||
-        scriptContent.includes('count') ||
-        scriptContent.includes('edges') ||
-        scriptContent.includes('collated_results')
-      )) {
-        scriptContents.push({
-          content: scriptContent,
-          type: this.detectScriptType(scriptContent),
-          size: scriptContent.length
-        });
-      }
-    }
-
-    // Also look for regular script tags with relevant data
-    const regularScriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
-    let regularMatch;
-
-    while ((regularMatch = regularScriptRegex.exec(html)) !== null) {
-      const scriptContent = regularMatch[1].trim();
-      
-      // More lenient filtering for fallback
-      if (scriptContent.length > 50 && (
-        scriptContent.includes('ads') ||
-        scriptContent.includes('library') ||
-        scriptContent.includes('active') ||
-        scriptContent.includes('count') ||
-        scriptContent.includes('result') ||
-        scriptContent.includes('data') ||
-        scriptContent.includes('page') ||
-        scriptContent.includes('total') ||
-        scriptContent.includes('Apollo') ||
-        scriptContent.includes('__INITIAL') ||
-        scriptContent.includes('GraphQL') ||
-        scriptContent.includes('state')
-      )) {
-        // Avoid duplicates
-        const isDuplicate = scriptContents.some(existing => 
-          existing.content.substring(0, 500) === scriptContent.substring(0, 500)
-        );
-        
-        if (!isDuplicate) {
-          scriptContents.push({
-            content: scriptContent,
-            type: this.detectScriptType(scriptContent),
-            size: scriptContent.length
-          });
-        }
-      }
-    }
-
-    console.log(`📜 Extracted ${scriptContents.length} script tags (Facebook-optimized method)`);
-    return scriptContents;
-  }
-
-  private detectScriptType(content: string): string {
-    if (content.includes('RelayPrefetchedStreamCache') && content.includes('search_results_connection')) return 'facebook_relay_ads';
-    if (content.includes('AdLibraryFoundationRootQueryRelayPreloader')) return 'facebook_relay_preloader';
-    if (content.includes('__INITIAL_DATA__') || content.includes('initialData')) return 'initial_data';
-    if (content.includes('Apollo') || content.includes('GraphQL')) return 'apollo_graphql';
-    if (content.includes('React') || content.includes('props')) return 'react_props';
-    if (content.includes('ads') && content.includes('count')) return 'ads_data';
-    if (content.includes('page') && content.includes('info')) return 'page_info';
-    if (content.includes('total') && content.includes('result')) return 'result_data';
-    return 'unknown';
-  }
 
   private extractDirectAdsCount(html: string): number | null {
     try {
@@ -438,100 +336,6 @@ export class BalancedScraperService {
     }
   }
 
-  private async analyzeWithGeminiImproved(scriptContents: ScriptContent[], pageId: string): Promise<{
-    totalActiveAds: number;
-    advertiserName: string | null;
-  }> {
-    if (!this.genAI || scriptContents.length === 0) {
-      console.log(`⚠️ No AI or scripts available for ${pageId}`);
-      return { totalActiveAds: 0, advertiserName: null };
-    }
-
-    console.log(`🤖 AI analyzing ${scriptContents.length} scripts for ${pageId}`);
-
-    // Take more scripts but with better priority
-    const relevantScripts = scriptContents
-      .filter(script => script.type !== 'unknown')
-      .sort((a, b) => {
-        // Priority: ads_data > apollo_graphql > initial_data > others
-        const priority = { 'ads_data': 5, 'apollo_graphql': 4, 'initial_data': 3, 'result_data': 2 };
-        const aPrio = priority[a.type] || 1;
-        const bPrio = priority[b.type] || 1;
-        if (aPrio !== bPrio) return bPrio - aPrio;
-        return b.size - a.size;
-      })
-      .slice(0, 5); // Take more scripts
-
-    if (relevantScripts.length === 0) {
-      console.log(`⚠️ No relevant scripts found for pageId: ${pageId}`);
-      return { totalActiveAds: 0, advertiserName: null };
-    }
-
-    // Prepare content with better context
-    const scriptsText = relevantScripts
-      .map((script, index) => `=== SCRIPT ${index + 1} (${script.type}, ${script.size} chars) ===\n${script.content.substring(0, 3000)}`) // More content
-      .join('\n\n');
-
-    const prompt = `
-Analiza estos scripts de JavaScript de la biblioteca de anuncios de Facebook para el pageId: ${pageId}.
-
-TAREA: Encontrar el número exacto de anuncios activos de esta página/anunciante.
-
-BUSCA ESPECÍFICAMENTE:
-- Números junto a palabras como: "ads", "anuncios", "active", "total", "count", "results", "resultados"
-- Patrones como: "total_count": 123, "active_count": 45, "result_count": 67
-- JSON con datos de anuncios
-- Estructuras GraphQL con información de ads
-- Variables de estado con conteos
-
-CONTENIDO:
-${scriptsText}
-
-IMPORTANTE: Si encuentras números, extrae el valor exacto. Si no encuentras datos claros, devuelve 0.
-
-Responde SOLO en formato JSON:
-{
-  "totalActiveAds": número_entero_exacto,
-  "advertiserName": "nombre_encontrado_o_null",
-  "confidence": "high|medium|low",
-  "evidence": "breve_descripción_de_donde_encontraste_el_número"
-}`;
-
-    try {
-      const model = this.genAI.getGenerativeModel({ 
-        model: "gemini-1.5-flash-latest",
-        generationConfig: {
-          maxOutputTokens: 200,
-          temperature: 0
-        }
-      });
-      
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
-
-      console.log(`🤖 AI response for ${pageId}: ${text.substring(0, 150)}...`);
-
-      const jsonMatch = text.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        console.warn(`⚠️ Invalid AI response for ${pageId}`);
-        return { totalActiveAds: 0, advertiserName: null };
-      }
-
-      const analysis = JSON.parse(jsonMatch[0]);
-      
-      console.log(`🎯 AI found for ${pageId}: ${analysis.totalActiveAds} ads, confidence: ${analysis.confidence}`);
-
-      return {
-        totalActiveAds: parseInt(analysis.totalActiveAds) || 0,
-        advertiserName: analysis.advertiserName || null
-      };
-
-    } catch (error) {
-      console.error(`❌ AI analysis failed for ${pageId}:`, error);
-      return { totalActiveAds: 0, advertiserName: null };
-    }
-  }
 
   private getCachedStats(cacheKey: string): AdvertiserStats | null {
     const cached = this.cache.get(cacheKey);
@@ -567,7 +371,7 @@ Responde SOLO en formato JSON:
 
   clearCache(): void {
     this.cache.clear();
-    console.log('🗑️ Balanced scraper cache cleared');
+    console.log('🗑️ Direct pattern scraper cache cleared');
   }
 }
 
