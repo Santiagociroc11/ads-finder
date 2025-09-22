@@ -72,6 +72,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
     setIsSubmitting(true);
 
     try {
+      console.log('🚀 [REGISTER] Starting registration process...');
+      
       const result = await register({ 
         name: name.trim(), 
         email: email.trim().toLowerCase(), 
@@ -79,15 +81,23 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
         invitationToken: invitationToken.trim()
       });
       
+      console.log('📝 [REGISTER] Registration result:', result);
+      
       if (result.success) {
+        console.log('✅ [REGISTER] Success - calling onSuccess');
         toast.success('¡Cuenta creada exitosamente!');
         onSuccess?.();
       } else {
+        console.log('❌ [REGISTER] Failed - showing error message:', result.message);
         toast.error(result.message || 'Error al crear la cuenta');
+        // NO llamar onSuccess ni onSwitchToLogin aquí
       }
     } catch (error) {
+      console.error('💥 [REGISTER] Caught error:', error);
       toast.error('Error de conexión');
+      // NO llamar onSuccess ni onSwitchToLogin aquí
     } finally {
+      console.log('🏁 [REGISTER] Finishing registration process');
       setIsSubmitting(false);
     }
   };

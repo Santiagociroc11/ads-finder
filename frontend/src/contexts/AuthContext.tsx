@@ -137,11 +137,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const register = async (userData: RegisterRequest): Promise<{ success: boolean; message?: string }> => {
     try {
+      console.log('🔄 [AUTH] Setting loading to true...');
       setIsLoading(true);
       
+      console.log('📡 [AUTH] Calling API register...');
       const response = await authApi.register(userData);
+      console.log('📥 [AUTH] API response:', response);
       
       if (response.success && response.token && response.user) {
+        console.log('✅ [AUTH] Registration successful, setting user state...');
         setStoredAuth(response.token, response.user);
         setUser(response.user);
         
@@ -149,18 +153,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         return { success: true };
       } else {
+        console.log('❌ [AUTH] Registration failed:', response.message);
         return { 
           success: false, 
           message: response.message || 'Registration failed' 
         };
       }
     } catch (error: any) {
-      console.error('Registration error:', error);
+      console.error('💥 [AUTH] Registration error:', error);
+      const errorMessage = apiUtils.handleApiError(error);
+      console.log('🔄 [AUTH] Returning error message:', errorMessage);
       return { 
         success: false, 
-        message: apiUtils.handleApiError(error)
+        message: errorMessage
       };
     } finally {
+      console.log('🔄 [AUTH] Setting loading to false...');
       setIsLoading(false);
     }
   };

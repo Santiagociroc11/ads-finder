@@ -302,9 +302,14 @@ export const apiUtils = {
 
   // Generic error handler
   handleApiError: (error: any): string => {
+    // First try to get the error from response data
+    if (error.response?.data?.error) {
+      return error.response.data.error
+    }
     if (error.response?.data?.message) {
       return error.response.data.message
     }
+    // Fallback to the axios error message
     if (error.message) {
       return error.message
     }
