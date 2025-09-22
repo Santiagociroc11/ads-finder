@@ -142,11 +142,24 @@ export class BalancedScraperService {
       // Fetch HTML content with proper timeout
       const htmlContent = await this.fetchHtmlContent(adLibraryUrl);
       
-      // Extract script tags (IMPROVED version that doesn't lose data)
-      const scriptContents = this.extractScriptTagsImproved(htmlContent);
+      // Try direct extraction first (much faster and more accurate)
+      const directCount = this.extractDirectAdsCount(htmlContent);
+      let aiAnalysis: { totalActiveAds: number; advertiserName: string | null };
       
-      // AI analysis with better prompts
-      const aiAnalysis = await this.analyzeWithGeminiImproved(scriptContents, pageId);
+      if (directCount !== null) {
+        // Direct extraction successful
+        const advertiserName = this.extractAdvertiserName(htmlContent);
+        aiAnalysis = {
+          totalActiveAds: directCount,
+          advertiserName: advertiserName || 'Unknown'
+        };
+        console.log(`✅ Direct extraction successful for ${pageId}: ${directCount} ads`);
+      } else {
+        // Fallback to AI analysis
+        console.log(`🤖 Falling back to AI analysis for ${pageId}`);
+        const scriptContents = this.extractScriptTagsImproved(htmlContent);
+        aiAnalysis = await this.analyzeWithGeminiImproved(scriptContents, pageId);
+      }
       
       const stats: AdvertiserStats = {
         pageId,
@@ -198,43 +211,78 @@ export class BalancedScraperService {
   }
 
   private async fetchHtmlContent(url: string): Promise<string> {
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-        'Accept-Language': 'en-US,en;q=0.5',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Cache-Control': 'max-age=0'
-      },
-      timeout: 20000 // Reasonable timeout
-    });
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
 
-    if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    try {
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+          'Accept-Encoding': 'gzip, deflate, br',
+          'Connection': 'keep-alive',
+          'Upgrade-Insecure-Requests': '1',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Cache-Control': 'max-age=0'
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const html = await response.text();
+      console.log(`📄 HTML fetched: ${html.length} characters`);
+      return html;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
     }
-
-    const html = await response.text();
-    console.log(`📄 HTML fetched: ${html.length} characters`);
-    return html;
   }
 
   private extractScriptTagsImproved(html: string): ScriptContent[] {
     const scriptContents: ScriptContent[] = [];
     
-    // More comprehensive script extraction (like the original)
-    const scriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+    // Look for specific Facebook Relay data patterns that contain the count
+    const scriptRegex = /<script[^>]*data-sjs[^>]*>([\s\S]*?)<\/script>/gi;
     let match;
 
     while ((match = scriptRegex.exec(html)) !== null) {
       const scriptContent = match[1].trim();
       
-      // More lenient filtering to not lose important data
+      // Target specific patterns that contain the ads count
+      if (scriptContent.length > 100 && (
+        scriptContent.includes('RelayPrefetchedStreamCache') ||
+        scriptContent.includes('AdLibraryFoundationRootQueryRelayPreloader') ||
+        scriptContent.includes('search_results_connection') ||
+        scriptContent.includes('ad_library_main') ||
+        scriptContent.includes('count') ||
+        scriptContent.includes('edges') ||
+        scriptContent.includes('collated_results')
+      )) {
+        scriptContents.push({
+          content: scriptContent,
+          type: this.detectScriptType(scriptContent),
+          size: scriptContent.length
+        });
+      }
+    }
+
+    // Also look for regular script tags with relevant data
+    const regularScriptRegex = /<script[^>]*>([\s\S]*?)<\/script>/gi;
+    let regularMatch;
+
+    while ((regularMatch = regularScriptRegex.exec(html)) !== null) {
+      const scriptContent = regularMatch[1].trim();
+      
+      // More lenient filtering for fallback
       if (scriptContent.length > 50 && (
         scriptContent.includes('ads') ||
         scriptContent.includes('library') ||
@@ -249,19 +297,28 @@ export class BalancedScraperService {
         scriptContent.includes('GraphQL') ||
         scriptContent.includes('state')
       )) {
-        scriptContents.push({
-          content: scriptContent,
-          type: this.detectScriptType(scriptContent),
-          size: scriptContent.length
-        });
+        // Avoid duplicates
+        const isDuplicate = scriptContents.some(existing => 
+          existing.content.substring(0, 500) === scriptContent.substring(0, 500)
+        );
+        
+        if (!isDuplicate) {
+          scriptContents.push({
+            content: scriptContent,
+            type: this.detectScriptType(scriptContent),
+            size: scriptContent.length
+          });
+        }
       }
     }
 
-    console.log(`📜 Extracted ${scriptContents.length} script tags (improved method)`);
+    console.log(`📜 Extracted ${scriptContents.length} script tags (Facebook-optimized method)`);
     return scriptContents;
   }
 
   private detectScriptType(content: string): string {
+    if (content.includes('RelayPrefetchedStreamCache') && content.includes('search_results_connection')) return 'facebook_relay_ads';
+    if (content.includes('AdLibraryFoundationRootQueryRelayPreloader')) return 'facebook_relay_preloader';
     if (content.includes('__INITIAL_DATA__') || content.includes('initialData')) return 'initial_data';
     if (content.includes('Apollo') || content.includes('GraphQL')) return 'apollo_graphql';
     if (content.includes('React') || content.includes('props')) return 'react_props';
@@ -269,6 +326,116 @@ export class BalancedScraperService {
     if (content.includes('page') && content.includes('info')) return 'page_info';
     if (content.includes('total') && content.includes('result')) return 'result_data';
     return 'unknown';
+  }
+
+  private extractDirectAdsCount(html: string): number | null {
+    try {
+      // Pattern with escaped quotes for JavaScript strings: \"search_results_connection\":{\"count\":82
+      const escapedPattern = /\\?"search_results_connection\\?":\s*\{[^}]*\\?"count\\?":\s*(\d+)/i;
+      const escapedMatch = html.match(escapedPattern);
+      
+      if (escapedMatch) {
+        const count = parseInt(escapedMatch[1]);
+        console.log(`🎯 Direct extraction found count: ${count} via escaped pattern`);
+        return count;
+      }
+
+      // Pattern for ad_library_main with escaped quotes
+      const adLibraryEscapedPattern = /\\?"ad_library_main\\?":\s*\{[^}]*\\?"search_results_connection\\?":\s*\{[^}]*\\?"count\\?":\s*(\d+)/i;
+      const adLibraryEscapedMatch = html.match(adLibraryEscapedPattern);
+      
+      if (adLibraryEscapedMatch) {
+        const count = parseInt(adLibraryEscapedMatch[1]);
+        console.log(`🎯 Direct extraction found count: ${count} via ad_library escaped pattern`);
+        return count;
+      }
+
+      // Look for AdLibraryFoundationRootQueryRelayPreloader pattern
+      const preloaderPattern = /AdLibraryFoundationRootQueryRelayPreloader[\s\S]*?search_results_connection[\s\S]*?count[^:]*:\s*(\d+)/i;
+      const preloaderMatch = html.match(preloaderPattern);
+      
+      if (preloaderMatch) {
+        const count = parseInt(preloaderMatch[1]);
+        console.log(`🎯 Direct extraction found count: ${count} via preloader pattern`);
+        return count;
+      }
+
+      // Most specific pattern: RelayPrefetchedStreamCache with ad_library_main and search_results_connection
+      const exactPattern = /"ad_library_main":\s*\{[^}]*"search_results_connection":\s*\{[^}]*"count":\s*(\d+)/i;
+      const exactMatch = html.match(exactPattern);
+      
+      if (exactMatch) {
+        const count = parseInt(exactMatch[1]);
+        console.log(`🎯 Direct extraction found count: ${count} via exact ad_library_main pattern`);
+        return count;
+      }
+
+      // General search_results_connection pattern
+      const searchResultsPattern = /"search_results_connection":\s*\{[^}]*"count":\s*(\d+)/i;
+      const searchResultsMatch = html.match(searchResultsPattern);
+      
+      if (searchResultsMatch) {
+        const count = parseInt(searchResultsMatch[1]);
+        console.log(`🎯 Direct extraction found count: ${count} via search_results_connection pattern`);
+        return count;
+      }
+
+      // Fallback: any "count": number near ads-related keywords
+      const fallbackPattern = /(?:ads?|library|active)[^}]*"count":\s*(\d+)|"count":\s*(\d+)[^}]*(?:ads?|library|active)/i;
+      const fallbackMatch = html.match(fallbackPattern);
+      
+      if (fallbackMatch) {
+        const count = parseInt(fallbackMatch[1] || fallbackMatch[2]);
+        console.log(`🎯 Direct extraction found count: ${count} via fallback pattern`);
+        return count;
+      }
+
+      console.log(`⚠️ No direct count pattern found in HTML`);
+      return null;
+    } catch (error) {
+      console.error(`❌ Error in direct extraction:`, error);
+      return null;
+    }
+  }
+
+  private extractAdvertiserName(html: string): string | null {
+    try {
+      // Look for page name with escaped quotes
+      const escapedPageNamePattern = /\\?"page_name\\?":\s*\\?"([^"\\]+)\\?"/i;
+      const escapedMatch = html.match(escapedPageNamePattern);
+      
+      if (escapedMatch) {
+        const name = escapedMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        console.log(`🏷️ Found advertiser name (escaped): ${name}`);
+        return name;
+      }
+
+      // Look for page name in the Relay data
+      const pageNamePattern = /"page_name":\s*"([^"]+)"/i;
+      const pageNameMatch = html.match(pageNamePattern);
+      
+      if (pageNameMatch) {
+        const name = pageNameMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        console.log(`🏷️ Found advertiser name: ${name}`);
+        return name;
+      }
+
+      // Alternative pattern for page name
+      const altPageNamePattern = /"name":\s*"([^"]+)"[^}]*"id":\s*"\d+"/i;
+      const altMatch = html.match(altPageNamePattern);
+      
+      if (altMatch) {
+        const name = altMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        console.log(`🏷️ Found advertiser name (alt pattern): ${name}`);
+        return name;
+      }
+
+      console.log(`⚠️ No advertiser name found`);
+      return null;
+    } catch (error) {
+      console.error(`❌ Error extracting advertiser name:`, error);
+      return null;
+    }
   }
 
   private async analyzeWithGeminiImproved(scriptContents: ScriptContent[], pageId: string): Promise<{
