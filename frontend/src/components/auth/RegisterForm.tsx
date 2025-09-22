@@ -16,6 +16,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  const [invitationToken, setInvitationToken] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -48,6 +49,14 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
       return 'Las contraseñas no coinciden';
     }
 
+    if (!invitationToken.trim()) {
+      return 'El token de invitación es requerido';
+    }
+
+    if (invitationToken.length !== 64) {
+      return 'El token de invitación no es válido';
+    }
+
     return null;
   };
 
@@ -66,7 +75,8 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
       const result = await register({ 
         name: name.trim(), 
         email: email.trim().toLowerCase(), 
-        password 
+        password,
+        invitationToken: invitationToken.trim()
       });
       
       if (result.success) {
@@ -130,6 +140,31 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({
                 disabled={isSubmitting}
               />
             </div>
+          </div>
+
+          <div>
+            <label htmlFor="invitationToken" className="block text-sm font-medium text-gray-700 mb-2">
+              Token de Invitación
+            </label>
+            <div className="relative">
+              <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 7a2 2 0 012 2m0 0a2 2 0 012 2m-2-2h-6m6 0v6a2 2 0 01-2 2H9a2 2 0 01-2-2V9a2 2 0 012-2h2M7 7a2 2 0 012-2h6a2 2 0 012 2v2a2 2 0 01-2 2H9a2 2 0 01-2-2V7z" />
+              </svg>
+              <input
+                id="invitationToken"
+                type="text"
+                value={invitationToken}
+                onChange={(e) => setInvitationToken(e.target.value)}
+                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-colors text-gray-900 placeholder-gray-500 font-mono text-sm"
+                placeholder="Pega aquí tu token de invitación"
+                required
+                disabled={isSubmitting}
+                maxLength={64}
+              />
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Necesitas un token válido para crear una cuenta
+            </p>
           </div>
 
           <div>

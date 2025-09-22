@@ -26,6 +26,7 @@ import savedAdsRoutes from '@/routes/savedAds.js';
 import completeSearchesRoutes from '@/routes/completeSearches.js';
 import suggestionsRoutes from '@/routes/suggestions.js';
 import authRoutes from '@/routes/auth.js';
+import invitationRoutes from '@/routes/invitation.js';
 import concurrencyMonitorRoutes from '@/routes/concurrency-monitor.js';
 import scraperComparisonRoutes from '@/routes/scraper-comparison.js';
 import httpDiagnosticRoutes from '@/routes/http-diagnostic.js';
@@ -66,6 +67,7 @@ app.use('/api/', apiRateLimit);
 
 // API Routes
 app.use('/api/auth', authRoutes);
+app.use('/api/invitation', invitationRoutes); // RUTA PÚBLICA para tokens
 app.use('/api/search', adsRoutes);
 app.use('/api/ads', adsRoutes); // Also mount ads routes under /api/ads for scraper endpoints
 app.use('/api/pages', pagesRoutes);

@@ -8,13 +8,13 @@ const router = express.Router();
 
 // POST /api/auth/register - Register new user
 router.post('/register', asyncHandler(async (req, res) => {
-  const { email, password, name }: RegisterRequest = req.body;
+  const { email, password, name, invitationToken }: RegisterRequest = req.body;
 
-  if (!email || !password || !name) {
-    throw new CustomError('Email, password, and name are required', 400);
+  if (!email || !password || !name || !invitationToken) {
+    throw new CustomError('Email, password, name, and invitation token are required', 400);
   }
 
-  const result = await AuthService.register({ email, password, name });
+  const result = await AuthService.register({ email, password, name, invitationToken });
 
   if (!result.success) {
     const statusCode = result.message?.includes('already exists') ? 409 : 400;

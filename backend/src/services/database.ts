@@ -14,6 +14,7 @@ import type {
   CompleteSearchListItem,
   User 
 } from '../types/shared.js';
+import type { InvitationToken } from './invitationService.js';
 
 class DatabaseService {
   private client: MongoClient | null = null;
@@ -85,6 +86,10 @@ class DatabaseService {
 
   get users(): Collection<User & { password: string }> {
     return this.getDb().collection<User & { password: string }>('users');
+  }
+
+  get invitationTokens(): Collection<InvitationToken> {
+    return this.getDb().collection<InvitationToken>('invitationTokens');
   }
 
   // Health check
@@ -167,6 +172,7 @@ export const collections = {
   get completeSearches() { return databaseService.completeSearches; },
   get trackedPages() { return databaseService.trackedPages; },
   get users() { return databaseService.users; },
+  get invitationTokens() { return databaseService.invitationTokens; },
 };
 
 export { databaseService };

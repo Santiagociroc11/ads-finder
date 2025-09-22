@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { ObjectId } from 'mongodb';
 import { collections } from './database.js';
 import type { User, AuthRequest, RegisterRequest, AuthResponse, TokenPayload } from '../types/shared.js';
+import { InvitationService } from './invitationService.js';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -56,10 +57,19 @@ export class AuthService {
       }
 
       // Validate input
-      if (!userData.email || !userData.password || !userData.name) {
+      if (!userData.email || !userData.password || !userData.name || !userData.invitationToken) {
         return {
           success: false,
-          message: 'Email, password, and name are required'
+          message: 'Email, password, name, and invitation token are required'
+        };
+      }
+
+      // Validate invitation token FIRST
+      const tokenValidation = await InvitationService.validateToken(userData.invitationToken);
+      if (!tokenValidation.isValid) {
+        return {
+          success: false,
+          message: tokenValidation.message
         };
       }
 
@@ -118,10 +128,13 @@ export class AuthService {
         updatedAt: newUser.updatedAt
       };
 
-      // Generate token
+      // Mark invitation token as used
+      await InvitationService.useToken(userData.invitationToken, userResponse._id);
+
+      // Generate JWT token
       const token = this.generateToken(userResponse);
 
-      console.log(`[AUTH] ✅ User registered successfully: ${userData.email}`);
+      console.log(`[AUTH] ✅ User registered successfully: ${userData.email} with invitation token`);
 
       return {
         success: true,

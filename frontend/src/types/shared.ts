@@ -240,6 +240,7 @@ export interface AuthRequest {
 
 export interface RegisterRequest extends AuthRequest {
   name: string;
+  invitationToken: string; // REQUIRED para registro
 }
 
 export interface AuthResponse {
