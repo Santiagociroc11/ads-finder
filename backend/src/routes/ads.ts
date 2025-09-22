@@ -37,19 +37,30 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
     let searchResult: SearchResponse;
     
     if (!searchParams.useApify) {
-      const cacheKey = cacheService.generateSearchKey(searchParams);
-      const cachedResult = cacheService.getSearchResult(cacheKey);
+      // Si hay parámetros de paginación, NO usar el cache viejo
+      // porque no considera page/limit en la clave
+      const hasPagination = searchParams.page && searchParams.page > 1;
       
-      if (cachedResult) {
-        console.log(`[CACHE] ✅ Using cached search result for: "${searchParams.value}"`);
-        searchResult = cachedResult;
-      } else {
-        // Execute search using FacebookService
-        searchResult = await getFacebookService().searchAds(searchParams);
+      if (!hasPagination) {
+        // Solo para página 1, usar cache tradicional
+        const cacheKey = cacheService.generateSearchKey(searchParams);
+        const cachedResult = cacheService.getSearchResult(cacheKey);
         
-        // Cache the result for 1 hour
-        cacheService.setSearchResult(cacheKey, searchResult, 60 * 60);
-        console.log(`[CACHE] 💾 Cached search result for: "${searchParams.value}"`);
+        if (cachedResult) {
+          console.log(`[CACHE] ✅ Using cached search result for: "${searchParams.value}"`);
+          searchResult = cachedResult;
+        } else {
+          // Execute search using FacebookService
+          searchResult = await getFacebookService().searchAds(searchParams);
+          
+          // Cache the result for 1 hour
+          cacheService.setSearchResult(cacheKey, searchResult, 60 * 60);
+          console.log(`[CACHE] 💾 Cached search result for: "${searchParams.value}"`);
+        }
+      } else {
+        // Para páginas > 1, usar directamente FacebookService (con su cache inteligente)
+        console.log(`[PAGINATION] 📄 Loading page ${searchParams.page} - using smart cache`);
+        searchResult = await getFacebookService().searchAds(searchParams);
       }
     } else {
       // Don't cache Apify results due to cost implications

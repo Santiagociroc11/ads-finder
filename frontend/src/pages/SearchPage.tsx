@@ -248,6 +248,17 @@ export function SearchPage() {
   })
 
   const [searchResults, setSearchResults] = useState<AdData[]>([])
+  const [paginationData, setPaginationData] = useState<{
+    currentPage: number;
+    hasNextPage: boolean;
+    totalResults: number;
+    isLoadingMore: boolean;
+  }>({
+    currentPage: 1,
+    hasNextPage: false,
+    totalResults: 0,
+    isLoadingMore: false
+  })
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
   const [showSavedSearches, setShowSavedSearches] = useState(false)
   const [expandedTexts, setExpandedTexts] = useState<Set<string>>(new Set())
@@ -270,6 +281,7 @@ export function SearchPage() {
   // Queue for processing advertiser stats sequentially
   const [statsQueue, setStatsQueue] = useState<string[]>([])
   const [isProcessingStats, setIsProcessingStats] = useState(false)
+  const [processedPageIds, setProcessedPageIds] = useState<Set<string>>(new Set())
   const [totalStatsToLoad, setTotalStatsToLoad] = useState(0)
   const [statsLoaded, setStatsLoaded] = useState(0)
 
@@ -304,21 +316,32 @@ export function SearchPage() {
   useEffect(() => {
     if (searchResults.length > 0) {
       const uniquePageIds = [...new Set(searchResults.map(ad => ad.page_id).filter(id => id && id !== 'N/A'))]
-      console.log(`📊 Queueing ${uniquePageIds.length} advertisers for stats loading...`)
       
-      // Initialize progress counters
-      setTotalStatsToLoad(uniquePageIds.length)
-      setStatsLoaded(0)
+      // SOLO procesar page IDs nuevos (no los que ya se procesaron)
+      const newPageIds = uniquePageIds.filter(id => !processedPageIds.has(id))
       
-      // Clear previous queue and add new page IDs
-      setStatsQueue(uniquePageIds)
+      if (newPageIds.length > 0) {
+        console.log(`📊 Queueing ${newPageIds.length} NEW advertisers for stats loading (${uniquePageIds.length} total)...`)
+        
+        // Agregar a la cola solo los nuevos
+        setStatsQueue(prev => [...prev, ...newPageIds])
+        
+        // Marcar como procesados
+        setProcessedPageIds(prev => new Set([...prev, ...newPageIds]))
+        
+        // Actualizar contadores
+        setTotalStatsToLoad(prev => prev + newPageIds.length)
+      } else {
+        console.log(`📊 No new advertisers to process (${uniquePageIds.length} already processed)`)
+      }
     } else {
-      // Reset counters when no results
+      // Reset todo cuando no hay resultados (nueva búsqueda)
       setTotalStatsToLoad(0)
       setStatsLoaded(0)
       setStatsQueue([])
+      setProcessedPageIds(new Set())
     }
-  }, [searchResults])
+  }, [searchResults, processedPageIds])
 
 
   // Search mutation with unique keys to allow concurrent searches
@@ -332,6 +355,15 @@ export function SearchPage() {
         setElapsedTime('')
         // Reset advertiser stats for new search
         setAdvertiserStats(new Map())
+        
+        // Update pagination data
+        setPaginationData({
+          currentPage: 1,
+          hasNextPage: data.pagination?.hasNextPage || false,
+          totalResults: data.pagination?.totalResults || data.data.length,
+          isLoadingMore: false
+        })
+        
         toast.success(`¡Se encontraron ${data.data.length} anuncios!`)
         
         if (data.autoSaved?.saved) {
@@ -344,6 +376,7 @@ export function SearchPage() {
         console.error('Search error:', error)
         setSearchStartTime(null)
         setElapsedTime('')
+        setPaginationData(prev => ({ ...prev, isLoadingMore: false }))
         
         // Handle timeout errors specifically
         if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
@@ -353,6 +386,32 @@ export function SearchPage() {
         } else {
           toast.error(error.response?.data?.error || 'Error en la búsqueda')
         }
+      }
+    }
+  )
+
+  // Nueva mutación para "Cargar más"
+  const loadMoreMutation = useMutation(
+    (params: SearchParams) => searchApi.search(params),
+    {
+      onSuccess: (data: SearchResponse) => {
+        // AGREGAR resultados a los existentes (no reemplazar)
+        setSearchResults(prev => [...prev, ...data.data])
+        
+        // Actualizar estado de paginación
+        setPaginationData(prev => ({
+          currentPage: prev.currentPage + 1,
+          hasNextPage: data.pagination?.hasNextPage || false,
+          totalResults: data.pagination?.totalResults || prev.totalResults,
+          isLoadingMore: false
+        }))
+        
+        toast.success(`¡Se cargaron ${data.data.length} anuncios más!`)
+      },
+      onError: (error: any) => {
+        console.error('Load more error:', error)
+        setPaginationData(prev => ({ ...prev, isLoadingMore: false }))
+        toast.error('Error al cargar más resultados')
       }
     }
   )
@@ -554,8 +613,33 @@ export function SearchPage() {
 
     // Reset advertiser stats loading state
     setAdvertiserStats(new Map())
+    setProcessedPageIds(new Set()) // Reset para nueva búsqueda
+    setTotalStatsToLoad(0)
+    setStatsLoaded(0)
 
-    searchMutation.mutate(searchParams)
+    searchMutation.mutate({
+      ...searchParams,
+      page: 1, // Primera página
+      limit: 20 // 20 resultados por página
+    })
+  }
+
+  const handleLoadMore = () => {
+    if (paginationData.isLoadingMore || !paginationData.hasNextPage) {
+      return
+    }
+
+    console.log(`🔄 Loading more results: page ${paginationData.currentPage + 1}`)
+    
+    // Marcar como cargando
+    setPaginationData(prev => ({ ...prev, isLoadingMore: true }))
+    
+    // Ejecutar búsqueda para la siguiente página
+    loadMoreMutation.mutate({
+      ...searchParams,
+      page: paginationData.currentPage + 1,
+      limit: 20
+    })
   }
 
   const handleSuggestions = () => {
@@ -2482,6 +2566,38 @@ export function SearchPage() {
               )
             })}
           </div>
+
+          {/* Botón Cargar Más */}
+          {searchResults.length > 0 && paginationData.hasNextPage && (
+            <div className="flex justify-center mt-8 mb-4">
+              <button
+                onClick={handleLoadMore}
+                disabled={paginationData.isLoadingMore || loadMoreMutation.isLoading}
+                className="px-8 py-3 bg-gradient-to-r from-primary-600 to-secondary-600 text-white font-medium rounded-lg hover:from-primary-700 hover:to-secondary-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
+              >
+                {paginationData.isLoadingMore || loadMoreMutation.isLoading ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Cargando más anuncios...</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span>Cargar más anuncios</span>
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </div>
+                )}
+              </button>
+            </div>
+          )}
+
+          {/* Información de paginación */}
+          {searchResults.length > 0 && (
+            <div className="text-center text-sm text-gray-500 mb-4">
+              Mostrando {searchResults.length} de {paginationData.totalResults > 0 ? paginationData.totalResults : 'muchos'} anuncios
+            </div>
+          )}
         </div>
       )}
 

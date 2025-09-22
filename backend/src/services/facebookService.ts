@@ -10,6 +10,13 @@ import { AdSource } from '../types/shared.js';
 export class FacebookService {
   private readonly accessToken: string;
   private readonly apifyClient: ApifyClient | null = null;
+  
+  // Cache para resultados de búsqueda (para paginación inteligente)
+  private searchCache = new Map<string, {
+    allResults: any[];
+    timestamp: number;
+    searchParams: SearchParams;
+  }>();
 
   constructor() {
     const token = process.env.FACEBOOK_ACCESS_TOKEN;
@@ -37,48 +44,93 @@ export class FacebookService {
     return this.searchWithAPI(params);
   }
 
-  private async searchWithAPI(params: SearchParams): Promise<SearchResponse> {
-    const searchFields = this.getFieldsForAdType(params.adType || 'ALL');
-    const endpoint = this.buildAPIEndpoint(params, searchFields);
+  private generateCacheKey(params: SearchParams): string {
+    // Clave basada en parámetros de búsqueda (sin page/limit para compartir cache)
+    const { page, limit, offset, ...searchParams } = params;
+    return JSON.stringify(searchParams);
+  }
 
-    console.log(`[API] 🚀 Executing Facebook API search...`);
+  private isSearchCacheValid(cacheKey: string): boolean {
+    const cached = this.searchCache.get(cacheKey);
+    if (!cached) return false;
+    
+    // Cache válido por 10 minutos
+    const CACHE_TTL = 10 * 60 * 1000;
+    return (Date.now() - cached.timestamp) < CACHE_TTL;
+  }
+
+  private async searchWithAPI(params: SearchParams): Promise<SearchResponse> {
+    const currentPage = params.page || 1;
+    const pageSize = params.limit || 20;
+    const cacheKey = this.generateCacheKey(params);
+    
+    console.log(`[API] 🚀 Executing Facebook API search (page ${currentPage})...`);
     
     try {
-      const response = await fetch(endpoint);
-      const data = await response.json() as any;
-
-      if (!response.ok || data.error) {
-        throw new Error(data.error?.message || 'Facebook API error');
-      }
-
-      const processedAds = this.processAdsData(data.data || [], AdSource.FACEBOOK_API);
+      let allResults: any[] = [];
       
-      // Calculate pagination info
-      const currentPage = params.page || 1;
-      const pageSize = params.limit || 20;
-      const hasNextPage = !!(data.paging?.next);
+      // Verificar cache primero
+      if (this.isSearchCacheValid(cacheKey)) {
+        console.log(`[API] ✅ Using cached results for pagination`);
+        allResults = this.searchCache.get(cacheKey)!.allResults;
+      } else {
+        console.log(`[API] 🔄 Fetching fresh data from Facebook API...`);
+        
+        // Buscar más datos de los necesarios para futuras páginas
+        const searchFields = this.getFieldsForAdType(params.adType || 'ALL');
+        const endpoint = this.buildAPIEndpoint({
+          ...params,
+          page: 1, // Siempre empezar desde página 1 para el cache
+          limit: 100 // Pedir 100 para tener datos para 5 páginas
+        }, searchFields);
+
+        const response = await fetch(endpoint);
+        const data = await response.json() as any;
+
+        if (!response.ok || data.error) {
+          throw new Error(data.error?.message || 'Facebook API error');
+        }
+
+        allResults = this.processAdsData(data.data || [], AdSource.FACEBOOK_API);
+        
+        // Guardar en cache
+        this.searchCache.set(cacheKey, {
+          allResults,
+          timestamp: Date.now(),
+          searchParams: params
+        });
+        
+        console.log(`[API] 💾 Cached ${allResults.length} results for future pagination`);
+      }
+      
+      // Aplicar paginación en memoria
+      const startIndex = (currentPage - 1) * pageSize;
+      const endIndex = startIndex + pageSize;
+      const paginatedResults = allResults.slice(startIndex, endIndex);
+      
+      // Calcular información de paginación
+      const totalResults = allResults.length;
+      const totalPages = Math.ceil(totalResults / pageSize);
+      const hasNextPage = endIndex < totalResults;
       const hasPrevPage = currentPage > 1;
       
-      // For Facebook API, we can't know total count without fetching all pages
-      // So we estimate based on current results
-      const estimatedTotal = hasNextPage ? (currentPage * pageSize) + 1 : (currentPage - 1) * pageSize + processedAds.length;
-      const totalPages = Math.ceil(estimatedTotal / pageSize);
+      console.log(`[API] 📄 Page ${currentPage}/${totalPages}: ${paginatedResults.length} ads (${totalResults} total cached)`);
       
       return {
-        data: processedAds,
-        totalAds: processedAds.length,
+        data: paginatedResults,
+        totalAds: paginatedResults.length,
         totalPages: totalPages,
-        paging: data.paging || null,
+        paging: null, // No usamos paging de Facebook
         pagination: {
           currentPage,
           totalPages,
-          totalResults: estimatedTotal,
+          totalResults,
           pageSize,
           hasNextPage,
           hasPrevPage
         },
         source: 'facebook_api',
-        message: `Page ${currentPage}: ${processedAds.length} ads via Facebook API`
+        message: `Page ${currentPage}/${totalPages}: ${paginatedResults.length} ads via Facebook API (${totalResults} total available)`
       };
 
     } catch (error) {
@@ -247,14 +299,17 @@ export class FacebookService {
     urlParams.set('ad_type', params.adType || 'ALL');
     urlParams.set('ad_active_status', 'ACTIVE');
     
-    // Smart pagination support
-    const limit = params.limit || 20; // Default 20 per page
-    const offset = params.offset || ((params.page || 1) - 1) * limit;
+    // Facebook API pagination - NO usamos offset porque Facebook usa cursors
+    // Como no podemos mantener cursors entre requests independientes,
+    // pedimos un lote grande y paginamos en memoria
     
-    urlParams.set('limit', limit.toString());
-    if (offset > 0) {
-      urlParams.set('after', offset.toString()); // Facebook pagination cursor
-    }
+    const pageSize = params.limit || 20;
+    
+    // Pedir suficientes resultados para múltiples páginas (máximo Facebook: 100)
+    urlParams.set('limit', '100');
+    
+    // No usamos 'after' porque requiere cursors de páginas anteriores
+    // que no tenemos en requests independientes
     
     if (params.searchType === 'keyword') {
       urlParams.set('search_terms', params.value);
