@@ -53,13 +53,14 @@ router.post('/', aiRateLimit, asyncHandler(async (req, res) => {
 
   const aiService = initializeGoogleAI();
   if (!aiService) {
-    throw new CustomError('El servicio de IA no está disponible', 503);
+    console.error('[AI] ❌ Google AI service not available - GEMINI_API_KEY missing or invalid');
+    throw new CustomError('El servicio de IA no está disponible. Verifica la configuración de GEMINI_API_KEY.', 503);
   }
 
   try {
     console.log(`[AI] 🤖 Generating suggestions for: "${idea}"`);
 
-    const model = aiService.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
+    const model = aiService.getGenerativeModel({ model: "gemini-1.5-flash" });
     
     const prompt = `Actúa como un experto en marketing digital y Facebook Ads. Basado en la idea general "${idea}", genera una lista de 8 palabras clave específicas y de alta intención de compra, en español, para encontrar anuncios ganadores en la biblioteca de anuncios de Facebook. Devuelve solo la lista de palabras, separadas por comas. Ejemplo: si la idea es "mascotas", devuelve "arnés para perros, comida natural para gatos, juguetes interactivos para perros, cama ortopédica para perro, fuente de agua para gatos, adiestramiento canino online, seguro para mascotas, snacks saludables para perros"`;
     
@@ -97,7 +98,7 @@ router.get('/health', asyncHandler(async (req, res) => {
   res.json({
     available: isAvailable,
     service: 'Google Generative AI',
-    model: 'gemini-1.5-flash-latest',
+    model: 'gemini-1.5-flash',
     status: isAvailable ? 'ready' : 'unavailable'
   });
 }));
