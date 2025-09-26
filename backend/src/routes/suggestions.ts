@@ -60,7 +60,7 @@ router.post('/', aiRateLimit, asyncHandler(async (req, res) => {
   try {
     console.log(`[AI] 🤖 Generating suggestions for: "${idea}"`);
 
-    const model = aiService.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = aiService.getGenerativeModel({ model: "gemini-2.5-flash-lite" });
     
     const prompt = `Actúa como un experto en marketing digital y Facebook Ads. Basado en la idea general "${idea}", genera una lista de 8 palabras clave específicas y de alta intención de compra, en español, para encontrar anuncios ganadores en la biblioteca de anuncios de Facebook. Devuelve solo la lista de palabras, separadas por comas. Ejemplo: si la idea es "mascotas", devuelve "arnés para perros, comida natural para gatos, juguetes interactivos para perros, cama ortopédica para perro, fuente de agua para gatos, adiestramiento canino online, seguro para mascotas, snacks saludables para perros"`;
     
@@ -98,7 +98,7 @@ router.get('/health', asyncHandler(async (req, res) => {
   res.json({
     available: isAvailable,
     service: 'Google Generative AI',
-    model: 'gemini-1.5-flash',
+    model: 'gemini-2.5-flash-lite',
     status: isAvailable ? 'ready' : 'unavailable'
   });
 }));
