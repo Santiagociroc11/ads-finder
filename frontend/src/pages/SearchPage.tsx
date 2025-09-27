@@ -254,11 +254,13 @@ export function SearchPage() {
     hasNextPage: boolean;
     totalResults: number;
     isLoadingMore: boolean;
+    displayedCount: number; // How many results are currently displayed
   }>({
     currentPage: 1,
     hasNextPage: false,
     totalResults: 0,
-    isLoadingMore: false
+    isLoadingMore: false,
+    displayedCount: 20 // Start with 20 results
   })
   const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
   const [showSavedSearches, setShowSavedSearches] = useState(false)
@@ -363,7 +365,8 @@ export function SearchPage() {
           currentPage: 1,
           hasNextPage: data.pagination?.hasNextPage || false,
           totalResults: data.pagination?.totalResults || data.data.length,
-          isLoadingMore: false
+          isLoadingMore: false,
+          displayedCount: 20 // Start with 20 results
         })
         
         toast.success(`¡Se encontraron ${data.data.length} anuncios!`)
@@ -406,7 +409,8 @@ export function SearchPage() {
           currentPage: prev.currentPage + 1,
           hasNextPage: data.pagination?.hasNextPage || false,
           totalResults: data.pagination?.totalResults || prev.totalResults,
-          isLoadingMore: false
+          isLoadingMore: false,
+          displayedCount: prev.displayedCount + data.data.length // Accumulate displayed count
         }))
         
         toast.success(`¡Se cargaron ${data.data.length} anuncios más!`)
@@ -645,21 +649,26 @@ export function SearchPage() {
     })
   }
 
-  // Handle pagination with global sorting
-  const handlePageChange = (newPage: number) => {
-    if (newPage < 1 || newPage > Math.ceil(allCachedResults.length / 20)) {
-      return
+  // Handle accumulative pagination - show more results
+  const handleShowMore = () => {
+    const newDisplayedCount = paginationData.displayedCount + 20
+    const maxResults = allCachedResults.length
+    
+    if (newDisplayedCount > maxResults) {
+      // If we need more results than we have cached, load more from server
+      handleLoadMore()
+    } else {
+      // Show more from cached results
+      setPaginationData(prev => ({ 
+        ...prev, 
+        displayedCount: newDisplayedCount,
+        hasNextPage: newDisplayedCount < maxResults
+      }))
+      
+      // Update displayed results
+      const currentPageResults = allCachedResults.slice(0, newDisplayedCount)
+      setSearchResults(currentPageResults)
     }
-
-    setPaginationData(prev => ({ ...prev, currentPage: newPage }))
-    
-    // Update current page results from cached results
-    const pageSize = 20
-    const startIndex = (newPage - 1) * pageSize
-    const endIndex = startIndex + pageSize
-    const currentPageResults = allCachedResults.slice(startIndex, endIndex)
-    
-    setSearchResults(currentPageResults)
   }
 
   const handleSuggestions = () => {
@@ -1025,12 +1034,9 @@ export function SearchPage() {
     const sortedAllResults = sortResults(allCachedResults)
     setAllCachedResults(sortedAllResults)
 
-    // Update current page results based on pagination
-    const pageSize = 20
-    const currentPage = paginationData.currentPage
-    const startIndex = (currentPage - 1) * pageSize
-    const endIndex = startIndex + pageSize
-    const currentPageResults = sortedAllResults.slice(startIndex, endIndex)
+    // Update displayed results based on accumulative count
+    const displayedCount = paginationData.displayedCount
+    const currentPageResults = sortedAllResults.slice(0, displayedCount)
     
     setSearchResults(currentPageResults)
   }
@@ -1040,7 +1046,7 @@ export function SearchPage() {
     if (allCachedResults.length > 0) {
       applyGlobalSorting()
     }
-  }, [sortConfig, paginationData.currentPage])
+  }, [sortConfig, paginationData.displayedCount])
 
   const getSortIcon = (level: 'primary' | 'secondary' | 'tertiary', field: string) => {
     const config = sortConfig[level]
@@ -2618,10 +2624,10 @@ export function SearchPage() {
           </div>
 
           {/* Botón Cargar Más */}
-          {searchResults.length > 0 && paginationData.hasNextPage && (
+          {searchResults.length > 0 && (paginationData.hasNextPage || paginationData.displayedCount < allCachedResults.length) && (
             <div className="flex justify-center mt-8 mb-4">
               <button
-                onClick={handleLoadMore}
+                onClick={handleShowMore}
                 disabled={paginationData.isLoadingMore || loadMoreMutation.isLoading}
                 className="px-8 py-3 bg-gradient-to-r from-primary-600 to-secondary-600 text-white font-medium rounded-lg hover:from-primary-700 hover:to-secondary-700 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none shadow-lg"
               >
@@ -2645,7 +2651,7 @@ export function SearchPage() {
           {/* Información de paginación */}
           {searchResults.length > 0 && (
             <div className="text-center text-sm text-gray-500 mb-4">
-              Mostrando {searchResults.length} de {paginationData.totalResults > 0 ? paginationData.totalResults : 'muchos'} anuncios
+              Mostrando {paginationData.displayedCount} de {paginationData.totalResults > 0 ? paginationData.totalResults : allCachedResults.length} anuncios
             </div>
           )}
         </div>
