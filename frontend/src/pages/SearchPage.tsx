@@ -248,6 +248,7 @@ export function SearchPage() {
   })
 
   const [searchResults, setSearchResults] = useState<AdData[]>([])
+  const [allCachedResults, setAllCachedResults] = useState<AdData[]>([]) // Store all cached results for global sorting
   const [paginationData, setPaginationData] = useState<{
     currentPage: number;
     hasNextPage: boolean;
@@ -351,6 +352,7 @@ export function SearchPage() {
       mutationKey: ['search', Date.now(), Math.random()], // Unique key for each search
       onSuccess: (data: SearchResponse) => {
         setSearchResults(data.data)
+        setAllCachedResults(data.data) // Store all results for global sorting
         setSearchStartTime(null)
         setElapsedTime('')
         // Reset advertiser stats for new search
@@ -397,6 +399,7 @@ export function SearchPage() {
       onSuccess: (data: SearchResponse) => {
         // AGREGAR resultados a los existentes (no reemplazar)
         setSearchResults(prev => [...prev, ...data.data])
+        setAllCachedResults(prev => [...prev, ...data.data]) // Update cached results too
         
         // Actualizar estado de paginación
         setPaginationData(prev => ({
@@ -640,6 +643,23 @@ export function SearchPage() {
       page: paginationData.currentPage + 1,
       limit: 20
     })
+  }
+
+  // Handle pagination with global sorting
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > Math.ceil(allCachedResults.length / 20)) {
+      return
+    }
+
+    setPaginationData(prev => ({ ...prev, currentPage: newPage }))
+    
+    // Update current page results from cached results
+    const pageSize = 20
+    const startIndex = (newPage - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    const currentPageResults = allCachedResults.slice(startIndex, endIndex)
+    
+    setSearchResults(currentPageResults)
   }
 
   const handleSuggestions = () => {
@@ -996,6 +1016,31 @@ export function SearchPage() {
       return newConfig
     })
   }
+
+  // Global sorting function that works on all cached results
+  const applyGlobalSorting = () => {
+    if (!sortConfig.primary) return
+
+    // Sort all cached results globally
+    const sortedAllResults = sortResults(allCachedResults)
+    setAllCachedResults(sortedAllResults)
+
+    // Update current page results based on pagination
+    const pageSize = 20
+    const currentPage = paginationData.currentPage
+    const startIndex = (currentPage - 1) * pageSize
+    const endIndex = startIndex + pageSize
+    const currentPageResults = sortedAllResults.slice(startIndex, endIndex)
+    
+    setSearchResults(currentPageResults)
+  }
+
+  // Apply global sorting when sort config changes
+  useEffect(() => {
+    if (allCachedResults.length > 0) {
+      applyGlobalSorting()
+    }
+  }, [sortConfig, paginationData.currentPage])
 
   const getSortIcon = (level: 'primary' | 'secondary' | 'tertiary', field: string) => {
     const config = sortConfig[level]

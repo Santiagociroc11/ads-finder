@@ -144,42 +144,63 @@ export class FacebookService {
       throw new Error('Apify client not initialized');
     }
 
-    console.log(`[APIFY] 💎 Executing Apify search...`);
+    const pageSize = params.limit || 20;
+    const currentPage = params.page || 1;
+    const offset = (currentPage - 1) * pageSize;
+    const cacheKey = this.generateCacheKey(params);
+    
+    console.log(`[APIFY] 💎 Executing Apify search (page ${currentPage})...`);
     
     try {
-      const searchUrl = this.buildApifySearchUrl(params);
+      let allProcessedAds: any[] = [];
       
-      // Smart pagination for Apify
-      const pageSize = params.limit || 20;
-      const currentPage = params.page || 1;
-      const offset = (currentPage - 1) * pageSize;
-      const maxAds = Math.min(params.apifyCount || 200, offset + pageSize);
+      // Check cache first
+      if (this.isSearchCacheValid(cacheKey)) {
+        console.log(`[APIFY] ✅ Using cached results for pagination`);
+        allProcessedAds = this.searchCache.get(cacheKey)!.allResults;
+      } else {
+        console.log(`[APIFY] 🔄 Fetching fresh data from Apify...`);
+        
+        const searchUrl = this.buildApifySearchUrl(params);
+        
+        // Fetch ALL available results (up to apifyCount limit)
+        const maxAds = params.apifyCount || 500; // Default to 500 to get comprehensive results
 
-      const input = {
-        urls: [{ url: searchUrl }],
-        count: maxAds,
-        period: "",
-        "scrapePageAds.activeStatus": "all",
-        "scrapePageAds.countryCode": params.country || "ALL"
-      };
+        const input = {
+          urls: [{ url: searchUrl }],
+          count: maxAds,
+          period: "",
+          "scrapePageAds.activeStatus": "all",
+          "scrapePageAds.countryCode": params.country || "ALL"
+        };
 
-      console.log(`[APIFY] ⚙️ Running actor with ${maxAds} ads limit...`);
+        console.log(`[APIFY] ⚙️ Running actor with ${maxAds} ads limit...`);
+        
+        const run = await this.apifyClient.actor("XtaWFhbtfxyzqrFmd").call(input);
+        const { items } = await this.apifyClient.dataset(run.defaultDatasetId).listItems();
+
+        allProcessedAds = this.processApifyData(items);
+        
+        // Cache all results for pagination
+        this.searchCache.set(cacheKey, {
+          allResults: allProcessedAds,
+          timestamp: Date.now(),
+          searchParams: params
+        });
+        
+        console.log(`[APIFY] 💾 Cached ${allProcessedAds.length} results for future pagination`);
+      }
       
-      const run = await this.apifyClient.actor("XtaWFhbtfxyzqrFmd").call(input);
-      const { items } = await this.apifyClient.dataset(run.defaultDatasetId).listItems();
-
-      const allProcessedAds = this.processApifyData(items);
-      
-      // Apply pagination to the results
+      // Apply pagination to the cached results
       const paginatedAds = allProcessedAds.slice(offset, offset + pageSize);
       
-      console.log(`[APIFY] ✅ Successfully scraped ${allProcessedAds.length} ads, showing page ${currentPage} (${paginatedAds.length} ads)`);
-
       // Calculate pagination info
       const totalResults = allProcessedAds.length;
       const totalPages = Math.ceil(totalResults / pageSize);
       const hasNextPage = currentPage < totalPages;
       const hasPrevPage = currentPage > 1;
+      
+      console.log(`[APIFY] 📄 Page ${currentPage}/${totalPages}: ${paginatedAds.length} ads (${totalResults} total cached)`);
 
       return {
         data: paginatedAds,
@@ -195,7 +216,7 @@ export class FacebookService {
           hasPrevPage
         },
         source: 'apify_scraping',
-        message: `Page ${currentPage}/${totalPages}: ${paginatedAds.length} ads via Apify Professional`
+        message: `Page ${currentPage}/${totalPages}: ${paginatedAds.length} ads via Apify Professional (${totalResults} total available)`
       };
 
     } catch (error) {
