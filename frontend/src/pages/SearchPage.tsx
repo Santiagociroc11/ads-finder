@@ -237,7 +237,7 @@ export function SearchPage() {
   const [searchParams, setSearchParams] = useState<SearchParams>({
     searchType: 'keyword',
     value: '',
-    country: 'CO',
+    country: 'ALL',
     minDays: 1,
     adType: 'ALL',
     mediaType: 'ALL',
@@ -799,6 +799,9 @@ export function SearchPage() {
 
   const getCountryName = (countryCode: string | undefined) => {
     const countryNames: Record<string, string> = {
+      // Todos los países
+      'ALL': 'Todos los países',
+      
       // América Latina
       'CO': 'Colombia',
       'MX': 'México',
@@ -856,7 +859,7 @@ export function SearchPage() {
       'TR': 'Turquía',
       'AE': 'Emiratos Árabes Unidos'
     }
-    return countryNames[countryCode || 'CO'] || countryCode || 'Colombia'
+    return countryNames[countryCode || 'ALL'] || countryCode || 'Todos los países'
   }
 
   const getLanguageName = (languageCode: string) => {
@@ -1369,6 +1372,8 @@ export function SearchPage() {
                   onChange={(e) => setSearchParams(prev => ({ ...prev, country: e.target.value }))}
                   className="form-select w-full"
                 >
+                  <option value="ALL">🌍 Todos los países</option>
+                  
                   <optgroup label="🌎 América Latina">
                     <option value="CO">🇨🇴 Colombia</option>
                     <option value="MX">🇲🇽 México</option>
