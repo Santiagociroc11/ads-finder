@@ -8,6 +8,8 @@ import type {
   CompleteSearchWithPagination,
   TrackedPage,
   AIsuggestion,
+  SearchHistoryResponse,
+  SearchHistoryStats,
   SearchStats,
   ApiResponse,
   AuthRequest,
@@ -362,6 +364,32 @@ export const scraperApi = {
     return response.data
   },
 
+}
+
+// === SEARCH HISTORY API ===
+export const searchHistoryApi = {
+  // Get user's search history
+  getHistory: async (params?: {
+    page?: number
+    limit?: number
+    search?: string
+    country?: string
+    dateFrom?: string
+    dateTo?: string
+  }): Promise<any> => {
+    const response = await api.get('/search-history', { params })
+    return response.data
+  },
+
+  // Get search statistics
+  getStats: async (period?: string): Promise<any> => {
+    const response = await api.get('/search-history/stats', { 
+      params: period ? { period } : {} 
+    })
+    return response.data
+  },
+
+  // Note: Delete functions removed for audit and limit control purposes
 }
 
 export default api

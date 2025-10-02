@@ -5,6 +5,7 @@ import {
   Bookmark, 
   BarChart3, 
   Database,
+  History,
   Users,
   Sparkles,
   Menu,
@@ -31,6 +32,12 @@ const navigationItems = [
     href: '/saved-searches',
     icon: Database,
     description: 'Ver búsquedas guardadas'
+  },
+  {
+    name: 'Historial de Búsquedas',
+    href: '/search-history',
+    icon: History,
+    description: 'Ver historial de búsquedas'
   },
   {
     name: 'Anuncios Favoritos',

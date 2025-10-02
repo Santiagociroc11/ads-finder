@@ -145,6 +145,7 @@ export interface SearchResponse {
 
 export interface SavedAd {
   _id: string;
+  userId: string;
   adData: AdData;
   tags: string[];
   notes: string;
@@ -161,6 +162,7 @@ export interface SavedAd {
 
 export interface CompleteSearch {
   _id: string;
+  userId: string;
   searchName: string;
   searchParams: SearchParams;
   executedAt: string;

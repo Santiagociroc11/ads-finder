@@ -2,6 +2,7 @@ import express from 'express';
 import { ObjectId } from 'mongodb';
 import { collections } from '@/services/database.js';
 import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
+import { authenticateToken } from '@/middleware/authMiddleware.js';
 import type { 
   CompleteSearch, 
   CompleteSearchListItem,
@@ -12,22 +13,31 @@ import type {
 
 const router = express.Router();
 
+// Apply authentication to all routes
+router.use(authenticateToken);
+
 // POST /api/complete-searches - Save a complete search
 router.post('/', asyncHandler(async (req, res) => {
   const { searchName, searchParams, results, source, metadata } = req.body;
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
   
   if (!searchName || !results || !Array.isArray(results)) {
     throw new CustomError('El nombre de búsqueda y los resultados son requeridos', 400);
   }
 
-  // Check if search name already exists
-  const existingSearch = await collections.completeSearches.findOne({ searchName });
+  // Check if search name already exists for this user
+  const existingSearch = await collections.completeSearches.findOne({ searchName, userId });
   if (existingSearch) {
     throw new CustomError('Ya existe una búsqueda con este nombre', 409);
   }
 
-  const newCompleteSearch: Omit<CompleteSearch, '_id'> = {
+  const newCompleteSearch: any = {
     searchName,
+    userId,
     searchParams: searchParams || {},
     executedAt: new Date().toISOString(),
     source: source || 'unknown',
@@ -64,6 +74,11 @@ router.post('/', asyncHandler(async (req, res) => {
 // GET /api/complete-searches - List all complete searches
 router.get('/', asyncHandler(async (req, res) => {
   const { sortBy, limit } = req.query;
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
   
   // Configure sorting
   let sort: Record<string, 1 | -1> = {};
@@ -98,7 +113,7 @@ router.get('/', asyncHandler(async (req, res) => {
     // results: 0  // Explicitly exclude results
   };
   
-  let query = collections.completeSearches.find({}, { projection }).sort(sort);
+  let query = collections.completeSearches.find({ userId }, { projection }).sort(sort);
   if (limit) {
     query = query.limit(parseInt(limit as string));
   }
@@ -113,8 +128,9 @@ router.get('/', asyncHandler(async (req, res) => {
     costSavings: search.source === 'apify_scraping' ? '💰 Evita re-ejecutar Apify' : ''
   } as CompleteSearchListItem));
   
-  // Global stats
+  // User-specific stats
   const globalStats = await collections.completeSearches.aggregate([
+    { $match: { userId } },
     {
       $group: {
         _id: null,
@@ -136,12 +152,17 @@ router.get('/', asyncHandler(async (req, res) => {
 router.get('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { page = 1, limit = 50 } = req.query;
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
   
   if (!ObjectId.isValid(id)) {
     throw new CustomError('ID de búsqueda inválido', 400);
   }
   
-  const completeSearch = await collections.completeSearches.findOne({ _id: new ObjectId(id || '') });
+  const completeSearch = await collections.completeSearches.findOne({ _id: new ObjectId(id || ''), userId });
   
   if (!completeSearch) {
     throw new CustomError('Búsqueda completa no encontrada', 404);
@@ -149,7 +170,7 @@ router.get('/:id', asyncHandler(async (req, res) => {
   
   // Update access statistics
   await collections.completeSearches.updateOne(
-    { _id: new ObjectId(id || '') },
+    { _id: new ObjectId(id || ''), userId },
     {
       $set: { lastAccessed: new Date().toISOString() },
       $inc: { accessCount: 1 }
@@ -188,18 +209,23 @@ router.get('/:id', asyncHandler(async (req, res) => {
 // DELETE /api/complete-searches/:id - Delete a complete search
 router.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
   
   if (!ObjectId.isValid(id)) {
     throw new CustomError('ID de búsqueda inválido', 400);
   }
   
-  const completeSearch = await collections.completeSearches.findOne({ _id: new ObjectId(id || '') });
+  const completeSearch = await collections.completeSearches.findOne({ _id: new ObjectId(id || ''), userId });
   
   if (!completeSearch) {
     throw new CustomError('Búsqueda completa no encontrada', 404);
   }
   
-  await collections.completeSearches.deleteOne({ _id: new ObjectId(id || '') });
+  await collections.completeSearches.deleteOne({ _id: new ObjectId(id || ''), userId });
   
   console.log(`[COMPLETE_SEARCH] 🗑️ Complete search deleted: "${completeSearch.searchName}" (${completeSearch.totalResults} ads)`);
   
@@ -212,8 +238,13 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 // GET /api/complete-searches/search - Search in saved searches
 router.get('/search', asyncHandler(async (req, res) => {
   const { q, source, country, minResults } = req.query;
+  const userId = (req as any).user?._id?.toString();
   
-  let filter: any = {};
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
+  
+  let filter: any = { userId };
   
   // Text filter
   if (q) {
@@ -257,8 +288,15 @@ router.get('/search', asyncHandler(async (req, res) => {
 
 // GET /api/complete-searches/stats - Get detailed statistics
 router.get('/stats', asyncHandler(async (req, res) => {
-  // Overview stats
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
+  
+  // User-specific overview stats
   const stats = await collections.completeSearches.aggregate([
+    { $match: { userId } },
     {
       $group: {
         _id: null,
@@ -275,6 +313,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
   
   // Top countries
   const topCountries = await collections.completeSearches.aggregate([
+    { $match: { userId } },
     { $group: { _id: '$metadata.country', count: { $sum: 1 }, totalAds: { $sum: '$totalResults' } } },
     { $sort: { count: -1 } },
     { $limit: 10 }
@@ -282,6 +321,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
   
   // Top search terms
   const topTerms = await collections.completeSearches.aggregate([
+    { $match: { userId } },
     { $group: { _id: '$metadata.searchTerm', count: { $sum: 1 }, totalAds: { $sum: '$totalResults' } } },
     { $sort: { count: -1 } },
     { $limit: 10 }
@@ -289,7 +329,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
   
   // Most accessed searches
   const mostAccessed = await collections.completeSearches.aggregate([
-    { $match: { accessCount: { $gt: 0 } } },
+    { $match: { userId, accessCount: { $gt: 0 } } },
     { $sort: { accessCount: -1 } },
     { $limit: 5 },
     { $project: { searchName: 1, accessCount: 1, totalResults: 1, source: 1 } }
@@ -298,7 +338,7 @@ router.get('/stats', asyncHandler(async (req, res) => {
   // Estimated cost savings
   const apifySearchCount = stats[0]?.apifySearches || 0;
   const avgApifyResults = await collections.completeSearches.aggregate([
-    { $match: { source: 'apify_scraping' } },
+    { $match: { userId, source: 'apify_scraping' } },
     { $group: { _id: null, avgResults: { $avg: '$totalResults' } } }
   ]).toArray();
   

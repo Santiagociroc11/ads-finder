@@ -341,7 +341,7 @@ export function SearchPage() {
       
       processNext()
     }
-  }, [statsQueue, isProcessingStats, advertiserStats])
+  }, [statsQueue, isProcessingStats])
 
   // Load advertiser stats when search results change
   useEffect(() => {

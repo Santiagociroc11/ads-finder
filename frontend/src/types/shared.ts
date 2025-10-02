@@ -352,3 +352,75 @@ export enum Country {
   ES = 'ES',
   // Add more as needed
 }
+
+// Search History Types
+export interface SearchHistoryEntry {
+  _id: string;
+  userId: string;
+  searchParams: {
+    searchType: string;
+    value: string;
+    country: string;
+    minDays: number;
+    adType: string;
+    mediaType: string;
+    searchPhraseType: string;
+    languages: string[];
+    apifyCount: number;
+  };
+  results: {
+    totalAds: number;
+    totalPages: number;
+    source: string;
+    executionTime: number;
+    cached: boolean;
+  };
+  searchDate: string;
+  ipAddress?: string;
+  userAgent?: string;
+  sessionId?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface SearchHistoryResponse {
+  history: SearchHistoryEntry[];
+  pagination: {
+    currentPage: number;
+    totalPages: number;
+    totalCount: number;
+    hasNextPage: boolean;
+    hasPrevPage: boolean;
+    limit: number;
+  };
+}
+
+export interface SearchHistoryStats {
+  period: string;
+  summary: {
+    totalSearches: number;
+    totalAds: number;
+    avgAdsPerSearch: number;
+    avgExecutionTime: number;
+    cacheHitRate: number;
+  };
+  popularTerms: Array<{
+    _id: string;
+    count: number;
+    totalAds: number;
+  }>;
+  popularCountries: Array<{
+    _id: string;
+    count: number;
+    totalAds: number;
+  }>;
+  dailyActivity: Array<{
+    _id: {
+      year: number;
+      month: number;
+      day: number;
+    };
+    searches: number;
+    ads: number;
+  }>;
+}

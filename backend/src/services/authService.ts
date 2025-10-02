@@ -8,14 +8,41 @@ import dotenv from 'dotenv';
 import path from 'path';
 
 // Load .env variables first (same logic as server.ts)
-const envPath = process.cwd().endsWith('backend') 
-  ? path.join(process.cwd(), '..', '.env')
-  : path.join(process.cwd(), '.env');
-dotenv.config({ path: envPath });
+// Try multiple paths to find .env file
+const possiblePaths = [
+  path.join(process.cwd(), '.env'),
+  path.join(process.cwd(), '..', '.env'),
+  path.join(process.cwd(), '..', '..', '.env')
+];
+
+let envLoaded = false;
+for (const envPath of possiblePaths) {
+  try {
+    const result = dotenv.config({ path: envPath });
+    if (result.parsed && !result.error) {
+      console.log(`[AUTH] 📁 .env loaded from: ${envPath}`);
+      envLoaded = true;
+      break;
+    }
+  } catch (error) {
+    // Continue to next path
+  }
+}
+
+if (!envLoaded) {
+  console.log(`[AUTH] ⚠️  No .env file found, using fallback values`);
+}
 
 // JWT Secret - in production this should be a strong secret from environment variables
-const JWT_SECRET = process.env.JWT_SECRET; // REQUIRED from .env
+const JWT_SECRET = process.env.JWT_SECRET || 'ads-finder-jwt-secret-key-2024-production-ready-secure-key-123456789'; // Fallback for development
 const JWT_EXPIRES_IN = '7d'; // Token expires in 7 days
+
+// Log JWT secret status on startup
+const secretSource = process.env.JWT_SECRET ? 'from environment' : 'using fallback';
+const secretPreview = process.env.JWT_SECRET 
+  ? `${process.env.JWT_SECRET.substring(0, 8)}...${process.env.JWT_SECRET.substring(process.env.JWT_SECRET.length - 8)}`
+  : 'fallback-secret';
+console.log(`[AUTH] 🔑 JWT Secret loaded: ${secretSource} (${secretPreview})`);
 
 export class AuthService {
   // Hash password
@@ -37,13 +64,13 @@ export class AuthService {
       role: user.role
     };
 
-    return jwt.sign(payload, JWT_SECRET || 'fallback-secret', { expiresIn: JWT_EXPIRES_IN });
+    return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
   }
 
   // Verify JWT token
   public static verifyToken(token: string): TokenPayload | null {
     try {
-      return jwt.verify(token, JWT_SECRET || 'fallback-secret') as TokenPayload;
+      return jwt.verify(token, JWT_SECRET) as TokenPayload;
     } catch (error) {
       return null;
     }

@@ -2,25 +2,35 @@ import express from 'express';
 import { ObjectId } from 'mongodb';
 import { collections } from '@/services/database.js';
 import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
+import { authenticateToken } from '@/middleware/authMiddleware.js';
 import type { SavedAd, AdData } from '../types/shared.js';
 
 const router = express.Router();
 
+// Apply authentication to all routes
+router.use(authenticateToken);
+
 // POST /api/saved-ads - Save a specific ad
 router.post('/', asyncHandler(async (req, res) => {
   const { adData, tags, notes, collection } = req.body;
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
   
   if (!adData || !adData.id) {
     throw new CustomError('Los datos del anuncio son requeridos', 400);
   }
 
-  // Check if ad is already saved
-  const existingAd = await collections.savedAds.findOne({ 'adData.id': adData.id });
+  // Check if ad is already saved by this user
+  const existingAd = await collections.savedAds.findOne({ 'adData.id': adData.id, userId });
   if (existingAd) {
     throw new CustomError('Este anuncio ya está guardado', 409);
   }
 
-  const newSavedAd: Omit<SavedAd, '_id'> = {
+  const newSavedAd: any = {
+    userId,
     adData,
     tags: tags || [],
     notes: notes || '',
@@ -49,9 +59,14 @@ router.post('/', asyncHandler(async (req, res) => {
 // GET /api/saved-ads - Get saved ads with filters
 router.get('/', asyncHandler(async (req, res) => {
   const { collection, tags, isFavorite, sortBy, limit } = req.query;
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
   
   // Build filter
-  let filter: any = {};
+  let filter: any = { userId };
   if (collection && collection !== 'all') {
     filter.collection = collection;
   }
@@ -112,6 +127,11 @@ router.get('/', asyncHandler(async (req, res) => {
 router.put('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
   const { tags, notes, collection, isFavorite } = req.body;
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
   
   if (!ObjectId.isValid(id)) {
     throw new CustomError('ID de anuncio inválido', 400);
@@ -125,7 +145,7 @@ router.put('/:id', asyncHandler(async (req, res) => {
   updateFields.lastViewed = new Date().toISOString();
   
   const result = await collections.savedAds.updateOne(
-    { _id: new ObjectId(id || '') },
+    { _id: new ObjectId(id || ''), userId },
     { $set: updateFields }
   );
   
@@ -141,12 +161,17 @@ router.put('/:id', asyncHandler(async (req, res) => {
 // DELETE /api/saved-ads/:id - Delete saved ad
 router.delete('/:id', asyncHandler(async (req, res) => {
   const { id } = req.params;
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
   
   if (!ObjectId.isValid(id)) {
     throw new CustomError('ID de anuncio inválido', 400);
   }
   
-  const result = await collections.savedAds.deleteOne({ _id: new ObjectId(id || '') });
+  const result = await collections.savedAds.deleteOne({ _id: new ObjectId(id || ''), userId });
   
   if (result.deletedCount === 0) {
     throw new CustomError('Anuncio guardado no encontrado', 404);
@@ -159,7 +184,14 @@ router.delete('/:id', asyncHandler(async (req, res) => {
 
 // GET /api/saved-ads/collections - Get available collections
 router.get('/collections', asyncHandler(async (req, res) => {
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
+  
   const collections_data = await collections.savedAds.aggregate([
+    { $match: { userId } },
     {
       $group: {
         _id: '$collection',
@@ -175,7 +207,14 @@ router.get('/collections', asyncHandler(async (req, res) => {
 
 // GET /api/saved-ads/tags - Get available tags
 router.get('/tags', asyncHandler(async (req, res) => {
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
+  
   const tags = await collections.savedAds.aggregate([
+    { $match: { userId } },
     { $unwind: '$tags' },
     { $group: { _id: '$tags', count: { $sum: 1 } } },
     { $sort: { count: -1 } }
@@ -187,6 +226,11 @@ router.get('/tags', asyncHandler(async (req, res) => {
 // POST /api/saved-ads/bulk - Save multiple ads
 router.post('/bulk', asyncHandler(async (req, res) => {
   const { ads, defaultTags, defaultCollection, defaultNotes } = req.body;
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
   
   if (!ads || !Array.isArray(ads) || ads.length === 0) {
     throw new CustomError('Se requiere un array de anuncios', 400);
@@ -199,9 +243,9 @@ router.post('/bulk', asyncHandler(async (req, res) => {
     details: [] as any[]
   };
 
-  // Check which ads already exist
+  // Check which ads already exist for this user
   const existingAdIds = await collections.savedAds.find(
-    { 'adData.id': { $in: ads.map((ad: AdData) => ad.id) } }
+    { 'adData.id': { $in: ads.map((ad: AdData) => ad.id) }, userId }
   ).toArray();
   const existingIds = new Set(existingAdIds.map(ad => ad.adData.id));
 
@@ -218,7 +262,8 @@ router.post('/bulk', asyncHandler(async (req, res) => {
       continue;
     }
 
-    const newSavedAd: Omit<SavedAd, '_id'> = {
+    const newSavedAd: any = {
+      userId,
       adData,
       tags: defaultTags || [],
       notes: defaultNotes || '',

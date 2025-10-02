@@ -5,6 +5,7 @@ import { SavedSearchesPage } from '@/pages/SavedSearchesPage'
 import { SavedAdsPage } from '@/pages/SavedAdsPage'
 import { StatsPage } from '@/pages/StatsPage'
 import { TrackedPagesPage } from '@/pages/TrackedPagesPage'
+import { SearchHistoryPage } from '@/pages/SearchHistoryPage'
 import { AuthPage } from '@/pages/AuthPage'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
@@ -36,6 +37,7 @@ function App() {
                   <Route path="/search" element={<SearchPage />} />
                   <Route path="/saved-searches" element={<SavedSearchesPage />} />
                   <Route path="/saved-ads" element={<SavedAdsPage />} />
+                  <Route path="/search-history" element={<SearchHistoryPage />} />
                   <Route path="/stats" element={<StatsPage />} />
                   <Route path="/pages" element={<TrackedPagesPage />} />
                 </Routes>

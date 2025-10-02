@@ -8,6 +8,7 @@ import { searchRateLimit, scrapingRateLimit } from '@/middleware/rateLimiter.js'
 import { authenticateToken } from '@/middleware/authMiddleware.js';
 import { cacheService } from '@/services/cacheService.js';
 import { advertiserStatsQueue } from '@/services/simpleQueue.js';
+import { SearchHistory } from '@/models/SearchHistory.js';
 
 const router = express.Router();
 
@@ -146,6 +147,43 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
     });
 
     console.log(`[SEARCH] ✅ Search completed: ${searchResult.data.length} ads found`);
+    
+    // Save search to history
+    try {
+      const userId = (req as any).user?._id?.toString();
+      if (userId) {
+        const searchHistory = new SearchHistory({
+          userId,
+          searchParams: {
+            searchType: searchParams.searchType,
+            value: searchParams.value,
+            country: searchParams.country || 'CO',
+            minDays: searchParams.minDays || 1,
+            adType: searchParams.adType || 'ALL',
+            mediaType: searchParams.mediaType || 'ALL',
+            searchPhraseType: searchParams.searchPhraseType || 'unordered',
+            languages: searchParams.languages || ['es'],
+            apifyCount: searchParams.apifyCount || 100
+          },
+          results: {
+            totalAds: searchResult.data.length,
+            totalPages: searchResult.totalPages || 1,
+            source: searchResult.source || 'apify_scraping',
+            executionTime: Date.now() - Date.now(), // Will be updated with actual time
+            cached: searchResult.message?.includes('cached') || false
+          },
+          ipAddress: req.ip,
+          userAgent: req.get('User-Agent'),
+          sessionId: req.sessionID
+        });
+        
+        await searchHistory.save();
+        console.log(`[HISTORY] 💾 Search saved to history for user: ${userId}`);
+      }
+    } catch (historyError) {
+      console.error(`[HISTORY] ❌ Error saving search to history:`, historyError);
+      // Don't fail the search if history saving fails
+    }
     
     res.json(searchResult);
     
