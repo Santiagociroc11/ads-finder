@@ -1,4 +1,5 @@
 import { MongoClient, Db, Collection } from 'mongodb';
+import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import path from 'path';
 
@@ -49,6 +50,20 @@ class DatabaseService {
       console.log(`📦 Connected to MongoDB: ${dbName} with optimized connection pool`);
       console.log(`📦 Pool settings: maxPool=${50}, minPool=${0}, maxIdle=${30}s`);
       
+      // Connect Mongoose for SearchHistory model
+      await mongoose.connect(mongoUrl || 'mongodb://localhost:27017/adsfinder', {
+        dbName: dbName,
+        maxPoolSize: 10,              // Smaller pool for Mongoose
+        serverSelectionTimeoutMS: 5000,
+        socketTimeoutMS: 45000,
+        family: 4,
+        connectTimeoutMS: 10000,
+        heartbeatFrequencyMS: 10000,
+        retryWrites: true,
+        retryReads: true
+      });
+      console.log(`📦 Mongoose connected to MongoDB: ${dbName}`);
+      
     } catch (error) {
       console.error('❌ MongoDB connection error:', error);
       throw error;
@@ -56,6 +71,13 @@ class DatabaseService {
   }
 
   async disconnect(): Promise<void> {
+    // Disconnect Mongoose first
+    if (mongoose.connection.readyState !== 0) {
+      await mongoose.disconnect();
+      console.log('📦 Mongoose connection closed');
+    }
+    
+    // Then disconnect MongoClient
     if (this.client) {
       await this.client.close();
       this.client = null;

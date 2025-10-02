@@ -348,23 +348,26 @@ export function SearchPage() {
     if (searchResults.length > 0) {
       const uniquePageIds = [...new Set(searchResults.map(ad => ad.page_id).filter(id => id && id !== 'N/A'))]
       
-      // SOLO procesar page IDs nuevos (no los que ya se procesaron)
-      const newPageIds = uniquePageIds.filter(id => !processedPageIds.has(id))
-      
-      if (newPageIds.length > 0) {
-        console.log(`📊 Queueing ${newPageIds.length} NEW advertisers for stats loading (${uniquePageIds.length} total)...`)
+      // Check which page IDs are new by comparing with current processedPageIds
+      setProcessedPageIds(prev => {
+        const newPageIds = uniquePageIds.filter(id => !prev.has(id))
         
-        // Agregar a la cola solo los nuevos
-        setStatsQueue(prev => [...prev, ...newPageIds])
-        
-        // Marcar como procesados
-        setProcessedPageIds(prev => new Set([...prev, ...newPageIds]))
-        
-        // Actualizar contadores
-        setTotalStatsToLoad(prev => prev + newPageIds.length)
-      } else {
-        console.log(`📊 No new advertisers to process (${uniquePageIds.length} already processed)`)
-      }
+        if (newPageIds.length > 0) {
+          console.log(`📊 Queueing ${newPageIds.length} NEW advertisers for stats loading (${uniquePageIds.length} total)...`)
+          
+          // Agregar a la cola solo los nuevos
+          setStatsQueue(prevQueue => [...prevQueue, ...newPageIds])
+          
+          // Actualizar contadores
+          setTotalStatsToLoad(prevTotal => prevTotal + newPageIds.length)
+          
+          // Return new set with added page IDs
+          return new Set([...prev, ...newPageIds])
+        } else {
+          console.log(`📊 No new advertisers to process (${uniquePageIds.length} already processed)`)
+          return prev
+        }
+      })
     } else {
       // Reset todo cuando no hay resultados (nueva búsqueda)
       setTotalStatsToLoad(0)
@@ -372,7 +375,7 @@ export function SearchPage() {
       setStatsQueue([])
       setProcessedPageIds(new Set())
     }
-  }, [searchResults, processedPageIds])
+  }, [searchResults])
 
 
   // Search mutation with unique keys to allow concurrent searches
