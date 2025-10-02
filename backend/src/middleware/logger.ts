@@ -4,6 +4,12 @@ export const logger = (req: Request, res: Response, next: NextFunction): void =>
   const start = Date.now();
   const timestamp = new Date().toISOString();
   
+  // Skip logging for health check endpoint
+  if (req.url === '/api/health') {
+    next();
+    return;
+  }
+  
   // Log request
   console.log(`📝 ${timestamp} ${req.method} ${req.url}`);
   
