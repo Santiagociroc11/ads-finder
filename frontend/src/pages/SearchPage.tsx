@@ -358,8 +358,8 @@ export function SearchPage() {
           // Agregar a la cola solo los nuevos
           setStatsQueue(prevQueue => [...prevQueue, ...newPageIds])
           
-          // Actualizar contadores
-          setTotalStatsToLoad(prevTotal => prevTotal + newPageIds.length)
+          // Establecer el total correcto (no sumar)
+          setTotalStatsToLoad(uniquePageIds.length)
           
           // Return new set with added page IDs
           return new Set([...prev, ...newPageIds])
