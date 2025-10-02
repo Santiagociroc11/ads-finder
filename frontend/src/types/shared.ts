@@ -424,3 +424,67 @@ export interface SearchHistoryStats {
     ads: number;
   }>;
 }
+
+// ===== TRACKING INTERFACES =====
+export interface TrackedAdvertiser {
+  _id: string;
+  userId: string;
+  pageId: string;
+  pageName: string;
+  pageProfileUri?: string;
+  pageProfilePictureUrl?: string;
+  pageLikeCount?: number;
+  pageCategories?: string[];
+  pageVerification?: boolean;
+  productType: 'physical' | 'digital' | 'service' | 'other';
+  notes?: string;
+  isActive: boolean;
+  trackingStartDate: string;
+  lastCheckedDate?: string;
+  totalAdsTracked: number;
+  initialActiveAdsCount: number;
+  dailyStats: DailyStats[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DailyStats {
+  date: string;
+  activeAds: number;
+  newAds: number;
+  totalAds: number;
+  reachEstimate?: number;
+  avgSpend?: number;
+}
+
+export interface TrackedAdvertiserResponse {
+  success: boolean;
+  data: TrackedAdvertiser[];
+  pagination?: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export interface TrackedAdvertiserStats {
+  totalTracked: number;
+  activeTracked: number;
+  physicalProducts: number;
+  digitalProducts: number;
+  services: number;
+  other: number;
+  totalAdsTracked: number;
+  avgAdsPerAdvertiser: number;
+  topCategories: Array<{
+    category: string;
+    count: number;
+  }>;
+  recentActivity: Array<{
+    advertiser: string;
+    pageId: string;
+    action: 'added' | 'updated' | 'checked';
+    date: string;
+  }>;
+}

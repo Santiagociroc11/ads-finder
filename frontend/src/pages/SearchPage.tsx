@@ -18,12 +18,14 @@ import {
   Video,
   MessageCircle,
   Heart,
+  Eye,
   Globe,
   Info
 } from 'lucide-react'
 
 import { searchApi, suggestionsApi, savedAdsApi, completeSearchesApi, scraperApi } from '@/services/api'
 import type { SearchParams, AdData, SearchResponse } from '../types/shared'
+import TrackingModal from '../components/TrackingModal'
 
 // Smart Image Component with original proportions
 const SmartImage = ({ 
@@ -269,6 +271,15 @@ export function SearchPage() {
   const [debugMode, setDebugMode] = useState(false)
   const [debugData, setDebugData] = useState<any>(null)
   const [carouselIndices, setCarouselIndices] = useState<Record<string, number>>({})
+  const [trackingModal, setTrackingModal] = useState<{
+    isOpen: boolean;
+    ad: AdData | null;
+    activeAdsCount: number;
+  }>({
+    isOpen: false,
+    ad: null,
+    activeAdsCount: 0
+  })
   const [sortConfig, setSortConfig] = useState<{
     primary: { field: string; direction: 'asc' | 'desc' } | null
     secondary: { field: string; direction: 'asc' | 'desc' } | null
@@ -312,6 +323,35 @@ export function SearchPage() {
     
     return `${baseUrl}?${urlParams.toString()}`;
   }
+
+  // Tracking modal functions
+  const openTrackingModal = (ad: AdData) => {
+    // Obtener el conteo real de anuncios activos del advertiserStats
+    const stats = advertiserStats.get(ad.page_id);
+    const advertiserActiveAdsCount = stats?.totalActiveAds || 0;
+    
+    setTrackingModal({
+      isOpen: true,
+      ad,
+      activeAdsCount: advertiserActiveAdsCount
+    });
+  };
+
+  const closeTrackingModal = () => {
+    setTrackingModal({
+      isOpen: false,
+      ad: null,
+      activeAdsCount: 0
+    });
+  };
+
+  const handleTrackingSuccess = () => {
+    toast.success('Anunciante agregado al seguimiento');
+    // Invalidar queries para que se actualice la página de seguimiento
+    queryClient.invalidateQueries('tracked-advertisers');
+    queryClient.invalidateQueries('tracked-advertisers-stats');
+  };
+
   const [processedPageIds, setProcessedPageIds] = useState<Set<string>>(new Set())
   const [totalStatsToLoad, setTotalStatsToLoad] = useState(0)
   const [statsLoaded, setStatsLoaded] = useState(0)
@@ -2555,7 +2595,7 @@ export function SearchPage() {
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex justify-center pt-2 border-t border-primary-500/20">
+                    <div className="flex justify-center gap-2 pt-2 border-t border-primary-500/20">
                         <button
                         onClick={() => {
                           // Use the correct country from search params
@@ -2564,10 +2604,18 @@ export function SearchPage() {
                         }}
                         className="btn-secondary text-xs px-4 py-2 flex items-center gap-2"
                       >
-                                                <ExternalLink className="w-3 h-3" />
+                        <ExternalLink className="w-3 h-3" />
                         Ir al anuncio
-                        </button>
-                      </div>
+                      </button>
+                      
+                      <button
+                        onClick={() => openTrackingModal(ad)}
+                        className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 hover:text-purple-200 border border-purple-500/30 hover:border-purple-500/50 text-xs px-4 py-2 flex items-center gap-2 rounded-lg transition-all duration-200"
+                      >
+                        <Eye className="w-3 h-3" />
+                        Track
+                      </button>
+                    </div>
                     </div>
                   </div>
 
@@ -2641,6 +2689,15 @@ export function SearchPage() {
           </p>
         </div>
       )}
+
+      {/* Tracking Modal */}
+      <TrackingModal
+        isOpen={trackingModal.isOpen}
+        onClose={closeTrackingModal}
+        ad={trackingModal.ad}
+        activeAdsCount={trackingModal.activeAdsCount}
+        onSuccess={handleTrackingSuccess}
+      />
     </div>
   )
 }

@@ -15,7 +15,10 @@ import type {
   AuthRequest,
   RegisterRequest,
   AuthResponse,
-  User
+  User,
+  TrackedAdvertiser,
+  TrackedAdvertiserResponse,
+  TrackedAdvertiserStats
 } from '../types/shared'
 
 // Create axios instance
@@ -390,6 +393,64 @@ export const searchHistoryApi = {
   },
 
   // Note: Delete functions removed for audit and limit control purposes
+}
+
+// ===== TRACKED ADVERTISERS API =====
+export const trackedAdvertisersApi = {
+  // Get tracked advertisers with pagination
+  getTrackedAdvertisers: async (page = 1, limit = 20, active = 'true'): Promise<TrackedAdvertiserResponse> => {
+    const response = await api.get('/tracked-advertisers', {
+      params: { page, limit, active }
+    })
+    return response.data
+  },
+
+  // Get tracking statistics
+  getStats: async (): Promise<{ success: boolean; data: TrackedAdvertiserStats }> => {
+    const response = await api.get('/tracked-advertisers/stats')
+    return response.data
+  },
+
+  // Add advertiser to tracking
+  addAdvertiser: async (advertiserData: {
+    pageId: string;
+    pageName: string;
+    pageProfileUri?: string;
+    pageProfilePictureUrl?: string;
+    pageLikeCount?: number;
+    pageCategories?: string[];
+    pageVerification?: boolean;
+    productType: 'physical' | 'digital' | 'service' | 'other';
+    notes?: string;
+    initialActiveAdsCount?: number;
+  }): Promise<{ success: boolean; data: TrackedAdvertiser; message: string }> => {
+    const response = await api.post('/tracked-advertisers', advertiserData)
+    return response.data
+  },
+
+  // Update tracked advertiser
+  updateAdvertiser: async (id: string, updateData: Partial<TrackedAdvertiser>): Promise<{ success: boolean; data: TrackedAdvertiser; message: string }> => {
+    const response = await api.put(`/tracked-advertisers/${id}`, updateData)
+    return response.data
+  },
+
+  // Delete tracking
+  deleteTracking: async (id: string): Promise<{ success: boolean; message: string }> => {
+    const response = await api.delete(`/tracked-advertisers/${id}`)
+    return response.data
+  },
+
+  // Update daily stats
+  updateDailyStats: async (id: string, stats: {
+    activeAds: number;
+    newAds: number;
+    totalAds: number;
+    reachEstimate?: number;
+    avgSpend?: number;
+  }): Promise<{ success: boolean; data: TrackedAdvertiser; message: string }> => {
+    const response = await api.post(`/tracked-advertisers/${id}/check`, stats)
+    return response.data
+  }
 }
 
 export default api

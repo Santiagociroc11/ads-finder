@@ -40,6 +40,12 @@ const navigationItems = [
     description: 'Ver historial de búsquedas'
   },
   {
+    name: 'Anunciantes en Seguimiento',
+    href: '/tracked-advertisers',
+    icon: Users,
+    description: 'Monitorear anunciantes'
+  },
+  {
     name: 'Anuncios Favoritos',
     href: '/saved-ads',
     icon: Bookmark,
