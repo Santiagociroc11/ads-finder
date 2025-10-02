@@ -55,10 +55,10 @@ app.use(cors({
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(logger);
-app.use(monitor.middleware()); // Add concurrency monitoring
+// app.use(monitor.middleware()); // Concurrency monitoring disabled
 
 // Apply monitoring to all requests
-app.use(monitoringMiddleware);
+// app.use(monitoringMiddleware); // Performance monitoring disabled
 
 // Apply general rate limiting to all API routes
 app.use('/api/', apiRateLimit);

@@ -92,17 +92,17 @@ class MonitoringService {
 
     if (responseTime > 5000) { // 5 seconds
       this.metrics.performance.slowRequests++;
-      console.warn(`🐌 Slow request detected: ${endpoint} took ${responseTime}ms`);
+      // console.warn(`🐌 Slow request detected: ${endpoint} took ${responseTime}ms`);
     }
 
     // Log warnings for critical thresholds
-    if (this.metrics.memory.percentage > 85) {
-      console.warn(`🚨 High memory usage: ${this.metrics.memory.percentage}%`);
-    }
+    // if (this.metrics.memory.percentage > 85) {
+    //   console.warn(`🚨 High memory usage: ${this.metrics.memory.percentage}%`);
+    // }
 
-    if (this.metrics.performance.avgResponseTime > 2000) {
-      console.warn(`🚨 High average response time: ${this.metrics.performance.avgResponseTime}ms`);
-    }
+    // if (this.metrics.performance.avgResponseTime > 2000) {
+    //   console.warn(`🚨 High average response time: ${this.metrics.performance.avgResponseTime}ms`);
+    // }
   }
 
   getMetrics(): SystemMetrics {

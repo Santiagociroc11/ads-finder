@@ -257,8 +257,8 @@ setInterval(() => {
   const alerts = monitor.checkAlerts();
   
   if (alerts.critical.length > 0) {
-    console.error('🚨 CRITICAL ALERTS:');
-    alerts.critical.forEach(alert => console.error(alert));
+    // console.error('🚨 CRITICAL ALERTS:');
+    // alerts.critical.forEach(alert => console.error(alert));
   }
   
   if (alerts.warnings.length > 0) {
