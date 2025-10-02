@@ -6,6 +6,7 @@ import type {
   SearchResponse
 } from '../types/shared.js';
 import { AdSource } from '../types/shared.js';
+import { redisCacheService } from './redisCacheService.js';
 
 export class FacebookService {
   private readonly accessToken: string;
@@ -33,15 +34,12 @@ export class FacebookService {
   }
 
   async searchAds(params: SearchParams): Promise<SearchResponse> {
-    if (params.useApify && this.apifyClient) {
+    // Always use Apify for ads search
+    if (this.apifyClient) {
       return this.searchWithApify(params);
     }
     
-    if (params.useWebScraping) {
-      return this.searchWithWebScraping(params);
-    }
-    
-    return this.searchWithAPI(params);
+    throw new Error('Apify client not available - this system only supports Apify searches');
   }
 
   private generateCacheKey(params: SearchParams): string {
@@ -147,18 +145,30 @@ export class FacebookService {
     const pageSize = params.limit || 20;
     const currentPage = params.page || 1;
     const offset = (currentPage - 1) * pageSize;
-    const cacheKey = this.generateCacheKey(params);
     
     console.log(`[APIFY] 💎 Executing Apify search (page ${currentPage})...`);
     
     try {
       let allProcessedAds: any[] = [];
+      let fromCache = false;
       
-      // Check cache first
-      if (this.isSearchCacheValid(cacheKey)) {
-        console.log(`[APIFY] ✅ Using cached results for pagination`);
-        allProcessedAds = this.searchCache.get(cacheKey)!.allResults;
+      // Check Redis cache first
+      const cachedResult = await redisCacheService.getSearchResult(params);
+      if (cachedResult && cachedResult.data) {
+        console.log(`[APIFY] ✅ Using Redis cached results for pagination`);
+        allProcessedAds = cachedResult.data;
+        fromCache = true;
       } else {
+        // Fallback to local cache
+        const cacheKey = this.generateCacheKey(params);
+        if (this.isSearchCacheValid(cacheKey)) {
+          console.log(`[APIFY] ✅ Using local cached results for pagination`);
+          allProcessedAds = this.searchCache.get(cacheKey)!.allResults;
+          fromCache = true;
+        }
+      }
+      
+      if (!fromCache) {
         console.log(`[APIFY] 🔄 Fetching fresh data from Apify...`);
         
         const searchUrl = this.buildApifySearchUrl(params);
@@ -179,19 +189,44 @@ export class FacebookService {
         const run = await this.apifyClient.actor("XtaWFhbtfxyzqrFmd").call(input);
         const { items } = await this.apifyClient.dataset(run.defaultDatasetId).listItems();
 
-        allProcessedAds = this.processApifyData(items);
+        allProcessedAds = this.processApifyData(items, params);
         
-        // Cache all results for pagination
-        this.searchCache.set(cacheKey, {
+        // Cache individual ads in Redis (60 minutes TTL)
+        await redisCacheService.setAds(allProcessedAds, 60);
+        
+        // Cache in both Redis and local cache
+        const fullResult = {
+          data: allProcessedAds,
+          totalAds: allProcessedAds.length,
+          totalPages: Math.ceil(allProcessedAds.length / pageSize),
+          paging: null,
+          pagination: {
+            currentPage: 1,
+            totalPages: Math.ceil(allProcessedAds.length / pageSize),
+            totalResults: allProcessedAds.length,
+            pageSize,
+            hasNextPage: allProcessedAds.length > pageSize,
+            hasPrevPage: false
+          },
+          source: 'apify_scraping',
+          message: `Fresh data: ${allProcessedAds.length} ads via Apify Professional`
+        };
+        
+        // Cache search results in Redis (30 minutes TTL)
+        await redisCacheService.setSearchResult(params, fullResult, 30);
+        
+        // Also cache locally for immediate pagination
+        const localCacheKey = this.generateCacheKey(params);
+        this.searchCache.set(localCacheKey, {
           allResults: allProcessedAds,
           timestamp: Date.now(),
           searchParams: params
         });
         
-        console.log(`[APIFY] 💾 Cached ${allProcessedAds.length} results for future pagination`);
+        console.log(`[APIFY] 💾 Cached ${allProcessedAds.length} results + individual ads in Redis and local cache`);
       }
       
-      // Apply pagination to the cached results
+      // Apply pagination to the results
       const paginatedAds = allProcessedAds.slice(offset, offset + pageSize);
       
       // Calculate pagination info
@@ -200,7 +235,7 @@ export class FacebookService {
       const hasNextPage = currentPage < totalPages;
       const hasPrevPage = currentPage > 1;
       
-      console.log(`[APIFY] 📄 Page ${currentPage}/${totalPages}: ${paginatedAds.length} ads (${totalResults} total cached)`);
+      console.log(`[APIFY] 📄 Page ${currentPage}/${totalPages}: ${paginatedAds.length} ads (${totalResults} total available) ${fromCache ? '(from cache)' : '(fresh)'}`);
 
       return {
         data: paginatedAds,
@@ -216,7 +251,7 @@ export class FacebookService {
           hasPrevPage
         },
         source: 'apify_scraping',
-        message: `Page ${currentPage}/${totalPages}: ${paginatedAds.length} ads via Apify Professional (${totalResults} total available)`
+        message: `Page ${currentPage}/${totalPages}: ${paginatedAds.length} ads via Apify Professional (${totalResults} total available) ${fromCache ? '(cached)' : '(fresh)'}`
       };
 
     } catch (error) {
@@ -417,7 +452,7 @@ export class FacebookService {
     return rawAds.map(ad => this.processSingleAd(ad, source));
   }
 
-  private processApifyData(items: any[]): AdData[] {
+  private processApifyData(items: any[], searchParams: SearchParams): AdData[] {
     return items.map((item, index) => {
       // Calculate days running from Apify data
       let daysRunning = 0;
@@ -458,8 +493,8 @@ export class FacebookService {
         ad_delivery_start_time: startDate?.toISOString() || null,
         ad_delivery_stop_time: endDate?.toISOString() || null,
         
-        // URLs and platforms
-        ad_snapshot_url: item.ad_library_url || '',
+        // URLs and platforms - generate correct URL with search country
+        ad_snapshot_url: this.generateAdLibraryUrl(item.ad_archive_id || `apify_${Date.now()}_${index}`, searchParams.country || 'CO', searchParams),
         publisher_platforms: item.publisher_platform ? [item.publisher_platform] : [],
         languages: [],
         
@@ -487,7 +522,7 @@ export class FacebookService {
         
         // Apify specific data
         apify_data: {
-          ad_library_url: item.ad_library_url,
+          ad_library_url: this.generateAdLibraryUrl(item.ad_archive_id || `apify_${Date.now()}_${index}`, searchParams.country || 'CO', searchParams),
           page_profile_uri: snapshot.page_profile_uri,
           link_url: snapshot.link_url,
           images: snapshot.images || [],
@@ -582,6 +617,33 @@ export class FacebookService {
     
     // Normalizar a escala 1-5
     return Math.min(Math.max(Math.round(totalScore / 25), 1), 5);
+  }
+
+  generateAdLibraryUrl(adId: string, country: string, searchParams?: SearchParams): string {
+    const baseUrl = 'https://www.facebook.com/ads/library/';
+    const urlParams = new URLSearchParams();
+    
+    urlParams.set('active_status', 'active');
+    urlParams.set('ad_type', (searchParams?.adType || 'ALL').toLowerCase());
+    urlParams.set('country', country);
+    urlParams.set('is_targeted_country', 'false');
+    urlParams.set('media_type', 'all');
+    urlParams.set('search_type', 'keyword_unordered');
+    
+    // Add search term if available
+    if (searchParams?.value) {
+      urlParams.set('q', searchParams.value);
+    }
+    
+    // Add minimum days filter if available
+    if (searchParams?.minDays && searchParams.minDays > 0) {
+      const today = new Date();
+      const maxDate = new Date(today);
+      maxDate.setDate(today.getDate() - searchParams.minDays);
+      urlParams.set('start_date[max]', maxDate.toISOString().split('T')[0]);
+    }
+    
+    return `${baseUrl}?${urlParams.toString()}`;
   }
 
   async fetchMultiplePages(initialEndpoint: string, maxPages: number = 5): Promise<SearchResponse> {

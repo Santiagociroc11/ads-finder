@@ -32,42 +32,14 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
   console.log(`[SEARCH] 🔍 Starting search: "${searchParams.value}" (${searchParams.searchType})`);
   
   try {
-    // Check cache first (only for non-Apify searches to avoid cost issues)
+    // Always use Apify for ads search
     let searchResult: SearchResponse;
     
-    if (!searchParams.useApify) {
-      // Si hay parámetros de paginación, NO usar el cache viejo
-      // porque no considera page/limit en la clave
-      const hasPagination = searchParams.page && searchParams.page > 1;
-      
-      if (!hasPagination) {
-        // Solo para página 1, usar cache tradicional
-        const cacheKey = cacheService.generateSearchKey(searchParams);
-        const cachedResult = cacheService.getSearchResult(cacheKey);
-        
-        if (cachedResult) {
-          console.log(`[CACHE] ✅ Using cached search result for: "${searchParams.value}"`);
-          searchResult = cachedResult;
-        } else {
-          // Execute search using FacebookService
-          searchResult = await getFacebookService().searchAds(searchParams);
-          
-          // Cache the result for 1 hour
-          cacheService.setSearchResult(cacheKey, searchResult, 60 * 60);
-          console.log(`[CACHE] 💾 Cached search result for: "${searchParams.value}"`);
-        }
-      } else {
-        // Para páginas > 1, usar directamente FacebookService (con su cache inteligente)
-        console.log(`[PAGINATION] 📄 Loading page ${searchParams.page} - using smart cache`);
-        searchResult = await getFacebookService().searchAds(searchParams);
-      }
-    } else {
-      // Don't cache Apify results due to cost implications
-      searchResult = await getFacebookService().searchAds(searchParams);
-    }
+    // Don't cache Apify results due to cost implications
+    searchResult = await getFacebookService().searchAds(searchParams);
     
     // Auto-save complete search for Apify results
-    if (searchParams.useApify && searchResult.data.length > 0) {
+    if (searchResult.data.length > 0) {
       try {
         const searchName = `Apify-${searchParams.value}-${searchParams.country || 'CO'}-${new Date().toISOString().split('T')[0]}`;
         

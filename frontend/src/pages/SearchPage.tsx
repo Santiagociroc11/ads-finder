@@ -242,7 +242,7 @@ export function SearchPage() {
     adType: 'ALL',
     mediaType: 'ALL',
     searchPhraseType: 'unordered',
-    useApify: false,
+    useApify: true, // Always use Apify
     apifyCount: 100,
     languages: ['es'] // Default to Spanish
   })
@@ -284,6 +284,34 @@ export function SearchPage() {
   // Queue for processing advertiser stats sequentially
   const [statsQueue, setStatsQueue] = useState<string[]>([])
   const [isProcessingStats, setIsProcessingStats] = useState(false)
+
+  // Function to generate correct Facebook Ads Library URL with search country
+  const generateAdLibraryUrl = (adId: string, country: string) => {
+    const baseUrl = 'https://www.facebook.com/ads/library/';
+    const urlParams = new URLSearchParams();
+    
+    urlParams.set('active_status', 'active');
+    urlParams.set('ad_type', (searchParams.adType || 'ALL').toLowerCase());
+    urlParams.set('country', country);
+    urlParams.set('is_targeted_country', 'false');
+    urlParams.set('media_type', 'all');
+    urlParams.set('search_type', 'keyword_unordered');
+    
+    // Add search term if available
+    if (searchParams.value) {
+      urlParams.set('q', searchParams.value);
+    }
+    
+    // Add minimum days filter if available
+    if (searchParams.minDays && searchParams.minDays > 0) {
+      const today = new Date();
+      const maxDate = new Date(today);
+      maxDate.setDate(today.getDate() - searchParams.minDays);
+      urlParams.set('start_date[max]', maxDate.toISOString().split('T')[0]);
+    }
+    
+    return `${baseUrl}?${urlParams.toString()}`;
+  }
   const [processedPageIds, setProcessedPageIds] = useState<Set<string>>(new Set())
   const [totalStatsToLoad, setTotalStatsToLoad] = useState(0)
   const [statsLoaded, setStatsLoaded] = useState(0)
@@ -693,11 +721,11 @@ export function SearchPage() {
     const validResults = searchResults.filter(ad => ad.page_name && ad.page_name !== 'Unknown Page')
     if (validResults.length > 0) {
       // Create unique search name including configuration
-      const method = searchParams.useApify ? 'Apify' : searchParams.useWebScraping ? 'Web' : 'API'
+      const method = 'Apify' // Always use Apify
       const config = `${method}-${searchParams.minDays}d-${searchParams.adType}`
       const timestamp = new Date().toLocaleString('es-ES')
       const searchName = `${searchParams.value} - ${searchParams.country} - ${config} - ${timestamp}`
-      const source = searchParams.useApify ? 'apify_scraping' : searchParams.useWebScraping ? 'web_scraping' : 'api'
+      const source = 'apify_scraping' // Always use Apify
       
       saveCompleteSearchMutation.mutate({
         searchName,
@@ -1574,83 +1602,21 @@ export function SearchPage() {
                 </select>
               </div>
 
-              {/* Search Method */}
+              {/* Apify Configuration */}
               <div className="md:col-span-2 lg:col-span-3">
-                <label className="block text-sm font-medium text-primary-400 mb-3">
-                  Método de Búsqueda
-                </label>
-                <div className="grid grid-cols-3 gap-3">
-                  <div>
-                    <input
-                      type="radio"
-                      name="searchMethod"
-                      value="api"
-                      checked={!searchParams.useApify && !searchParams.useWebScraping}
-                      onChange={() => setSearchParams(prev => ({ 
-                        ...prev, 
-                        useApify: false, 
-                        useWebScraping: false 
-                      }))}
-                      className="search-method-radio"
-                      id="searchMethod-api"
-                    />
-                    <label htmlFor="searchMethod-api" className="search-method-label">
-                      <div className="text-center">
-                        <div className="text-sm font-medium">🚀 API</div>
-                        <div className="text-xs text-gray-400">Rápido y Oficial</div>
-                      </div>
-                    </label>
+                <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-2xl">💎</span>
+                    <span className="text-sm font-medium text-blue-300">Apify Professional</span>
                   </div>
-                  
-                  <div>
-                    <input
-                      type="radio"
-                      name="searchMethod"
-                      value="scraping"
-                      checked={searchParams.useWebScraping === true}
-                      onChange={() => setSearchParams(prev => ({ 
-                        ...prev, 
-                        useApify: false, 
-                        useWebScraping: true 
-                      }))}
-                      className="search-method-radio"
-                      id="searchMethod-scraping"
-                    />
-                    <label htmlFor="searchMethod-scraping" className="search-method-label">
-                      <div className="text-center">
-                        <div className="text-sm font-medium">🕷️ Inteligente</div>
-                        <div className="text-xs text-gray-400">Múltiples Variaciones</div>
-                      </div>
-                    </label>
-                  </div>
-                  
-                  <div>
-                    <input
-                      type="radio"
-                      name="searchMethod"
-                      value="apify"
-                      checked={searchParams.useApify === true}
-                      onChange={() => setSearchParams(prev => ({ 
-                        ...prev, 
-                        useApify: true, 
-                        useWebScraping: false 
-                      }))}
-                      className="search-method-radio"
-                      id="searchMethod-apify"
-                    />
-                    <label htmlFor="searchMethod-apify" className="search-method-label">
-                      <div className="text-center">
-                        <div className="text-sm font-medium">💎 Apify Pro</div>
-                        <div className="text-xs text-gray-400">Profesional</div>
-                      </div>
-                    </label>
-                  </div>
+                  <p className="text-xs text-blue-200 mb-3">
+                    Sistema de búsqueda profesional con datos completos y actualizados
+                  </p>
                 </div>
               </div>
 
               {/* Apify Count */}
-              {searchParams.useApify && (
-                <div>
+              <div>
                   <label className="block text-sm font-medium text-primary-400 mb-2">
                     Máx Anuncios (Apify)
                   </label>
@@ -1669,15 +1635,14 @@ export function SearchPage() {
                   <div className="text-xs text-yellow-400 mt-1">
                     ⏰ Tiempo estimado: 10-15 minutos para 100+ anuncios
                   </div>
-                </div>
-              )}
+              </div>
             </div>
           )}
         </form>
       </div>
 
       {/* Apify Search Progress - Show during search regardless of results */}
-      {searchMutation.isLoading && searchParams.useApify && (
+      {searchMutation.isLoading && (
         <div className="holographic-panel p-4 mb-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -2589,7 +2554,11 @@ export function SearchPage() {
                     {/* Action Buttons */}
                     <div className="flex justify-center pt-2 border-t border-primary-500/20">
                         <button
-                        onClick={() => window.open(ad.ad_snapshot_url || adData.ad_library_url, '_blank')}
+                        onClick={() => {
+                          // Use the correct country from search params
+                          const adLibraryUrl = generateAdLibraryUrl(ad.id, searchParams.country);
+                          window.open(adLibraryUrl, '_blank');
+                        }}
                         className="btn-secondary text-xs px-4 py-2 flex items-center gap-2"
                       >
                                                 <ExternalLink className="w-3 h-3" />

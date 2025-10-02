@@ -242,7 +242,7 @@ export function SearchPage() {
     adType: 'ALL',
     mediaType: 'ALL',
     searchPhraseType: 'unordered',
-    useApify: false,
+    useApify: true, // Always use Apify
     apifyCount: 100,
     languages: ['es'] // Default to Spanish
   })
@@ -270,6 +270,34 @@ export function SearchPage() {
   // Queue for processing advertiser stats sequentially
   const [statsQueue, setStatsQueue] = useState<string[]>([])
   const [isProcessingStats, setIsProcessingStats] = useState(false)
+
+  // Function to generate correct Facebook Ads Library URL with search country
+  const generateAdLibraryUrl = (adId: string, country: string) => {
+    const baseUrl = 'https://www.facebook.com/ads/library/';
+    const urlParams = new URLSearchParams();
+    
+    urlParams.set('active_status', 'active');
+    urlParams.set('ad_type', (searchParams.adType || 'ALL').toLowerCase());
+    urlParams.set('country', country);
+    urlParams.set('is_targeted_country', 'false');
+    urlParams.set('media_type', 'all');
+    urlParams.set('search_type', 'keyword_unordered');
+    
+    // Add search term if available
+    if (searchParams.value) {
+      urlParams.set('q', searchParams.value);
+    }
+    
+    // Add minimum days filter if available
+    if (searchParams.minDays && searchParams.minDays > 0) {
+      const today = new Date();
+      const maxDate = new Date(today);
+      maxDate.setDate(today.getDate() - searchParams.minDays);
+      urlParams.set('start_date[max]', maxDate.toISOString().split('T')[0]);
+    }
+    
+    return `${baseUrl}?${urlParams.toString()}`;
+  }
 
   // Process stats queue one by one
   useEffect(() => {
@@ -564,11 +592,11 @@ export function SearchPage() {
     const validResults = searchResults.filter(ad => ad.page_name && ad.page_name !== 'Unknown Page')
     if (validResults.length > 0) {
       // Create unique search name including configuration
-      const method = searchParams.useApify ? 'Apify' : searchParams.useWebScraping ? 'Web' : 'API'
+      const method = 'Apify' // Always use Apify
       const config = `${method}-${searchParams.minDays}d-${searchParams.adType}`
       const timestamp = new Date().toLocaleString('es-ES')
       const searchName = `${searchParams.value} - ${searchParams.country} - ${config} - ${timestamp}`
-      const source = searchParams.useApify ? 'apify_scraping' : searchParams.useWebScraping ? 'web_scraping' : 'api'
+      const source = 'apify_scraping' // Always use Apify
       
       saveCompleteSearchMutation.mutate({
         searchName,
@@ -2389,7 +2417,11 @@ export function SearchPage() {
                     {/* Action Buttons */}
                     <div className="flex justify-center pt-2 border-t border-primary-500/20">
                         <button
-                        onClick={() => window.open(ad.ad_snapshot_url || adData.ad_library_url, '_blank')}
+                        onClick={() => {
+                          // Use the correct country from search params
+                          const adLibraryUrl = generateAdLibraryUrl(ad.id, searchParams.country);
+                          window.open(adLibraryUrl, '_blank');
+                        }}
                         className="btn-secondary text-xs px-4 py-2 flex items-center gap-2"
                       >
                                                 <ExternalLink className="w-3 h-3" />

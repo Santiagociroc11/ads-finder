@@ -1,4 +1,5 @@
 import { balancedScraperService } from './balancedScraperService.js'
+import { redisCacheService } from './redisCacheService.js'
 
 export interface AdvertiserStats {
   pageId: string
@@ -19,10 +20,38 @@ export class AdvertiserStatsService {
     console.log(`🔍 Getting stats for pageId: ${pageId} using BALANCED SCRAPER approach`);
     
     try {
+      // Check Redis cache first
+      const cachedStats = await redisCacheService.getAdvertiserStats(pageId, country);
+      if (cachedStats) {
+        console.log(`✅ Redis cache hit for ${pageId}: ${cachedStats.totalActiveAds} ads`);
+        return {
+          success: true,
+          stats: {
+            pageId,
+            advertiserName: 'Cached',
+            totalActiveAds: cachedStats.totalActiveAds,
+            lastUpdated: new Date().toISOString()
+          },
+          executionTime: 0
+        };
+      }
+
+      // If not in Redis cache, use balanced scraper
       const result = await balancedScraperService.getAdvertiserStats(pageId, country);
       
-      if (result.success) {
-        console.log(`✅ Balanced scraper successful: ${result.stats?.totalActiveAds || 0} ads`);
+      if (result.success && result.stats) {
+        console.log(`✅ Balanced scraper successful: ${result.stats.totalActiveAds || 0} ads`);
+        
+        // Cache the result in Redis
+        await redisCacheService.setAdvertiserStats(
+          pageId, 
+          country, 
+          { 
+            totalActiveAds: result.stats.totalActiveAds, 
+            loading: false 
+          }, 
+          15 // 15 minutes TTL
+        );
       }
       
       return result;

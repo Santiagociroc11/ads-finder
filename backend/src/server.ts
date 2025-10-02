@@ -14,6 +14,7 @@ import cors from 'cors';
 import { fileURLToPath } from 'url';
 
 import { connectDatabase } from '@/services/database.js';
+import { redisCacheService } from '@/services/redisCacheService.js';
 import { errorHandler } from '@/middleware/errorHandler.js';
 import { logger } from '@/middleware/logger.js';
 import { apiRateLimit } from '@/middleware/rateLimiter.js';
@@ -82,10 +83,16 @@ app.use('/api/http-diagnostic', httpDiagnosticRoutes);
 app.get('/api/health', async (req, res) => {
   try {
     const healthData = getHealthData();
+    const redisHealthy = await redisCacheService.isHealthy();
+    const detailedCacheStats = await redisCacheService.getDetailedCacheStats();
     
     res.json({
       ...healthData,
       database: 'connected',
+      redis: {
+        connected: redisHealthy,
+        cache: detailedCacheStats
+      },
       version: '2.0.0',
       environment: process.env.NODE_ENV || 'development'
     });
@@ -127,6 +134,10 @@ async function startServer(): Promise<void> {
     // Connect to database
     await connectDatabase();
     console.log('✅ Database connected successfully');
+
+    // Connect to Redis
+    await redisCacheService.connect();
+    console.log('✅ Redis connected successfully');
 
     // Start HTTP server
     app.listen(PORT, () => {
