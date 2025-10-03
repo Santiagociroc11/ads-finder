@@ -307,41 +307,4 @@ router.post('/bulk', asyncHandler(async (req, res) => {
   });
 }));
 
-// GET /api/saved-ads/collections - Get user's collections
-router.get('/collections', asyncHandler(async (req, res) => {
-  const userId = (req as any).user?._id?.toString();
-  
-  if (!userId) {
-    throw new CustomError('User not authenticated', 401);
-  }
-
-  try {
-    // Aggregate to get collections with counts
-    const userCollections = await collections.savedAds.aggregate([
-      { $match: { userId } },
-      { $group: { 
-        _id: '$collection', 
-        count: { $sum: 1 },
-        lastUpdated: { $max: '$createdAt' }
-      }},
-      { $sort: { lastUpdated: -1 } },
-      { $project: { 
-        name: '$_id', 
-        count: 1, 
-        lastUpdated: 1,
-        _id: 0 
-      }}
-    ]).toArray();
-
-    res.json({
-      success: true,
-      collections: userCollections || []
-    });
-
-  } catch (error: any) {
-    console.error('Error fetching collections:', error);
-    throw new CustomError('Error al obtener las colecciones', 500);
-  }
-}));
-
 export default router;
