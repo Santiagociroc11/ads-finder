@@ -352,51 +352,6 @@ export function SearchPage() {
   const [totalStatsToLoad, setTotalStatsToLoad] = useState(0)
   const [statsLoaded, setStatsLoaded] = useState(0)
 
-  // Check for loaded search from history on component mount
-  useEffect(() => {
-    const loadedFromHistory = localStorage.getItem('loadedFromHistory');
-    if (loadedFromHistory) {
-      try {
-        const { searchResult, historyId, timestamp } = JSON.parse(loadedFromHistory);
-        
-        // Check if data is not too old (1 hour)
-        const isRecent = Date.now() - timestamp < 60 * 60 * 1000;
-        
-        if (isRecent && searchResult) {
-          console.log(`[HISTORY] 🔄 Loading search from history: ${historyId}`);
-          
-          // Set search results
-          setSearchResults(searchResult.data || []);
-          setAllCachedResults(searchResult.data || []);
-          
-          // Set pagination data
-          setPaginationData({
-            currentPage: searchResult.pagination?.currentPage || 1,
-            hasNextPage: searchResult.pagination?.hasNextPage || false,
-            totalResults: searchResult.pagination?.totalResults || searchResult.data?.length || 0,
-            isLoadingMore: false,
-            displayedCount: searchResult.data?.length || 0
-          });
-          
-          // Set cursor for pagination
-          setNextCursor(searchResult.cursor);
-          
-          // Show success message
-          toast.success(`Búsqueda cargada desde historial (${searchResult.data?.length || 0} anuncios)`);
-          
-          // Clear localStorage
-          localStorage.removeItem('loadedFromHistory');
-        } else {
-          // Data is too old, remove it
-          localStorage.removeItem('loadedFromHistory');
-        }
-      } catch (error) {
-        console.error('[HISTORY] ❌ Error loading from history:', error);
-        localStorage.removeItem('loadedFromHistory');
-      }
-    }
-  }, []);
-
   // Process stats queue one by one
   useEffect(() => {
     if (statsQueue.length > 0 && !isProcessingStats) {
@@ -810,7 +765,7 @@ export function SearchPage() {
       const config = `${method}-${searchParams.minDays}d-${searchParams.adType}`
       const timestamp = new Date().toLocaleString('es-ES')
       const searchName = `${searchParams.value} - ${searchParams.country} - ${config} - ${timestamp}`
-      const source = 'api' // Data source
+      const source = 'scrapecreators_api' // Data source
       
       saveCompleteSearchMutation.mutate({
         searchName,
@@ -1769,9 +1724,9 @@ export function SearchPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-primary-300">
+              <h2 className="text-2xl font-bold text-primary-300">
                   Mostrando {searchResults.length} de {paginationData.totalResults > 0 ? paginationData.totalResults.toLocaleString() : 'muchos'} anuncios
-                </h2>
+              </h2>
                 {paginationData.totalResults > searchResults.length && (
                   <div className="flex items-center gap-2 mt-2 text-sm text-gray-400">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -2063,7 +2018,7 @@ export function SearchPage() {
                   {/* Ad Content */}
                   <div className="ad-content space-y-3">
                     {/* Ad Layout */}
-                    {ad.source === 'api' ? (
+                    {ad.source === 'scrapecreators_api' ? (
                       <div className="facebook-api-layout space-y-3">
                         {/* Body Text */}
                         {ad.ad_creative_bodies && ad.ad_creative_bodies.length > 0 && (

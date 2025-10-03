@@ -78,12 +78,6 @@ export const searchApi = {
     return response.data
   },
 
-  // Load search from history with cache
-  loadFromHistory: async (historyId: string): Promise<SearchResponse> => {
-    const response = await api.get(`/ads/load-from-history/${historyId}`)
-    return response.data
-  },
-
   // Fetch multiple pages
   fetchMultiplePages: async (initialUrl: string, maxPages: number = 5): Promise<SearchResponse> => {
     const response = await api.get('/search/multiple-pages', {

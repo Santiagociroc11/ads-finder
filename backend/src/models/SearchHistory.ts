@@ -19,15 +19,6 @@ export interface ISearchHistory extends Document {
     source: string;
     executionTime: number;
     cached: boolean;
-    // Cache data for instant loading
-    adsData?: any[]; // Store the actual ads data
-    paginationData?: {
-      currentPage: number;
-      hasNextPage: boolean;
-      totalResults: number;
-      cursor?: string;
-    };
-    advertiserStats?: Map<string, any>; // Store advertiser stats
   };
   searchDate: Date;
   ipAddress?: string;
@@ -57,16 +48,7 @@ const SearchHistorySchema = new Schema<ISearchHistory>({
     totalPages: { type: Number, required: true },
     source: { type: String, required: true },
     executionTime: { type: Number, required: true },
-    cached: { type: Boolean, default: false },
-    // Cache data for instant loading
-    adsData: [{ type: Schema.Types.Mixed }], // Store the actual ads data
-    paginationData: {
-      currentPage: { type: Number, default: 1 },
-      hasNextPage: { type: Boolean, default: false },
-      totalResults: { type: Number, default: 0 },
-      cursor: { type: String, default: null }
-    },
-    advertiserStats: { type: Schema.Types.Mixed, default: {} } // Store advertiser stats as object
+    cached: { type: Boolean, default: false }
   },
   searchDate: {
     type: Date,

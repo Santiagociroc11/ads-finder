@@ -1,7 +1,7 @@
 // Copy of shared types for backend use
 export interface AdData {
   id: string;
-  source: 'facebook_api' | 'apify_scraping' | 'web_scraping' | 'scrapecreators_api' | 'api';
+  source: 'facebook_api' | 'apify_scraping' | 'web_scraping' | 'scrapecreators_api';
   scraped?: boolean;
   
   // Basic fields

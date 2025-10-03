@@ -15,7 +15,7 @@ import {
   TrendingUp,
   Activity
 } from 'lucide-react';
-import { searchHistoryApi, searchApi } from '../services/api';
+import { searchHistoryApi } from '../services/api';
 import type { SearchHistoryEntry, SearchHistoryStats } from '../types/shared';
 
 export function SearchHistoryPage() {
@@ -28,51 +28,6 @@ export function SearchHistoryPage() {
     dateTo: ''
   });
   const [showStats, setShowStats] = useState(false);
-  const [loadingFromHistory, setLoadingFromHistory] = useState<string | null>(null);
-
-  // Function to get friendly source name
-  const getSourceName = (source: string) => {
-    switch (source) {
-      case 'api':
-        return 'API';
-      case 'scrapecreators_api':
-        return 'API';
-      case 'facebook_api':
-        return 'Facebook API';
-      case 'apify_scraping':
-        return 'Web Scraping';
-      case 'web_scraping':
-        return 'Web Scraping';
-      default:
-        return source;
-    }
-  };
-
-  // Function to load search from history
-  const handleLoadFromHistory = async (historyId: string) => {
-    try {
-      setLoadingFromHistory(historyId);
-      console.log(`[HISTORY] 🔄 Loading search from history: ${historyId}`);
-      
-      const searchResult = await searchApi.loadFromHistory(historyId);
-      
-      // Store the loaded search in localStorage to pass to SearchPage
-      localStorage.setItem('loadedFromHistory', JSON.stringify({
-        searchResult,
-        historyId,
-        timestamp: Date.now()
-      }));
-      
-      // Navigate to search page
-      window.location.href = '/';
-      
-    } catch (error: any) {
-      console.error('[HISTORY] ❌ Error loading from history:', error);
-      alert(error.response?.data?.message || 'Error al cargar la búsqueda del historial');
-    } finally {
-      setLoadingFromHistory(null);
-    }
-  };
 
   // Fetch search history
   const { data: historyData, isLoading, error } = useQuery({
@@ -373,7 +328,7 @@ export function SearchHistoryPage() {
                           </div>
                           <div className="flex items-center gap-1">
                             <Globe className="w-4 h-4" />
-                            {getSourceName(search.results.source)}
+                            {search.results.source}
                           </div>
                         </div>
                         
@@ -384,32 +339,6 @@ export function SearchHistoryPage() {
                         </div>
                       </div>
                       
-                      {/* Load from history button */}
-                      <div className="flex flex-col gap-2">
-                        <button
-                          onClick={() => handleLoadFromHistory(search._id)}
-                          disabled={loadingFromHistory === search._id}
-                          className="btn-primary flex items-center gap-2 px-4 py-2 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {loadingFromHistory === search._id ? (
-                            <>
-                              <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                              Cargando...
-                            </>
-                          ) : (
-                            <>
-                              <Search className="w-4 h-4" />
-                              Cargar
-                            </>
-                          )}
-                        </button>
-                        
-                        {search.results.cached && (
-                          <span className="text-xs text-green-400 text-center">
-                            ⚡ Caché disponible
-                          </span>
-                        )}
-                      </div>
                     </div>
                   </div>
                 ))}
