@@ -118,6 +118,12 @@ export const savedAdsApi = {
     return response.data
   },
 
+  // Get collections
+  getCollections: async () => {
+    const response = await api.get('/saved-ads/collections')
+    return response.data
+  },
+
   // Update saved ad
   updateSavedAd: async (id: string, data: {
     tags?: string[]

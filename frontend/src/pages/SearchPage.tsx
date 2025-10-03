@@ -22,6 +22,7 @@ import {
 import { searchApi, suggestionsApi, savedAdsApi, completeSearchesApi, scraperApi } from '@/services/api'
 import type { SearchParams, AdData, SearchResponse } from '../types/shared'
 import TrackingModal from '../components/TrackingModal'
+import SaveAdModal from '../components/SaveAdModal'
 
 // Smart Image Component with original proportions
 const SmartImage = ({ 
@@ -276,6 +277,15 @@ export function SearchPage() {
     ad: null,
     activeAdsCount: 0
   })
+
+  // Save Ad Modal state
+  const [saveAdModal, setSaveAdModal] = useState<{
+    isOpen: boolean;
+    ad: AdData | null;
+  }>({
+    isOpen: false,
+    ad: null
+  })
   const [sortConfig, setSortConfig] = useState<{
     primary: { field: string; direction: 'asc' | 'desc' } | null
     secondary: { field: string; direction: 'asc' | 'desc' } | null
@@ -338,6 +348,21 @@ export function SearchPage() {
       isOpen: false,
       ad: null,
       activeAdsCount: 0
+    });
+  };
+
+  // Save Ad modal functions
+  const openSaveAdModal = (ad: AdData) => {
+    setSaveAdModal({
+      isOpen: true,
+      ad
+    });
+  };
+
+  const closeSaveAdModal = () => {
+    setSaveAdModal({
+      isOpen: false,
+      ad: null
     });
   };
 
@@ -1202,7 +1227,6 @@ export function SearchPage() {
   const getAdData = (ad: AdData) => {
     const adData = ad as any
     
-   
     
     // Check if it's Apify format (has apify_data) - PRIORITY CHECK
     if (adData.apify_data && typeof adData.apify_data === 'object' && adData.apify_data !== null) {
@@ -1210,23 +1234,31 @@ export function SearchPage() {
       const originalItem = apifyData.original_item || {};
       const originalSnapshot = originalItem.snapshot || {};
       
-      // Handle different image formats
+      // Handle different image formats - prioritize originalSnapshot.images over apifyData.images
       let processedImages = []
-      if (apifyData.images && Array.isArray(apifyData.images) && apifyData.images.length > 0) {
+      
+      // First check originalSnapshot.images (most detailed)
+      if (originalSnapshot.images && Array.isArray(originalSnapshot.images) && originalSnapshot.images.length > 0) {
+        processedImages = originalSnapshot.images
+        console.log('Using originalSnapshot.images:', processedImages.length);
+      } 
+      // Then check apifyData.images
+      else if (apifyData.images && Array.isArray(apifyData.images) && apifyData.images.length > 0) {
         if (typeof apifyData.images[0] === 'string') {
           // String format - convert to objects
           processedImages = apifyData.images.map((url: string) => ({
             original_image_url: url,
             resized_image_url: url
           }))
+          console.log('Using apifyData.images (converted from strings):', processedImages.length);
         } else {
           // Apify format - already objects
           processedImages = apifyData.images
+          console.log('Using apifyData.images (objects):', processedImages.length);
         }
-      } else if (originalSnapshot.images && Array.isArray(originalSnapshot.images) && originalSnapshot.images.length > 0) {
-        // Fallback to original snapshot images
-        processedImages = originalSnapshot.images
-      } else if (originalSnapshot.cards && Array.isArray(originalSnapshot.cards)) {
+      } 
+      // Finally check cards
+      else if (originalSnapshot.cards && Array.isArray(originalSnapshot.cards)) {
         // Extract images from cards (CAROUSEL format)
         console.log('Processing cards for images:', originalSnapshot.cards.length);
         processedImages = originalSnapshot.cards
@@ -1357,6 +1389,8 @@ export function SearchPage() {
         linkUrl: null
       }
     }
+    
+    
     return result
   }
 
@@ -1687,7 +1721,7 @@ export function SearchPage() {
                   🔍 Ejecutando Búsqueda
                 </h3>
                 <p className="text-sm text-gray-400">
-                  Procesando anuncios... Esto puede tomar unos minutos.
+                  Procesando anuncios... Esto puede tomar unos instantes.
                 </p>
               </div>
             </div>
@@ -1702,10 +1736,6 @@ export function SearchPage() {
           </div>
           
           <div className="mt-4 bg-gray-800/50 rounded-lg p-3">
-            <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
-              <span>Procesando con Apify Professional</span>
-              <span>Timeout: 15 minutos</span>
-            </div>
             <div className="w-full bg-gray-700 rounded-full h-2">
               <div 
                 className="bg-gradient-to-r from-yellow-500 to-yellow-400 h-2 rounded-full transition-all duration-1000" 
@@ -1769,9 +1799,9 @@ export function SearchPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-primary-300">
+              <h2 className="text-2xl font-bold text-primary-300">
                   Mostrando {searchResults.length} de {paginationData.totalResults > 0 ? paginationData.totalResults.toLocaleString() : 'muchos'} anuncios
-                </h2>
+              </h2>
                 {paginationData.totalResults > searchResults.length && (
                   <div className="flex items-center gap-2 mt-2 text-sm text-gray-400">
                     <div className="w-2 h-2 bg-green-500 rounded-full"></div>
@@ -2050,7 +2080,11 @@ export function SearchPage() {
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <button className="btn-icon">
+                      <button 
+                        onClick={() => openSaveAdModal(ad)}
+                        className="btn-icon hover:bg-primary-500/20 hover:text-primary-400 transition-colors"
+                        title="Guardar anuncio"
+                      >
                         <Bookmark className="w-4 h-4" />
                       </button>
                     </div>
@@ -2103,8 +2137,11 @@ export function SearchPage() {
 
                         {/* Multimedia Content */}
                         {(() => {
-                          console.log(`[RENDER] ${ad.page_name} - adInfo.images:`, adInfo.images);
-                          console.log(`[RENDER] ${ad.page_name} - images length:`, adInfo.images?.length);
+                          console.log(`[MULTIMEDIA] ${ad.page_name}:`, {
+                            hasImages: !!(adInfo.images && adInfo.images.length > 0),
+                            imagesLength: adInfo.images?.length || 0,
+                            images: adInfo.images
+                          });
                           return (adInfo.images && adInfo.images.length > 0);
                         })() && (
                           <div className="facebook-multimedia">
@@ -2467,6 +2504,13 @@ export function SearchPage() {
         ad={trackingModal.ad}
         activeAdsCount={trackingModal.activeAdsCount}
         onSuccess={handleTrackingSuccess}
+      />
+
+      {/* Save Ad Modal */}
+      <SaveAdModal
+        isOpen={saveAdModal.isOpen}
+        onClose={closeSaveAdModal}
+        adData={saveAdModal.ad}
       />
     </div>
   )
