@@ -2327,9 +2327,9 @@ export function SearchPage() {
                     <div className="flex justify-center gap-2 pt-2 border-t border-primary-500/20">
                         <button
                         onClick={() => {
-                          // Use the correct country from search params
-                          const adLibraryUrl = generateAdLibraryUrl(ad.id, searchParams.country);
-                          window.open(adLibraryUrl, '_blank');
+                          if (ad.ad_snapshot_url) {
+                            window.open(ad.ad_snapshot_url, '_blank');
+                          }
                         }}
                         className="btn-secondary text-xs px-4 py-2 flex items-center gap-2"
                       >
