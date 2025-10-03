@@ -636,6 +636,36 @@ export function SearchPage() {
     }
   )
 
+  // Individual save mutation
+  const saveIndividualMutation = useMutation(
+    (ad: AdData) => savedAdsApi.saveAd({
+      adData: ad,
+      tags: ['búsqueda', searchParams.value.toLowerCase()],
+      collection: 'Búsqueda',
+      notes: `Búsqueda: "${searchParams.value}" - ${new Date().toLocaleDateString('es-ES')}`
+    }),
+    {
+      onSuccess: (_, ad) => {
+        toast.success('Anuncio guardado exitosamente')
+        // Update only the specific ad's saved status
+        setSearchResults(prev => 
+          prev.map(searchAd => 
+            searchAd.id === ad.id 
+              ? { ...searchAd, isSaved: true }
+              : searchAd
+          )
+        )
+      },
+      onError: (error: any) => {
+        if (error.response?.status === 409) {
+          toast.error('Este anuncio ya está guardado')
+        } else {
+          toast.error('Error al guardar el anuncio')
+        }
+      }
+    }
+  )
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -757,6 +787,11 @@ export function SearchPage() {
     // Save individual ads
     bulkSaveMutation.mutate(searchResults)
     
+    // Mark all ads as saved in the UI
+    setSearchResults(prev => 
+      prev.map(ad => ({ ...ad, isSaved: true }))
+    )
+    
     // Also save as complete search if there are valid results
     const validResults = searchResults.filter(ad => ad.page_name && ad.page_name !== 'Unknown Page')
     if (validResults.length > 0) {
@@ -778,6 +813,10 @@ export function SearchPage() {
 
   const handleLoadSavedSearch = (searchId: string) => {
     loadSavedSearchMutation.mutate(searchId)
+  }
+
+  const handleSaveIndividual = (ad: AdData) => {
+    saveIndividualMutation.mutate(ad)
   }
 
   const handleScrapeAdvertiser = (advertiserName: string) => {
@@ -1991,8 +2030,17 @@ export function SearchPage() {
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      <button className="btn-icon">
-                        <Bookmark className="w-4 h-4" />
+                      <button 
+                        onClick={() => handleSaveIndividual(ad)}
+                        disabled={saveIndividualMutation.isLoading}
+                        className={`btn-icon ${ad.isSaved ? 'text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`}
+                        title={ad.isSaved ? 'Ya guardado' : 'Guardar anuncio'}
+                      >
+                        {saveIndividualMutation.isLoading ? (
+                          <div className="loading-spinner w-4 h-4" />
+                        ) : (
+                          <Bookmark className={`w-4 h-4 ${ad.isSaved ? 'fill-current' : ''}`} />
+                        )}
                       </button>
                     </div>
                   </div>

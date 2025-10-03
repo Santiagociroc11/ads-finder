@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom'
 import { 
   Search,
   Bookmark, 
-  Database,
   History,
   Users,
   Sparkles,
@@ -25,12 +24,6 @@ const navigationItems = [
     href: '/',
     icon: Search,
     description: 'Buscar anuncios'
-  },
-  {
-    name: 'Búsquedas Guardadas',
-    href: '/saved-searches',
-    icon: Database,
-    description: 'Ver búsquedas guardadas'
   },
   {
     name: 'Historial de Búsquedas',
