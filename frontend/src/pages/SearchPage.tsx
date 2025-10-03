@@ -1656,20 +1656,6 @@ export function SearchPage() {
             </div>
           </div>
           
-          <div className="mt-4 bg-gray-800/50 rounded-lg p-3">
-            <div className="flex items-center justify-between text-xs text-gray-400 mb-2">
-              <span>Procesando con Apify Professional</span>
-              <span>Timeout: 15 minutos</span>
-            </div>
-            <div className="w-full bg-gray-700 rounded-full h-2">
-              <div 
-                className="bg-gradient-to-r from-yellow-500 to-yellow-400 h-2 rounded-full transition-all duration-1000" 
-                style={{ 
-                  width: searchStartTime ? `${Math.min((Date.now() - searchStartTime) / (15 * 60 * 1000) * 100, 95)}%` : '10%' 
-                }} 
-              />
-            </div>
-          </div>
         </div>
       )}
 

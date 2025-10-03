@@ -11,7 +11,6 @@ import {
   ChevronRight,
   Clock,
   Zap,
-  Globe,
   TrendingUp,
   Activity
 } from 'lucide-react';
@@ -325,10 +324,6 @@ export function SearchHistoryPage() {
                           <div className="flex items-center gap-1">
                             <Activity className="w-4 h-4" />
                             {search.results.totalAds} anuncios
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Globe className="w-4 h-4" />
-                            {search.results.source}
                           </div>
                         </div>
                         
