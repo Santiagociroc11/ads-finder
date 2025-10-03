@@ -21,6 +21,7 @@ import {
 import { trackedAdvertisersApi } from '../services/api';
 import type { TrackedAdvertiser, TrackedAdvertiserStats } from '../types/shared';
 import { toast } from 'react-hot-toast';
+import MiniChart from '../components/MiniChart';
 
 const TrackedAdvertisersPage: React.FC = () => {
   const queryClient = useQueryClient();
@@ -296,11 +297,25 @@ const TrackedAdvertisersPage: React.FC = () => {
                         <p className="text-sm text-gray-300 mb-3">{advertiser.notes}</p>
                       )}
 
-                      {/* Daily Stats */}
+                      {/* Daily Stats with Mini Chart */}
                       {advertiser.dailyStats && advertiser.dailyStats.length > 0 && (
                         <div className="mt-4">
-                          <h4 className="text-sm font-medium text-gray-300 mb-2">Estadísticas Recientes</h4>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                          <h4 className="text-sm font-medium text-gray-300 mb-3">Evolución de Anuncios Activos</h4>
+                          
+                          {/* Mini Chart */}
+                          <div className="bg-gray-700/30 rounded-lg p-4 mb-4">
+                            <MiniChart 
+                              data={advertiser.dailyStats.map(stat => ({
+                                date: stat.date,
+                                activeAds: stat.activeAds
+                              }))}
+                              height={80}
+                              showTrend={true}
+                            />
+                          </div>
+
+                          {/* Recent Stats Grid */}
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                             {advertiser.dailyStats.slice(-4).map((stat, index) => (
                               <div key={index} className="bg-gray-700/50 rounded-lg p-3">
                                 <p className="text-xs text-gray-400">{formatDate(stat.date)}</p>
