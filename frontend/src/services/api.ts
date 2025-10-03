@@ -141,12 +141,6 @@ export const savedAdsApi = {
     return response.data
   },
 
-  // Get available collections
-  getCollections: async () => {
-    const response = await api.get('/saved-ads/collections')
-    return response.data
-  },
-
   // Get available tags
   getTags: async () => {
     const response = await api.get('/saved-ads/tags')
