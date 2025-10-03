@@ -2,7 +2,7 @@
 
 export interface AdData {
   id: string;
-  source: 'facebook_api' | 'apify_scraping' | 'web_scraping';
+  source: 'facebook_api' | 'apify_scraping' | 'web_scraping' | 'scrapecreators_api' | 'api';
   scraped?: boolean;
   
   // Basic fields
@@ -56,6 +56,9 @@ export interface AdData {
   
   // Apify specific data
   apify_data?: ApifyData;
+  
+  // ScrapeCreators specific data
+  scrapecreators_data?: ScrapeCreatorsData;
 }
 
 export interface SavedInfo {
@@ -94,7 +97,44 @@ export interface ApifyData {
 
 export interface VideoData {
   video_preview_image_url?: string;
+  video_hd_url?: string;
+  video_sd_url?: string;
+  watermarked_video_hd_url?: string;
+  watermarked_video_sd_url?: string;
   [key: string]: any;
+}
+
+export interface ScrapeCreatorsData {
+  collation_id: string;
+  collation_count: number;
+  categories: string[];
+  entity_type: string;
+  is_active: boolean;
+  page_profile_uri: string;
+  page_profile_picture_url: string;
+  page_like_count: number;
+  page_categories: string[];
+  total_active_time: number;
+  impressions_text: string | null;
+  contains_digital_created_media: boolean;
+  contains_sensitive_content: boolean;
+  targeted_countries: string[];
+  // Detailed image information
+  images_detailed?: Array<{
+    url: string;
+    original_url: string;
+    resized_url: string;
+    watermarked_url: string | null;
+    crops: any[];
+  }>;
+  // Additional snapshot data
+  link_description?: string;
+  link_url?: string;
+  title?: string;
+  caption?: string;
+  cta_text?: string;
+  cta_type?: string;
+  display_format?: string;
 }
 
 export interface SearchParams {
@@ -137,6 +177,7 @@ export interface SearchResponse {
   source: string;
   message?: string;
   facebookLibraryUrl?: string;
+  cursor?: string; // Cursor for ScrapeCreators pagination
   autoSaved?: {
     saved: boolean;
     searchName?: string;

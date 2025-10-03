@@ -5,13 +5,12 @@
 ## ✨ Features
 
 ### 🔍 Advanced Ad Discovery
-- **Facebook API Integration** - Official ads library access
-- **Apify Professional Scraping** - Advanced data extraction
-- **Smart Web Scraping** - Multiple search variations
+- **ScrapeCreators API Integration** - Professional Facebook ads data extraction
 - **AI-Powered Suggestions** - Gemini AI keyword generation
+- **Real-time Search** - Live ad discovery with infinite scroll
 
 ### 💰 Cost Optimization
-- **Auto-Save Apify Searches** - Reuse expensive searches without additional cost
+- **Auto-Save Searches** - Reuse expensive searches without additional cost
 - **Complete Search Storage** - Full result caching in MongoDB
 - **Cost Tracking** - Monitor savings and usage patterns
 - **Smart Filtering** - Intelligent minimum days filter

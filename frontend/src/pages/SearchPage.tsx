@@ -5,22 +5,18 @@ import {
   Search, 
   Sparkles, 
   Filter,
-  Download,
   Bookmark,
   ExternalLink,
   Calendar,
   Users,
   MapPin,
-  Database,
   Clock,
   DollarSign,
   Image,
   Video,
   MessageCircle,
   Heart,
-  Eye,
-  Globe,
-  Info
+  Eye
 } from 'lucide-react'
 
 import { searchApi, suggestionsApi, savedAdsApi, completeSearchesApi, scraperApi } from '@/services/api'
@@ -244,13 +240,13 @@ export function SearchPage() {
     adType: 'ALL',
     mediaType: 'ALL',
     searchPhraseType: 'unordered',
-    useApify: true, // Always use Apify
-    apifyCount: 100,
+    // Only one search method available
     languages: ['es'] // Default to Spanish
   })
 
   const [searchResults, setSearchResults] = useState<AdData[]>([])
   const [allCachedResults, setAllCachedResults] = useState<AdData[]>([]) // Store all cached results for global sorting
+  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined) // Cursor for next page
   const [paginationData, setPaginationData] = useState<{
     currentPage: number;
     hasNextPage: boolean;
@@ -356,6 +352,51 @@ export function SearchPage() {
   const [totalStatsToLoad, setTotalStatsToLoad] = useState(0)
   const [statsLoaded, setStatsLoaded] = useState(0)
 
+  // Check for loaded search from history on component mount
+  useEffect(() => {
+    const loadedFromHistory = localStorage.getItem('loadedFromHistory');
+    if (loadedFromHistory) {
+      try {
+        const { searchResult, historyId, timestamp } = JSON.parse(loadedFromHistory);
+        
+        // Check if data is not too old (1 hour)
+        const isRecent = Date.now() - timestamp < 60 * 60 * 1000;
+        
+        if (isRecent && searchResult) {
+          console.log(`[HISTORY] 🔄 Loading search from history: ${historyId}`);
+          
+          // Set search results
+          setSearchResults(searchResult.data || []);
+          setAllCachedResults(searchResult.data || []);
+          
+          // Set pagination data
+          setPaginationData({
+            currentPage: searchResult.pagination?.currentPage || 1,
+            hasNextPage: searchResult.pagination?.hasNextPage || false,
+            totalResults: searchResult.pagination?.totalResults || searchResult.data?.length || 0,
+            isLoadingMore: false,
+            displayedCount: searchResult.data?.length || 0
+          });
+          
+          // Set cursor for pagination
+          setNextCursor(searchResult.cursor);
+          
+          // Show success message
+          toast.success(`Búsqueda cargada desde historial (${searchResult.data?.length || 0} anuncios)`);
+          
+          // Clear localStorage
+          localStorage.removeItem('loadedFromHistory');
+        } else {
+          // Data is too old, remove it
+          localStorage.removeItem('loadedFromHistory');
+        }
+      } catch (error) {
+        console.error('[HISTORY] ❌ Error loading from history:', error);
+        localStorage.removeItem('loadedFromHistory');
+      }
+    }
+  }, []);
+
   // Process stats queue one by one
   useEffect(() => {
     if (statsQueue.length > 0 && !isProcessingStats) {
@@ -391,22 +432,22 @@ export function SearchPage() {
       // Check which page IDs are new by comparing with current processedPageIds
       setProcessedPageIds(prev => {
         const newPageIds = uniquePageIds.filter(id => !prev.has(id))
+      
+      if (newPageIds.length > 0) {
+        console.log(`📊 Queueing ${newPageIds.length} NEW advertisers for stats loading (${uniquePageIds.length} total)...`)
         
-        if (newPageIds.length > 0) {
-          console.log(`📊 Queueing ${newPageIds.length} NEW advertisers for stats loading (${uniquePageIds.length} total)...`)
-          
-          // Agregar a la cola solo los nuevos
+        // Agregar a la cola solo los nuevos
           setStatsQueue(prevQueue => [...prevQueue, ...newPageIds])
-          
+        
           // Establecer el total correcto (no sumar)
           setTotalStatsToLoad(uniquePageIds.length)
-          
+        
           // Return new set with added page IDs
           return new Set([...prev, ...newPageIds])
-        } else {
-          console.log(`📊 No new advertisers to process (${uniquePageIds.length} already processed)`)
+      } else {
+        console.log(`📊 No new advertisers to process (${uniquePageIds.length} already processed)`)
           return prev
-        }
+      }
       })
     } else {
       // Reset todo cuando no hay resultados (nueva búsqueda)
@@ -426,6 +467,7 @@ export function SearchPage() {
       onSuccess: (data: SearchResponse) => {
         setSearchResults(data.data)
         setAllCachedResults(data.data) // Store all results for global sorting
+        setNextCursor(data.cursor) // Store cursor for next page
         setSearchStartTime(null)
         setElapsedTime('')
         // Reset advertiser stats for new search
@@ -437,14 +479,14 @@ export function SearchPage() {
           hasNextPage: data.pagination?.hasNextPage || false,
           totalResults: data.pagination?.totalResults || data.data.length,
           isLoadingMore: false,
-          displayedCount: 20 // Start with 20 results
+          displayedCount: data.data.length // Display current count
         })
         
         toast.success(`¡Se encontraron ${data.data.length} anuncios!`)
         
         if (data.autoSaved?.saved) {
           toast.success(data.autoSaved.message, { duration: 6000 })
-          // Refresh saved searches when a new Apify search is auto-saved
+          // Refresh saved searches when a new search is auto-saved
           queryClient.invalidateQueries('complete-searches')
         }
       },
@@ -456,9 +498,9 @@ export function SearchPage() {
         
         // Handle timeout errors specifically
         if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
-          toast.error('La búsqueda tardó más de 15 minutos. Apify puede estar sobrecargado. Intenta con menos anuncios o usa un método diferente.', { duration: 10000 })
+          toast.error('La búsqueda tardó más de 15 minutos. El servicio puede estar sobrecargado. Intenta de nuevo más tarde.', { duration: 10000 })
         } else if (error.response?.status === 500) {
-          toast.error('Error del servidor. Verifica que Apify esté funcionando correctamente.', { duration: 8000 })
+          toast.error('Error del servidor. Verifica que el servicio esté funcionando correctamente.', { duration: 8000 })
         } else {
           toast.error(error.response?.data?.error || 'Error en la búsqueda')
         }
@@ -466,14 +508,15 @@ export function SearchPage() {
     }
   )
 
-  // Nueva mutación para "Cargar más"
+  // Nueva mutación para "Cargar más" (scroll infinito con cursor)
   const loadMoreMutation = useMutation(
-    (params: SearchParams) => searchApi.search(params),
+    (params: SearchParams & { cursor?: string }) => searchApi.search(params),
     {
       onSuccess: (data: SearchResponse) => {
         // AGREGAR resultados a los existentes (no reemplazar)
         setSearchResults(prev => [...prev, ...data.data])
         setAllCachedResults(prev => [...prev, ...data.data]) // Update cached results too
+        setNextCursor(data.cursor) // Update cursor for next page
         
         // Actualizar estado de paginación
         setPaginationData(prev => ({
@@ -703,21 +746,20 @@ export function SearchPage() {
   }
 
   const handleLoadMore = () => {
-    if (paginationData.isLoadingMore || !paginationData.hasNextPage) {
+    if (paginationData.isLoadingMore || !paginationData.hasNextPage || !nextCursor) {
       return
     }
 
-    console.log(`🔄 Loading more results: page ${paginationData.currentPage + 1}`)
+    console.log(`🔄 Loading more results with cursor: ${nextCursor}`)
     
     // Marcar como cargando
     setPaginationData(prev => ({ ...prev, isLoadingMore: true }))
     
-    // Ejecutar búsqueda para la siguiente página
+    // Ejecutar búsqueda para la siguiente página con cursor
     loadMoreMutation.mutate({
       ...searchParams,
-      page: paginationData.currentPage + 1,
-      limit: 20
-    })
+      cursor: nextCursor // Pass cursor for next page
+    } as any)
   }
 
   // Handle accumulative pagination - show more results
@@ -764,11 +806,11 @@ export function SearchPage() {
     const validResults = searchResults.filter(ad => ad.page_name && ad.page_name !== 'Unknown Page')
     if (validResults.length > 0) {
       // Create unique search name including configuration
-      const method = 'Apify' // Always use Apify
+      const method = 'API' // Search method
       const config = `${method}-${searchParams.minDays}d-${searchParams.adType}`
       const timestamp = new Date().toLocaleString('es-ES')
       const searchName = `${searchParams.value} - ${searchParams.country} - ${config} - ${timestamp}`
-      const source = 'apify_scraping' // Always use Apify
+      const source = 'api' // Data source
       
       saveCompleteSearchMutation.mutate({
         searchName,
@@ -868,10 +910,6 @@ export function SearchPage() {
     }
   }
 
-  const getFlameEmoji = (score: number) => {
-    const flames = ['🔥', '🔥🔥', '🔥🔥🔥', '🔥🔥🔥🔥', '🔥🔥🔥🔥🔥']
-    return flames[Math.max(0, Math.min(score - 1, 4))] || ''
-  }
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A'
@@ -1164,21 +1202,7 @@ export function SearchPage() {
   const getAdData = (ad: AdData) => {
     const adData = ad as any
     
-    // Temporary debug to see the structure
-    if (adData.page_name === 'Health Insider') {
-      console.log('=== DEBUG HEALTH INSIDER ===')
-      console.log('Full ad object:', adData)
-      console.log('Has apify_data?', !!adData.apify_data)
-      console.log('Has snapshot?', !!adData.snapshot)
-      if (adData.apify_data) {
-        console.log('apify_data:', adData.apify_data)
-        console.log('original_item:', adData.apify_data.original_item)
-        if (adData.apify_data.original_item?.snapshot) {
-          console.log('original_item.snapshot.cards:', adData.apify_data.original_item.snapshot.cards?.length || 0)
-        }
-      }
-      console.log('===========================')
-    }
+   
     
     // Check if it's Apify format (has apify_data) - PRIORITY CHECK
     if (adData.apify_data && typeof adData.apify_data === 'object' && adData.apify_data !== null) {
@@ -1186,12 +1210,60 @@ export function SearchPage() {
       const originalItem = apifyData.original_item || {};
       const originalSnapshot = originalItem.snapshot || {};
       
+      // Handle different image formats
+      let processedImages = []
+      if (apifyData.images && Array.isArray(apifyData.images) && apifyData.images.length > 0) {
+        if (typeof apifyData.images[0] === 'string') {
+          // String format - convert to objects
+          processedImages = apifyData.images.map((url: string) => ({
+            original_image_url: url,
+            resized_image_url: url
+          }))
+        } else {
+          // Apify format - already objects
+          processedImages = apifyData.images
+        }
+      } else if (originalSnapshot.images && Array.isArray(originalSnapshot.images) && originalSnapshot.images.length > 0) {
+        // Fallback to original snapshot images
+        processedImages = originalSnapshot.images
+      } else if (originalSnapshot.cards && Array.isArray(originalSnapshot.cards)) {
+        // Extract images from cards (CAROUSEL format)
+        console.log('Processing cards for images:', originalSnapshot.cards.length);
+        processedImages = originalSnapshot.cards
+          .filter((card: any) => card.original_image_url || card.resized_image_url)
+          .map((card: any) => ({
+            original_image_url: card.original_image_url,
+            resized_image_url: card.resized_image_url,
+            watermarked_resized_image_url: card.watermarked_resized_image_url
+          }))
+        console.log('Processed images from cards:', processedImages.length);
+      }
+
+      // Handle videos - check both apify_data.videos and cards
+      let processedVideos = []
+      if (apifyData.videos && Array.isArray(apifyData.videos) && apifyData.videos.length > 0) {
+        processedVideos = apifyData.videos
+      } else if (originalSnapshot.videos && Array.isArray(originalSnapshot.videos) && originalSnapshot.videos.length > 0) {
+        processedVideos = originalSnapshot.videos
+      } else if (originalSnapshot.cards && Array.isArray(originalSnapshot.cards)) {
+        // Extract videos from cards (DCO format)
+        processedVideos = originalSnapshot.cards
+          .filter((card: any) => card.video_hd_url || card.video_sd_url)
+          .map((card: any) => ({
+            video_hd_url: card.video_hd_url,
+            video_sd_url: card.video_sd_url,
+            video_preview_image_url: card.video_preview_image_url,
+            watermarked_video_hd_url: card.watermarked_video_hd_url,
+            watermarked_video_sd_url: card.watermarked_video_sd_url
+          }))
+      }
+      
       const result = {
         format: 'apify',
         data: adData,
         hasRichData: true,
-        images: apifyData.images || originalSnapshot.images || [],
-        videos: apifyData.videos || originalSnapshot.videos || [],
+        images: processedImages,
+        videos: processedVideos,
         cards: originalSnapshot.cards || [],
         body: (ad.ad_creative_bodies && ad.ad_creative_bodies[0]) || originalSnapshot.body?.text || null,
         pageInfo: {
@@ -1207,6 +1279,7 @@ export function SearchPage() {
           linkUrl: apifyData.link_url || originalSnapshot.link_url
         }
       }
+
       return result
     }
     
@@ -1310,37 +1383,18 @@ export function SearchPage() {
                 value={searchParams.value}
                 onChange={(e) => setSearchParams((prev: SearchParams) => ({ ...prev, value: e.target.value }))}
                 placeholder="Ingresa palabra clave o término de búsqueda..."
-                className="form-input w-full pr-20"
+                className="form-input w-full pr-12"
               />
             <button
               type="button"
               onClick={handleSuggestions}
               disabled={suggestionsMutation.isLoading}
-              className="absolute right-12 top-1/2 -translate-y-1/2 btn-icon"
+              className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon"
               title="Generar sugerencias de IA"
             >
               <Sparkles className={`w-5 h-5 ${suggestionsMutation.isLoading ? 'animate-spin' : ''}`} />
             </button>
-            
-            <button
-              type="button"
-              onClick={() => handleScrapeAdvertiser(searchParams.value)}
-              disabled={scraperMutation.isLoading || !searchParams.value.trim()}
-              className="absolute right-3 top-1/2 -translate-y-1/2 btn-icon"
-              title="Scrapear todos los anuncios de este anunciante"
-            >
-              <Globe className={`w-5 h-5 ${scraperMutation.isLoading ? 'animate-spin' : ''}`} />
-            </button>
             </div>
-            
-            <button
-              type="button"
-              onClick={() => setShowSavedSearches(!showSavedSearches)}
-              className="btn-secondary px-4"
-              title="Cargar búsquedas guardadas"
-            >
-              <Database className="w-5 h-5" />
-            </button>
             
             <button
               type="button"
@@ -1351,15 +1405,6 @@ export function SearchPage() {
             </button>
             
             <button
-              type="button"
-              onClick={() => setDebugMode(!debugMode)}
-              className={`px-4 ${debugMode ? 'bg-yellow-500/20 border-yellow-500/50 text-yellow-300' : 'btn-secondary'}`}
-              title="Modo Debug - Muestra datos raw del scraper"
-            >
-              <Info className="w-5 h-5" />
-            </button>
-            
-            <button
               type="submit"
               disabled={searchMutation.isLoading}
               className="btn-primary px-8"
@@ -1367,11 +1412,7 @@ export function SearchPage() {
               {searchMutation.isLoading ? (
                 <div className="flex items-center gap-2">
                   <div className="loading-spinner w-5 h-5" />
-                  {searchParams.useApify ? (
-                    <span className="text-sm">💎 Apify Pro...</span>
-                  ) : (
-                    <span className="text-sm">Buscando...</span>
-                  )}
+                  <span className="text-sm">🔍 Buscando...</span>
                 </div>
               ) : (
                 <Search className="w-5 h-5" />
@@ -1437,7 +1478,7 @@ export function SearchPage() {
                         </div>
                         <div className="flex items-center gap-4 text-xs text-gray-400">
                           <div className="flex items-center gap-1">
-                            <Database className="w-3 h-3" />
+                            <Clock className="w-3 h-3" />
                             {search.totalResults} anuncios
                           </div>
                           <div className="flex items-center gap-1">
@@ -1473,9 +1514,9 @@ export function SearchPage() {
                 </div>
               ) : (
                 <div className="text-center py-8 text-gray-400">
-                  <Database className="w-12 h-12 mx-auto mb-2 opacity-50" />
+                  <Clock className="w-12 h-12 mx-auto mb-2 opacity-50" />
                   <p>No hay búsquedas guardadas</p>
-                  <p className="text-xs mt-1">Las búsquedas con Apify se guardan automáticamente</p>
+                  <p className="text-xs mt-1">Las búsquedas se guardan automáticamente</p>
                 </div>
               )}
             </div>
@@ -1627,64 +1668,13 @@ export function SearchPage() {
                 />
               </div>
 
-              {/* Ad Type */}
-              <div>
-                <label className="block text-sm font-medium text-primary-400 mb-2">
-                  Tipo de Anuncio
-                </label>
-                <select
-                  value={searchParams.adType}
-                  onChange={(e) => setSearchParams(prev => ({ ...prev, adType: e.target.value }))}
-                  className="form-select w-full"
-                >
-                  <option value="ALL">Todos los Anuncios</option>
-                  <option value="POLITICAL_AND_ISSUE_ADS">Políticos (con métricas)</option>
-                  <option value="FINANCIAL_PRODUCTS_AND_SERVICES_ADS">Financieros</option>
-                  <option value="EMPLOYMENT_ADS">Empleo</option>
-                  <option value="HOUSING_ADS">Vivienda</option>
-                </select>
-              </div>
 
-              {/* Apify Configuration */}
-              <div className="md:col-span-2 lg:col-span-3">
-                <div className="bg-blue-900/20 border border-blue-500/30 rounded-lg p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <span className="text-2xl">💎</span>
-                    <span className="text-sm font-medium text-blue-300">Apify Professional</span>
-                  </div>
-                  <p className="text-xs text-blue-200 mb-3">
-                    Sistema de búsqueda profesional con datos completos y actualizados
-                  </p>
-                </div>
-              </div>
-
-              {/* Apify Count */}
-              <div>
-                  <label className="block text-sm font-medium text-primary-400 mb-2">
-                    Máx Anuncios (Apify)
-                  </label>
-                  <input
-                    type="number"
-                    min="10"
-                    max="1000"
-                    value={searchParams.apifyCount}
-                    onChange={(e) => setSearchParams(prev => ({ ...prev, apifyCount: parseInt(e.target.value) || 100 }))}
-                    placeholder="Ej: 100"
-                    className="form-input w-full"
-                  />
-                  <div className="text-xs text-gray-400 mt-1">
-                    💡 Mínimo 10 anuncios (Apify requiere 10+) - Recomendado: 50-200
-                  </div>
-                  <div className="text-xs text-yellow-400 mt-1">
-                    ⏰ Tiempo estimado: 10-15 minutos para 100+ anuncios
-                  </div>
-              </div>
             </div>
           )}
         </form>
       </div>
 
-      {/* Apify Search Progress - Show during search regardless of results */}
+      {/* Search Progress - Show during search regardless of results */}
       {searchMutation.isLoading && (
         <div className="holographic-panel p-4 mb-6">
           <div className="flex items-center justify-between">
@@ -1693,11 +1683,11 @@ export function SearchPage() {
                 <div className="w-4 h-4 border-2 border-yellow-400/30 border-t-yellow-400 rounded-full animate-spin" />
               </div>
               <div>
-                <h3 className="text-lg font-semibold text-yellow-300">
-                  💎 Ejecutando Búsqueda Apify Pro
+                <h3 className="text-lg font-semibold text-green-300">
+                  🔍 Ejecutando Búsqueda
                 </h3>
                 <p className="text-sm text-gray-400">
-                  Procesando hasta {searchParams.apifyCount || 100} anuncios... Esto puede tomar 10-15 minutos.
+                  Procesando anuncios... Esto puede tomar unos minutos.
                 </p>
               </div>
             </div>
@@ -1778,26 +1768,16 @@ export function SearchPage() {
           {/* Results Header */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-2xl font-bold text-primary-300">
-                Se encontraron {searchResults.length} Anuncios
-              </h2>
-              <div className="flex gap-2">
-                <button className="btn-secondary">
-                  <Download className="w-4 h-4 mr-2" />
-                  Exportar
-                </button>
-                <button 
-                  onClick={handleSaveAll}
-                  disabled={bulkSaveMutation.isLoading || searchResults.length === 0}
-                  className="btn-secondary"
-                >
-                  {bulkSaveMutation.isLoading ? (
-                    <div className="loading-spinner w-4 h-4 mr-2" />
-                  ) : (
-                    <Bookmark className="w-4 h-4 mr-2" />
-                  )}
-                  Guardar Todo
-                </button>
+              <div>
+                <h2 className="text-2xl font-bold text-primary-300">
+                  Mostrando {searchResults.length} de {paginationData.totalResults > 0 ? paginationData.totalResults.toLocaleString() : 'muchos'} anuncios
+                </h2>
+                {paginationData.totalResults > searchResults.length && (
+                  <div className="flex items-center gap-2 mt-2 text-sm text-gray-400">
+                    <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                    <span>Usa "Ver más" para cargar anuncios adicionales</span>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1808,7 +1788,7 @@ export function SearchPage() {
             <div className="holographic-panel p-4 mb-6">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-yellow-300 flex items-center gap-2">
-                  <Info className="w-5 h-5" />
+                  <Clock className="w-5 h-5" />
                   Debug Mode - Raw Scraper Data
                 </h3>
                 <button
@@ -2070,11 +2050,6 @@ export function SearchPage() {
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      {ad.hotness_score > 0 && (
-                        <span className="flame-emoji" title={`Hotness: ${ad.hotness_score}/5`}>
-                          {getFlameEmoji(ad.hotness_score)}
-                        </span>
-                      )}
                       <button className="btn-icon">
                         <Bookmark className="w-4 h-4" />
                       </button>
@@ -2087,8 +2062,8 @@ export function SearchPage() {
 
                   {/* Ad Content */}
                   <div className="ad-content space-y-3">
-                    {/* Facebook API Traditional Layout */}
-                    {ad.source === 'facebook_api' ? (
+                    {/* Ad Layout */}
+                    {ad.source === 'api' ? (
                       <div className="facebook-api-layout space-y-3">
                         {/* Body Text */}
                         {ad.ad_creative_bodies && ad.ad_creative_bodies.length > 0 && (
@@ -2127,17 +2102,88 @@ export function SearchPage() {
                         )}
 
                         {/* Multimedia Content */}
-                        {(adInfo.images && adInfo.images.length > 0) && (
+                        {(() => {
+                          console.log(`[RENDER] ${ad.page_name} - adInfo.images:`, adInfo.images);
+                          console.log(`[RENDER] ${ad.page_name} - images length:`, adInfo.images?.length);
+                          return (adInfo.images && adInfo.images.length > 0);
+                        })() && (
                           <div className="facebook-multimedia">
-                            {adInfo.images[0] && (
+                            {adInfo.images.length === 1 ? (
+                              // Single image
+                              <div className="w-full h-64 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
                               <img 
                                 src={adInfo.images[0].resized_image_url || adInfo.images[0].original_image_url} 
                                 alt="Ad creative"
-                                className="w-full h-64 object-cover rounded-lg"
+                                  className="max-w-full max-h-full object-contain"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).style.display = 'none'
                                 }}
                               />
+                              </div>
+                            ) : (
+                              // Carousel for multiple images
+                              <div className="ad-media-container">
+                                <div className="flex items-center justify-between mb-2">
+                                  <div className="flex items-center gap-2 text-xs text-primary-400">
+                                    <Image className="w-3 h-3" />
+                                    <span>{adInfo.images.length} imagen(es)</span>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-xs text-gray-400">
+                                    <span>{getCarouselIndex(ad.id) + 1} de {adInfo.images.length}</span>
+                                  </div>
+                                </div>
+                                
+                                <div className="relative">
+                                  {/* Current Image */}
+                                  <div className="relative w-full h-64 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
+                                    <SmartImage
+                                      src={adInfo.images[getCarouselIndex(ad.id)]?.original_image_url || adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url}
+                                      alt={`Contenido del anuncio ${getCarouselIndex(ad.id) + 1}`}
+                                      fallbackSrc={adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url || adInfo.images[getCarouselIndex(ad.id)]?.original_image_url}
+                                      preserveAspectRatio={true}
+                                      maxHeight="max-h-64"
+                                      containerClassName="w-full h-64"
+                                      onError={(e) => {
+                                        const target = e.target as HTMLImageElement;
+                                        target.style.display = 'none';
+                                      }}
+                                    />
+                                    
+                                    {/* Navigation Arrows */}
+                                    <button
+                                      onClick={() => prevCarouselItem(ad.id, adInfo.images.length)}
+                                      className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      onClick={() => nextCarouselItem(ad.id, adInfo.images.length)}
+                                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                  
+                                  {/* Carousel Indicators */}
+                                  <div className="flex justify-center gap-1 mt-2">
+                                    {adInfo.images.map((_: any, index: number) => (
+                                      <button
+                                        key={index}
+                                        onClick={() => setCarouselIndex(ad.id, index)}
+                                        className={`w-2 h-2 rounded-full transition-colors ${
+                                          index === getCarouselIndex(ad.id)
+                                            ? 'bg-primary-500'
+                                            : 'bg-gray-600 hover:bg-gray-500'
+                                        }`}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              </div>
                             )}
                           </div>
                         )}
@@ -2234,7 +2280,7 @@ export function SearchPage() {
                         )}
                       </div>
                     ) : (
-                      /* Apify Pro Layout - Keep existing structure */
+                      /* Ad Layout - Keep existing structure */
                       <>
                     {/* Creative Bodies */}
                     {adInfo.body && (
@@ -2290,265 +2336,7 @@ export function SearchPage() {
                       </div>
                     )}
 
-                    {/* Main Ad Content - Images Carousel */}
-                    {adInfo.images && adInfo.images.length > 0 && (
-                      <div className="ad-media-container">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2 text-xs text-primary-400">
-                            <Image className="w-3 h-3" />
-                            <span>{adInfo.images.length} imagen(es)</span>
-                          </div>
-                          {adInfo.images.length > 1 && (
-                            <div className="flex items-center gap-1 text-xs text-gray-400">
-                              <span>{getCarouselIndex(ad.id) + 1} de {adInfo.images.length}</span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="relative">
-                          {/* Current Image */}
-                          <div className="relative">
-                            <SmartImage
-                              src={adInfo.images[getCarouselIndex(ad.id)]?.original_image_url || adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url}
-                              alt={`Contenido del anuncio ${getCarouselIndex(ad.id) + 1}`}
-                              fallbackSrc={adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url || adInfo.images[getCarouselIndex(ad.id)]?.original_image_url}
-                              preserveAspectRatio={true}
-                              maxHeight="max-h-96"
-                              onError={(e) => {
-                                const target = e.target as HTMLImageElement;
-                                target.style.display = 'none';
-                              }}
-                            />
-                            
-                            {/* Navigation Arrows */}
-                            {adInfo.images.length > 1 && (
-                              <>
-                                <button
-                                  onClick={() => prevCarouselItem(ad.id, adInfo.images.length)}
-                                  className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                  </svg>
-                                </button>
-                                <button
-                                  onClick={() => nextCarouselItem(ad.id, adInfo.images.length)}
-                                  className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
-                                >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                  </svg>
-                                </button>
-                              </>
-                            )}
-                          </div>
-                          
-                          {/* Carousel Indicators */}
-                          {adInfo.images.length > 1 && (
-                            <div className="flex justify-center gap-1 mt-2">
-                              {adInfo.images.map((_: any, index: number) => (
-                                <button
-                                  key={index}
-                                  onClick={() => setCarouselIndex(ad.id, index)}
-                                  className={`w-2 h-2 rounded-full transition-colors ${
-                                    index === getCarouselIndex(ad.id) 
-                                      ? 'bg-primary-500' 
-                                      : 'bg-gray-600 hover:bg-gray-500'
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Main Ad Content - Videos */}
-                    {adInfo.videos && adInfo.videos.length > 0 && (
-                      <div className="ad-media-container space-y-2">
-                        <div className="flex items-center gap-2 text-xs text-primary-400">
-                          <Video className="w-3 h-3" />
-                          <span>{adInfo.videos.length} video(s)</span>
-                        </div>
-                        <div className="space-y-2">
-                          {adInfo.videos.map((video: any, index: number) => (
-                            <SmartVideo
-                              key={index}
-                              videoHdUrl={video.video_hd_url}
-                              videoSdUrl={video.video_sd_url}
-                              previewImageUrl={video.video_preview_image_url}
-                              preserveAspectRatio={true}
-                              maxHeight="max-h-96"
-                              onError={(e) => {
-                                const target = e.target as HTMLVideoElement;
-                                target.style.display = 'none';
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Ad Cards (Carousel) - Facebook Ad Layout */}
-                    {adInfo.cards && adInfo.cards.length > 0 && (
-                      <div className="ad-media-container">
-                        <div className="flex items-center justify-between mb-2">
-                          <div className="flex items-center gap-2 text-xs text-primary-400">
-                            <Image className="w-3 h-3" />
-                            <span>Anuncios del carrusel ({adInfo.cards.length})</span>
-                            {adInfo.apifyInfo?.displayFormat && (
-                              <span className="bg-primary-500/20 px-2 py-1 rounded">
-                                {adInfo.apifyInfo.displayFormat}
-                              </span>
-                            )}
-                          </div>
-                          {adInfo.cards.length > 1 && (
-                            <div className="flex items-center gap-1 text-xs text-gray-400">
-                              <span>{getCarouselIndex(`${ad.id}_cards`) + 1} de {adInfo.cards.length}</span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        <div className="relative">
-                          {/* Current Card */}
-                          {(() => {
-                            const currentIndex = getCarouselIndex(`${ad.id}_cards`)
-                            const card = adInfo.cards[currentIndex]
-                            return (
-                              <div className="relative">
-                                <div className="bg-gray-800/30 border border-gray-700 rounded-lg overflow-hidden">
-                                  {/* Card Image */}
-                                  {card.resized_image_url && (
-                                    <div className="relative">
-                                      <SmartImage
-                                        src={card.resized_image_url}
-                                        alt={card.title || `Anuncio ${currentIndex + 1}`}
-                                        fallbackSrc={card.original_image_url || card.resized_image_url}
-                                        containerClassName="rounded-none border-none"
-                                        preserveAspectRatio={true}
-                                        maxHeight="max-h-64"
-                                        onError={(e) => {
-                                          const target = e.target as HTMLImageElement;
-                                          target.style.display = 'none';
-                                        }}
-                                      />
-                                      {/* Platform overlay */}
-                                      <div className="absolute top-2 right-2 z-10">
-                                        <div className="bg-black/70 text-white text-xs px-2 py-1 rounded flex items-center gap-1">
-                                          {getPublisherPlatformIcon('FACEBOOK')}
-                                          <span>Facebook</span>
-                                        </div>
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Card Content - Facebook Ad Style */}
-                                  <div className="p-3 space-y-2">
-                                    {/* Card Title */}
-                                    {card.title && (
-                                      <h4 className="font-semibold text-white text-sm leading-tight">
-                                        {card.title}
-                                      </h4>
-                                    )}
-                                    
-                                    {/* Card Body/Description */}
-                                    {card.body && card.body.trim() && (
-                                      <p className="text-gray-300 text-xs leading-relaxed line-clamp-2">
-                                        {card.body.length > 150 ? `${card.body.slice(0, 150)}...` : card.body}
-                                      </p>
-                                    )}
-                                    
-                                    {/* CTA Button with Destination */}
-                                    {card.cta_text && (
-                                      <div className="pt-2">
-                                        <div className="flex items-center justify-between">
-                                          <div className="flex-1">
-                                            <button className="bg-blue-600 hover:bg-blue-700 text-white text-xs px-4 py-2 rounded-lg font-medium transition-colors">
-                                              {card.cta_text}
-                                            </button>
-                                          </div>
-                                          <div className="text-xs text-gray-400 ml-3">
-                                            {card.link_url ? (
-                                              <div className="flex items-center gap-1">
-                                                <ExternalLink className="w-3 h-3" />
-                                                <span>Enlace externo</span>
-                                              </div>
-                                            ) : card.cta_type === 'MESSAGE_PAGE' ? (
-                                              <div className="flex items-center gap-1">
-                                                <MessageCircle className="w-3 h-3" />
-                                                <span>WhatsApp</span>
-                                              </div>
-                                            ) : card.cta_type === 'CONTACT_US' ? (
-                                              <div className="flex items-center gap-1">
-                                                <MessageCircle className="w-3 h-3" />
-                                                <span>Mensaje</span>
-                                              </div>
-                                            ) : (
-                                              <div className="flex items-center gap-1">
-                                                <Globe className="w-3 h-3" />
-                                                <span>Página</span>
-                                              </div>
-                                            )}
-                                          </div>
-                                        </div>
-                                      </div>
-                                    )}
-                                    
-                                    {/* Link URL if available */}
-                                    {card.link_url && (
-                                      <div className="text-xs text-blue-400 truncate">
-                                        <a href={card.link_url} target="_blank" rel="noopener noreferrer" className="hover:underline">
-                                          {card.link_url}
-                                        </a>
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                                
-                                {/* Navigation Arrows */}
-                                {adInfo.cards.length > 1 && (
-                                  <>
-                                    <button
-                                      onClick={() => prevCarouselItem(`${ad.id}_cards`, adInfo.cards.length)}
-                                      className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors z-20"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                      </svg>
-                                    </button>
-                                    <button
-                                      onClick={() => nextCarouselItem(`${ad.id}_cards`, adInfo.cards.length)}
-                                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors z-20"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                      </svg>
-                                    </button>
-                                  </>
-                                )}
-                              </div>
-                            )
-                          })()}
-                          
-                          {/* Carousel Indicators */}
-                          {adInfo.cards.length > 1 && (
-                            <div className="flex justify-center gap-1 mt-2">
-                              {adInfo.cards.map((_: any, index: number) => (
-                                <button
-                                  key={index}
-                                  onClick={() => setCarouselIndex(`${ad.id}_cards`, index)}
-                                  className={`w-2 h-2 rounded-full transition-colors ${
-                                    index === getCarouselIndex(`${ad.id}_cards`) 
-                                      ? 'bg-primary-500' 
-                                      : 'bg-gray-600 hover:bg-gray-500'
-                                  }`}
-                                />
-                              ))}
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    )}
+    
 
                     {/* Ad Info */}
                     <div className="ad-details">
@@ -2562,7 +2350,7 @@ export function SearchPage() {
                         {searchParams.country}
                       </div>
                       <div className="flex items-center gap-1">
-                        <Globe className="w-3 h-3" />
+                        <Clock className="w-3 h-3" />
                         {getLanguagesDisplay(searchParams.languages)}
                       </div>
                       {ad.collation_count > 1 && (
@@ -2582,7 +2370,7 @@ export function SearchPage() {
                     {/* Publisher Platforms */}
                     {adData.publisher_platform && adData.publisher_platform.length > 0 && (
                       <div className="flex items-center gap-2 text-xs">
-                        <Globe className="w-3 h-3 text-gray-400" />
+                        <Clock className="w-3 h-3 text-gray-400" />
                         <span className="text-gray-400">Plataformas:</span>
                         <div className="flex gap-1">
                           {adData.publisher_platform.map((platform: string, index: number) => (
@@ -2604,9 +2392,9 @@ export function SearchPage() {
                         }}
                         className="btn-secondary text-xs px-4 py-2 flex items-center gap-2"
                       >
-                        <ExternalLink className="w-3 h-3" />
+                                                <ExternalLink className="w-3 h-3" />
                         Ir al anuncio
-                      </button>
+                        </button>
                       
                       <button
                         onClick={() => openTrackingModal(ad)}
@@ -2614,30 +2402,12 @@ export function SearchPage() {
                       >
                         <Eye className="w-3 h-3" />
                         Track
-                      </button>
-                    </div>
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Source Badge */}
-                  <div className="absolute top-2 right-2">
-                    <span className={`
-                      text-xs px-2 py-1 rounded-full font-medium
-                      ${ad.source === 'apify_scraping' 
-                        ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30' 
-                        : ad.source === 'web_scraping'
-                        ? 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
-                        : 'bg-green-500/20 text-green-300 border border-green-500/30'
-                      }
-                    `}>
-                      {ad.source === 'apify_scraping' ? '💎' : ad.source === 'web_scraping' ? '🕷️' : '🚀'}
-                    </span>
-                  </div>
 
-                  {/* Hot Ad Animation */}
-                  {ad.hotness_score >= 4 && (
-                    <div className="absolute inset-0 rounded-lg hot-ad pointer-events-none" />
-                  )}
                 </div>
               )
             })}

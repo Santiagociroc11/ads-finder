@@ -3,7 +3,6 @@ import { Link, useLocation } from 'react-router-dom'
 import { 
   Search,
   Bookmark, 
-  BarChart3, 
   Database,
   History,
   Users,
@@ -50,18 +49,6 @@ const navigationItems = [
     href: '/saved-ads',
     icon: Bookmark,
     description: 'Anuncios guardados'
-  },
-  {
-    name: 'Estadísticas',
-    href: '/stats',
-    icon: BarChart3,
-    description: 'Análisis y estadísticas'
-  },
-  {
-    name: 'Páginas Seguidas',
-    href: '/pages',
-    icon: Users,
-    description: 'Páginas rastreadas'
   },
 ]
 
@@ -116,9 +103,6 @@ export function Layout({ children }: LayoutProps) {
                 <Sparkles className="inline w-6 h-6 mr-2" />
                 Ads Finder PRO
               </h1>
-              <p className="text-sm text-primary-400 font-orbitron">
-                Edición TypeScript v2.0
-              </p>
             </div>
             
             {/* Mobile close button */}
@@ -192,15 +176,6 @@ export function Layout({ children }: LayoutProps) {
                   <span>Cerrar Sesión</span>
                 </button>
 
-                {/* Tech Footer */}
-                <div className="text-xs text-gray-500 text-center pt-2 border-t border-primary-500/10">
-                  <div className="font-orbitron text-primary-400 mb-1">
-                    🚀 TypeScript v2.0
-                  </div>
-                  <div>
-                    💎 Apify • 🤖 Gemini AI
-                  </div>
-                </div>
               </div>
             )}
           </div>

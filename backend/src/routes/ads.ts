@@ -33,6 +33,8 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
 
   console.log(`[SEARCH] 🔍 Starting search: "${searchParams.value}" (${searchParams.searchType})`);
   
+  const searchStartTime = Date.now();
+  
   try {
     // Always use Apify for ads search
     let searchResult: SearchResponse;
@@ -174,9 +176,18 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
                 results: {
                   totalAds: searchResult.data.length,
                   totalPages: searchResult.totalPages || 1,
-                  source: searchResult.source || 'apify_scraping',
-                  executionTime: Date.now() - Date.now(), // Will be updated with actual time
-                  cached: searchResult.message?.includes('cached') || false
+                  source: searchResult.source || 'api',
+                  executionTime: Date.now() - searchStartTime,
+                  cached: searchResult.message?.includes('cached') || false,
+                  // Cache data for instant loading
+                  adsData: searchResult.data, // Store the actual ads data
+                  paginationData: {
+                    currentPage: 1,
+                    hasNextPage: searchResult.pagination?.hasNextPage || false,
+                    totalResults: searchResult.pagination?.totalResults || searchResult.data.length,
+                    cursor: searchResult.cursor
+                  },
+                  advertiserStats: {} // Will be populated by frontend
                 },
                 ipAddress: req.ip,
                 userAgent: req.get('User-Agent'),
@@ -401,5 +412,73 @@ router.post('/test-debug', asyncHandler(async (req, res) => {
 // LEGACY PLAYWRIGHT TESTING ROUTES REMOVED
 // Now using HTTP-based balancedScraperService instead
 
+
+// GET /api/ads/load-from-history/:id - Load search from history with cache
+router.get('/load-from-history/:id', authenticateToken, asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('Usuario no autenticado', 401);
+  }
+
+  console.log(`[HISTORY] 🔄 Loading search from history: ${id} for user: ${userId}`);
+  
+  try {
+    // Find the search in history
+    const searchHistory = await SearchHistory.findOne({ 
+      _id: id, 
+      userId 
+    });
+    
+    if (!searchHistory) {
+      throw new CustomError('Búsqueda no encontrada en el historial', 404);
+    }
+
+    // Check if cache is still valid (24 hours TTL)
+    const cacheAge = Date.now() - searchHistory.searchDate.getTime();
+    const cacheTTL = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
+    
+    if (cacheAge > cacheTTL) {
+      console.log(`[HISTORY] ⚠️ Cache expired for search ${id}, age: ${Math.round(cacheAge / 1000 / 60)} minutes`);
+      throw new CustomError('La caché de esta búsqueda ha expirado. Por favor, ejecuta una nueva búsqueda.', 410);
+    }
+
+    // Check if we have cached data
+    if (!searchHistory.results.adsData || searchHistory.results.adsData.length === 0) {
+      console.log(`[HISTORY] ⚠️ No cached data for search ${id}`);
+      throw new CustomError('No hay datos en caché para esta búsqueda', 404);
+    }
+
+    console.log(`[HISTORY] ✅ Loading cached search: ${searchHistory.results.adsData.length} ads from ${searchHistory.searchDate.toISOString()}`);
+    
+    // Return the cached search data
+    res.json({
+      success: true,
+      data: searchHistory.results.adsData,
+      totalFound: searchHistory.results.totalAds,
+      totalPages: searchHistory.results.totalPages,
+      source: searchHistory.results.source,
+      executionTime: searchHistory.results.executionTime,
+      message: `Cargado desde historial (${searchHistory.results.adsData.length} anuncios)`,
+      // Pagination data
+      pagination: searchHistory.results.paginationData,
+      cursor: searchHistory.results.paginationData?.cursor,
+      // Metadata
+      searchDate: searchHistory.searchDate,
+      cached: true,
+      fromHistory: true
+    });
+    
+  } catch (error: any) {
+    console.error(`[HISTORY] ❌ Error loading search from history:`, error);
+    
+    if (error instanceof CustomError) {
+      throw error;
+    }
+    
+    throw new CustomError('Error al cargar la búsqueda del historial', 500);
+  }
+}));
 
 export default router;
