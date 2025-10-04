@@ -40,14 +40,15 @@ router.get('/', authenticateToken, asyncHandler(async (req, res) => {
   const limitNum = parseInt(limit as string);
   const skip = (pageNum - 1) * limitNum;
 
-  // Get search history with pagination
+  // Get search history with pagination and timeout
   const [history, totalCount] = await Promise.all([
     SearchHistory.find(filter)
       .sort({ searchDate: -1 })
       .skip(skip)
       .limit(limitNum)
-      .lean(),
-    SearchHistory.countDocuments(filter)
+      .lean()
+      .maxTimeMS(5000), // 5 second timeout
+    SearchHistory.countDocuments(filter).maxTimeMS(3000) // 3 second timeout for count
   ]);
 
   // Calculate pagination info
@@ -81,7 +82,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req, res) => {
   const startDate = new Date();
   startDate.setDate(startDate.getDate() - days);
 
-  // Get aggregated statistics
+  // Get aggregated statistics with timeout
   const stats = await SearchHistory.aggregate([
     {
       $match: {
@@ -107,7 +108,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req, res) => {
         }
       }
     }
-  ]);
+  ]).option({ maxTimeMS: 10000 }); // 10 second timeout
 
   // Get most popular search terms
   const popularTerms = await SearchHistory.aggregate([
@@ -130,7 +131,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req, res) => {
     {
       $limit: 10
     }
-  ]);
+  ]).option({ maxTimeMS: 8000 }); // 8 second timeout
 
   // Get most searched countries
   const popularCountries = await SearchHistory.aggregate([
@@ -153,7 +154,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req, res) => {
     {
       $limit: 10
     }
-  ]);
+  ]).option({ maxTimeMS: 8000 }); // 8 second timeout
 
   // Get daily search activity
   const dailyActivity = await SearchHistory.aggregate([
@@ -180,7 +181,7 @@ router.get('/stats', authenticateToken, asyncHandler(async (req, res) => {
     {
       $limit: 30
     }
-  ]);
+  ]).option({ maxTimeMS: 8000 }); // 8 second timeout
 
   const result = stats[0] || {
     totalSearches: 0,

@@ -380,14 +380,18 @@ export const searchHistoryApi = {
     dateFrom?: string
     dateTo?: string
   }): Promise<any> => {
-    const response = await api.get('/search-history', { params })
+    const response = await api.get('/search-history', { 
+      params,
+      timeout: 15000 // 15 second timeout
+    })
     return response.data
   },
 
   // Get search statistics
   getStats: async (period?: string): Promise<any> => {
     const response = await api.get('/search-history/stats', { 
-      params: period ? { period } : {} 
+      params: period ? { period } : {},
+      timeout: 20000 // 20 second timeout
     })
     return response.data
   },

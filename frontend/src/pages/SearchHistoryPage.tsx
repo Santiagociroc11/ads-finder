@@ -36,14 +36,22 @@ export function SearchHistoryPage() {
       limit: 20,
       ...filters
     }),
-    keepPreviousData: true
+    keepPreviousData: true,
+    staleTime: 30000, // 30 seconds
+    cacheTime: 60000, // 1 minute
+    retry: 2,
+    retryDelay: 1000
   });
 
   // Fetch statistics
   const { data: statsData } = useQuery({
     queryKey: ['searchHistoryStats'],
     queryFn: () => searchHistoryApi.getStats('30'),
-    enabled: showStats
+    enabled: showStats,
+    staleTime: 60000, // 1 minute
+    cacheTime: 300000, // 5 minutes
+    retry: 1,
+    retryDelay: 2000
   });
 
   // Note: History deletion is disabled for audit and limit control purposes
