@@ -6,6 +6,7 @@ import { Toaster } from 'react-hot-toast'
 
 import App from './App.tsx'
 import { AuthProvider } from './contexts/AuthContext'
+import { SearchProvider } from './contexts/SearchContext'
 import './index.css'
 
 // Create a client
@@ -28,7 +29,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <App />
+          <SearchProvider>
+            <App />
+          </SearchProvider>
         </AuthProvider>
         <Toaster
           position="top-right"

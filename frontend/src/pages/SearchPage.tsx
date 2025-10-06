@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from 'react-query'
 import { toast } from 'react-hot-toast'
+import { useSearch } from '../contexts/SearchContext'
 import { 
   Search, 
   Sparkles, 
@@ -232,65 +233,73 @@ const SmartVideo = ({
 
 export function SearchPage() {
   const queryClient = useQueryClient()
-  const [searchParams, setSearchParams] = useState<SearchParams>({
-    searchType: 'keyword',
-    value: '',
-    country: 'ALL',
-    minDays: 1,
-    adType: 'ALL',
-    mediaType: 'ALL',
-    searchPhraseType: 'unordered',
-    // Only one search method available
-    languages: ['es'] // Default to Spanish
-  })
-
-  const [searchResults, setSearchResults] = useState<AdData[]>([])
-  const [allCachedResults, setAllCachedResults] = useState<AdData[]>([]) // Store all cached results for global sorting
-  const [nextCursor, setNextCursor] = useState<string | undefined>(undefined) // Cursor for next page
-  const [paginationData, setPaginationData] = useState<{
-    currentPage: number;
-    hasNextPage: boolean;
-    totalResults: number;
-    isLoadingMore: boolean;
-    displayedCount: number; // How many results are currently displayed
-  }>({
-    currentPage: 1,
-    hasNextPage: false,
-    totalResults: 0,
-    isLoadingMore: false,
-    displayedCount: 20 // Start with 20 results
-  })
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState(false)
-  const [showSavedSearches, setShowSavedSearches] = useState(false)
-  const [expandedTexts, setExpandedTexts] = useState<Set<string>>(new Set())
-  const [advertiserStats, setAdvertiserStats] = useState<Map<string, { totalActiveAds: number; loading: boolean }>>(new Map())
-  const [debugMode, setDebugMode] = useState(false)
-  const [debugData, setDebugData] = useState<any>(null)
-  const [carouselIndices, setCarouselIndices] = useState<Record<string, number>>({})
-  const [trackingModal, setTrackingModal] = useState<{
-    isOpen: boolean;
-    ad: AdData | null;
-    activeAdsCount: number;
-  }>({
-    isOpen: false,
-    ad: null,
-    activeAdsCount: 0
-  })
-  const [sortConfig, setSortConfig] = useState<{
-    primary: { field: string; direction: 'asc' | 'desc' } | null
-    secondary: { field: string; direction: 'asc' | 'desc' } | null
-    tertiary: { field: string; direction: 'asc' | 'desc' } | null
-  }>({
-    primary: null,
-    secondary: null,
-    tertiary: null
-  })
-  const [searchStartTime, setSearchStartTime] = useState<number | null>(null)
-  const [elapsedTime, setElapsedTime] = useState<string>('')
-
-  // Queue for processing advertiser stats sequentially
-  const [statsQueue, setStatsQueue] = useState<string[]>([])
-  const [isProcessingStats, setIsProcessingStats] = useState(false)
+  
+  // Use search context instead of local state
+  const {
+    // Search parameters
+    searchParams,
+    setSearchParams,
+    
+    // Search results
+    searchResults,
+    setSearchResults,
+    allCachedResults,
+    setAllCachedResults,
+    nextCursor,
+    setNextCursor,
+    
+    // Pagination
+    paginationData,
+    setPaginationData,
+    
+    // Sorting
+    sortConfig,
+    setSortConfig,
+    
+    // UI state
+    isAdvancedOpen,
+    setIsAdvancedOpen,
+    showSavedSearches,
+    setShowSavedSearches,
+    expandedTexts,
+    setExpandedTexts,
+    carouselIndices,
+    setCarouselIndices,
+    
+    // Search timing
+    searchStartTime,
+    setSearchStartTime,
+    elapsedTime,
+    setElapsedTime,
+    
+    // Stats and processing
+    advertiserStats,
+    setAdvertiserStats,
+    statsQueue,
+    setStatsQueue,
+    isProcessingStats,
+    setIsProcessingStats,
+    processedPageIds,
+    setProcessedPageIds,
+    totalStatsToLoad,
+    setTotalStatsToLoad,
+    statsLoaded,
+    setStatsLoaded,
+    
+    // Debug mode
+    debugMode,
+    setDebugMode,
+    debugData,
+    setDebugData,
+    
+    // Tracking modal
+    trackingModal,
+    setTrackingModal,
+    
+    // Utility functions
+    clearSearchState,
+    hasActiveSearch
+  } = useSearch()
 
   // Function to generate correct Facebook Ads Library URL with search country
   const generateAdLibraryUrl = (adId: string, country: string) => {
@@ -348,9 +357,6 @@ export function SearchPage() {
     queryClient.invalidateQueries('tracked-advertisers-stats');
   };
 
-  const [processedPageIds, setProcessedPageIds] = useState<Set<string>>(new Set())
-  const [totalStatsToLoad, setTotalStatsToLoad] = useState(0)
-  const [statsLoaded, setStatsLoaded] = useState(0)
 
   // Process stats queue one by one
   useEffect(() => {
@@ -540,16 +546,7 @@ export function SearchPage() {
     {
       onSuccess: (data) => {
         // Clear previous results before loading saved search
-        setSearchResults([])
-        setExpandedTexts(new Set())
-        setCarouselIndices({})
-        setDebugData(null)
-        setSortConfig({ primary: null, secondary: null, tertiary: null })
-        
-        // Clear stats queue and reset processing state
-        setStatsQueue([])
-        setIsProcessingStats(false)
-        setAdvertiserStats(new Map())
+        clearSearchState()
         
         setSearchResults(data.results)
         setSearchParams(data.searchParams)
@@ -700,28 +697,13 @@ export function SearchPage() {
         })
     }, 0) // Execute after current call stack
 
-    // Immediately clear previous results and start new search
-    setSearchResults([])
-    setExpandedTexts(new Set())
-    setCarouselIndices({})
-    setDebugData(null)
-    setSortConfig({ primary: null, secondary: null, tertiary: null })
+    // Clear search state and start new search
+    clearSearchState()
     setSearchStartTime(Date.now())
     setElapsedTime('')
     
-    // Clear stats queue and reset processing state
-    setStatsQueue([])
-    setIsProcessingStats(false)
-    setAdvertiserStats(new Map())
-    
     // Hide advanced filters after search
     setIsAdvancedOpen(false)
-
-    // Reset advertiser stats loading state
-    setAdvertiserStats(new Map())
-    setProcessedPageIds(new Set()) // Reset para nueva búsqueda
-    setTotalStatsToLoad(0)
-    setStatsLoaded(0)
 
     searchMutation.mutate({
       ...searchParams,
@@ -838,16 +820,7 @@ export function SearchPage() {
     }
     
     // Clear previous results before starting new scraping
-    setSearchResults([])
-    setExpandedTexts(new Set())
-    setCarouselIndices({})
-    setDebugData(null)
-    setSortConfig({ primary: null, secondary: null, tertiary: null })
-    
-    // Clear stats queue and reset processing state
-    setStatsQueue([])
-    setIsProcessingStats(false)
-    setAdvertiserStats(new Map())
+    clearSearchState()
     
     // Hide advanced filters after search
     setIsAdvancedOpen(false)
