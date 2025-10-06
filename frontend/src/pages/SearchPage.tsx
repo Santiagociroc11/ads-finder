@@ -1907,7 +1907,27 @@ export function SearchPage() {
               
               
               return (
-                <div key={ad.id} className="ad-card">
+                <div key={ad.id} className={`ad-card ${ad.collation_count > 1 ? 'ad-card-duplicate' : ''}`}>
+                  {/* Shimmer effect for duplicate cards */}
+                  {ad.collation_count > 1 && <div className="duplicate-shimmer" />}
+                  
+                  {/* Duplicate Indicator - Top Level */}
+                  {ad.collation_count > 1 && (
+                    <div className="flex justify-center mb-3">
+                      <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/40 rounded-full px-4 py-2">
+                        <MessageCircle className="w-4 h-4 text-orange-400" />
+                        <span className="text-sm font-bold text-orange-300">
+                          {ad.collation_count} {ad.collation_count > 1 ? 'veces' : 'vez'} duplicado
+                        </span>
+                        {ad.collation_count > 5 && (
+                          <span className="text-xs bg-red-500/30 text-red-200 px-2 py-1 rounded-full border border-red-500/50">
+                            🔥 ALTA FRECUENCIA
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                  
                   {/* Ad Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-start gap-3">
@@ -1934,6 +1954,16 @@ export function SearchPage() {
                         
                         {/* Advertiser Stats - Below advertiser name */}
                         <div className="mb-2 space-y-1">
+                          {/* Days Running - Prominently displayed */}
+                          <div>
+                            <div className="text-xs text-gray-400 mb-1">Días ejecutándose</div>
+                            <span className="text-sm font-bold text-blue-300 bg-blue-500/10 px-2 py-1 rounded border border-blue-500/30 whitespace-nowrap">
+                              <Calendar className="w-4 h-4 inline mr-1" />
+                              {ad.days_running} día{ad.days_running > 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          
+                          
                           {/* Total Active Ads */}
                           {(() => {
                             const stats = advertiserStats.get(ad.page_id)
@@ -1994,10 +2024,6 @@ export function SearchPage() {
                               {formatNumber(adInfo.pageInfo.likeCount)}
                             </div>
                           )}
-                        </div>
-                        <div className="text-sm font-bold text-primary-400 flex items-center gap-1 mt-1">
-                          <Calendar className="w-4 h-4" />
-                          {ad.days_running} días ejecutándose
                         </div>
                       </div>
                     </div>
@@ -2281,22 +2307,6 @@ export function SearchPage() {
                       </>
                     )}
 
-                    {/* Collation Count Badge - Near images to show duplicates */}
-                    {ad.collation_count > 1 && (
-                      <div className="flex justify-start mb-2">
-                        <div className="inline-flex items-center gap-2 bg-gradient-to-r from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-full px-3 py-1.5">
-                          <MessageCircle className="w-3 h-3 text-orange-400" />
-                          <span className="text-xs font-medium text-orange-300">
-                            {ad.collation_count} variante{ad.collation_count > 1 ? 's' : ''} de este mismo anuncio
-                          </span>
-                          {ad.collation_count > 5 && (
-                            <span className="text-xs bg-red-500/20 text-red-300 px-1.5 py-0.5 rounded-full border border-red-500/30">
-                              🔄
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    )}
 
     
 
@@ -2315,12 +2325,6 @@ export function SearchPage() {
                         <Clock className="w-3 h-3" />
                         {getLanguagesDisplay(searchParams.languages)}
                       </div>
-                      {ad.collation_count > 1 && (
-                        <div className="flex items-center gap-1">
-                          <Users className="w-3 h-3" />
-                          {ad.collation_count} variantes
-                        </div>
-                      )}
                       {adInfo.apifyInfo?.ctaText && (
                         <div className="flex items-center gap-1">
                           <MessageCircle className="w-3 h-3" />
