@@ -1,8 +1,8 @@
 import { Router } from 'express';
-import { authenticateToken } from '../middleware/auth.js';
-import { asyncHandler } from '../middleware/errorHandler.js';
-import { blockingMonitorService } from '../services/blockingMonitorService.js';
-import { antiDetectionService } from '../services/antiDetectionService.js';
+import { authenticateToken } from '@/middleware/authMiddleware.js';
+import { asyncHandler } from '@/middleware/errorHandler.js';
+import { blockingMonitorService } from '@/services/blockingMonitorService.js';
+import { antiDetectionService } from '@/services/antiDetectionService.js';
 
 const router = Router();
 
