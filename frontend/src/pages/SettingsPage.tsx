@@ -21,7 +21,7 @@ export const SettingsPage: React.FC = () => {
     const loadSettings = async () => {
       setIsLoading(true);
       try {
-        const token = localStorage.getItem('token');
+        const token = localStorage.getItem('ads_finder_token');
         if (!token) {
           throw new Error('No authentication token found');
         }
