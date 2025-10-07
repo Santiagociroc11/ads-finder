@@ -34,6 +34,7 @@ import httpDiagnosticRoutes from '@/routes/http-diagnostic.js';
 import searchHistoryRoutes from '@/routes/searchHistory.js';
 import trackedAdvertisersRoutes from '@/routes/trackedAdvertisers.js';
 import userSettingsRoutes from '@/routes/userSettings.js';
+import { telegramBotService } from '@/services/telegramBotService.js';
 import { monitor } from '@/middleware/concurrencyMonitor.js';
 
 // Verify critical environment variables
@@ -42,6 +43,9 @@ if (!process.env.FACEBOOK_ACCESS_TOKEN) {
 }
 if (!process.env.MONGO_URL) {
   console.warn('⚠️  MONGO_URL not found - using default: mongodb://localhost:27017');
+}
+if (!process.env.TELEGRAM_BOT_TOKEN) {
+  console.warn('⚠️  TELEGRAM_BOT_TOKEN not found - Telegram notifications will be disabled');
 }
 
 const __filename = fileURLToPath(import.meta.url);
@@ -154,6 +158,12 @@ async function startServer(): Promise<void> {
       if (process.env.NODE_ENV !== 'production') {
         console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
       }
+
+      // Start Telegram bot
+      if (process.env.TELEGRAM_BOT_TOKEN) {
+        telegramBotService.start();
+        console.log('🤖 Telegram bot started successfully');
+      }
     });
 
   } catch (error) {
@@ -165,11 +175,25 @@ async function startServer(): Promise<void> {
 // Graceful shutdown
 process.on('SIGINT', () => {
   console.log('\n⏹️  Received SIGINT. Graceful shutdown...');
+  
+  // Stop Telegram bot
+  if (telegramBotService.isRunning()) {
+    telegramBotService.stop();
+    console.log('🤖 Telegram bot stopped');
+  }
+  
   process.exit(0);
 });
 
 process.on('SIGTERM', () => {
   console.log('⏹️  Received SIGTERM. Graceful shutdown...');
+  
+  // Stop Telegram bot
+  if (telegramBotService.isRunning()) {
+    telegramBotService.stop();
+    console.log('🤖 Telegram bot stopped');
+  }
+  
   process.exit(0);
 });
 

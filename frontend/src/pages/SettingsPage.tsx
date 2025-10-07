@@ -14,6 +14,7 @@ export const SettingsPage: React.FC = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
 
   // Load user settings on component mount
   useEffect(() => {
@@ -108,6 +109,40 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
+  const handleTestNotification = async () => {
+    setIsTesting(true);
+    try {
+      const token = localStorage.getItem('token');
+      if (!token) {
+        throw new Error('No authentication token found');
+      }
+
+      const response = await fetch('/api/user/settings/test-notification', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to send test notification');
+      }
+
+      const data = await response.json();
+      if (data.success) {
+        toast.success('¡Notificación de prueba enviada! Revisa tu Telegram.');
+      } else {
+        throw new Error(data.message || 'Error al enviar notificación de prueba');
+      }
+    } catch (error) {
+      console.error('Error sending test notification:', error);
+      toast.error('Error al enviar notificación de prueba');
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-dark-950 flex items-center justify-center">
@@ -167,16 +202,36 @@ export const SettingsPage: React.FC = () => {
                     className="w-full px-4 py-3 bg-dark-800 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
                   <p className="text-xs text-gray-500 mt-2">
-                    Para obtener tu ID de Telegram, envía un mensaje al bot @userinfobot
+                    Para obtener tu ID de Telegram, envía el comando /id al bot de Ads Finder Pro
                   </p>
                 </div>
 
                 {settings.telegramId && (
-                  <div className="flex items-center space-x-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
-                    <CheckCircle className="w-5 h-5 text-green-500" />
-                    <span className="text-green-400 text-sm">
-                      Las notificaciones de Telegram están habilitadas
-                    </span>
+                  <div className="space-y-3">
+                    <div className="flex items-center space-x-2 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                      <CheckCircle className="w-5 h-5 text-green-500" />
+                      <span className="text-green-400 text-sm">
+                        Las notificaciones de Telegram están habilitadas
+                      </span>
+                    </div>
+                    
+                    <button
+                      onClick={handleTestNotification}
+                      disabled={isTesting}
+                      className="flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      {isTesting ? (
+                        <>
+                          <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Enviando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <span>📱</span>
+                          <span>Enviar Notificación de Prueba</span>
+                        </>
+                      )}
+                    </button>
                   </div>
                 )}
 

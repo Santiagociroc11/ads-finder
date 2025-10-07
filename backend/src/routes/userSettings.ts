@@ -4,6 +4,7 @@ import { collections } from '@/services/database.js';
 import { AuthService } from '@/services/authService.js';
 import { logger } from '@/middleware/logger.js';
 import { authenticateToken } from '@/middleware/authMiddleware.js';
+import { telegramBotService } from '@/services/telegramBotService.js';
 
 const router = Router();
 
@@ -143,6 +144,88 @@ router.get('/settings', authenticateToken, async (req: Request, res: Response) =
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor'
+    });
+  }
+});
+
+// Send test notification to user's Telegram
+router.post('/settings/test-notification', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado'
+      });
+    }
+
+    if (!collections.users) {
+      return res.status(500).json({
+        success: false,
+        message: 'Base de datos no disponible'
+      });
+    }
+
+    // Get user data
+    const user = await collections.users.findOne(
+      { _id: new (await import('mongodb')).ObjectId(userId) },
+      { projection: { password: 0 } }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'Usuario no encontrado'
+      });
+    }
+
+    if (!user.telegramId) {
+      return res.status(400).json({
+        success: false,
+        message: 'No tienes configurado un ID de Telegram'
+      });
+    }
+
+    if (!telegramBotService.isRunning()) {
+      return res.status(503).json({
+        success: false,
+        message: 'El bot de Telegram no está disponible'
+      });
+    }
+
+    // Send test message
+    const testMessage = `
+🧪 *Notificación de Prueba*
+
+¡Hola ${user.name}! 👋
+
+Esta es una notificación de prueba de *Ads Finder Pro*.
+
+✅ Tu configuración de notificaciones está funcionando correctamente.
+
+Ahora recibirás notificaciones cuando:
+• Se encuentren nuevos anuncios de anunciantes que sigues
+• Haya actualizaciones importantes en tus búsquedas guardadas
+• Se generen alertas del sistema
+
+¡Gracias por usar Ads Finder Pro! 🚀
+    `.trim();
+
+    await telegramBotService.sendMessage(user.telegramId, testMessage);
+
+    logger.info(`Test notification sent to user ${userId} (${user.telegramId})`);
+
+    res.json({
+      success: true,
+      message: 'Notificación de prueba enviada exitosamente'
+    });
+
+  } catch (error) {
+    logger.error('Error sending test notification:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al enviar la notificación de prueba'
     });
   }
 });
