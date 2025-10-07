@@ -349,7 +349,7 @@ export class ScrapeCreatorsService {
     ads: AdData[];
   }> {
     try {
-      console.log(`[SCRAPECREATORS] 📊 Getting stats for pageId: ${pageId}`);
+      console.log(`[SCRAPECREATORS] 📊 Getting stats for pageId: ${pageId}, country: ${country || 'ALL'}`);
       
       const companyAdsUrl = `${this.apiUrl.replace('/search/ads', '/company/ads')}`;
       
@@ -359,6 +359,7 @@ export class ScrapeCreatorsService {
         },
         params: {
           pageId: pageId,
+          country: country?.toUpperCase() || 'ALL',
           status: 'ACTIVE',
           media_type: 'ALL'
         },

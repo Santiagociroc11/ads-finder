@@ -315,6 +315,20 @@ export class BalancedScraperService {
   }
 
   /**
+   * Validate if a count is realistic for ads
+   */
+  private isValidAdsCount(count: number): boolean {
+    // Exclude common false positives
+    const falsePositives = [3578, 2024, 2025, 2023, 1, 0];
+    if (falsePositives.includes(count)) return false;
+    
+    // Reasonable range for ads count
+    if (count < 0 || count > 1000) return false;
+    
+    return true;
+  }
+
+  /**
    * Alternative extraction methods when direct patterns fail
    */
   private extractAlternativeAdsCount(html: string): number | null {
@@ -326,21 +340,24 @@ export class BalancedScraperService {
       const totalCountMatch = html.match(totalCountPattern);
       if (totalCountMatch) {
         const count = parseInt(totalCountMatch[1], 10);
-        console.log(`🎯 Alternative extraction found count: ${count} via totalCount pattern`);
-        return count;
+        if (this.isValidAdsCount(count)) {
+          console.log(`🎯 Alternative extraction found count: ${count} via totalCount pattern`);
+          return count;
+        }
       }
       
-      // Pattern 2: Look for "count" in various contexts
+      // Pattern 2: Look for "count" in various contexts (but exclude false positives)
       const countPattern = /"count":\s*(\d+)/i;
       const countMatches = html.match(new RegExp(countPattern.source, 'gi'));
       if (countMatches && countMatches.length > 0) {
-        // Get the largest count found
+        // Get counts and filter out false positives
         const counts = countMatches.map(match => {
           const countMatch = match.match(/(\d+)/);
           return countMatch ? parseInt(countMatch[1], 10) : 0;
-        });
-        const maxCount = Math.max(...counts);
-        if (maxCount > 0) {
+        }).filter(count => this.isValidAdsCount(count));
+        
+        if (counts.length > 0) {
+          const maxCount = Math.max(...counts);
           console.log(`🎯 Alternative extraction found count: ${maxCount} via count pattern`);
           return maxCount;
         }
@@ -351,16 +368,29 @@ export class BalancedScraperService {
       const resultsMatch = html.match(resultsPattern);
       if (resultsMatch) {
         const count = parseInt(resultsMatch[1], 10);
-        console.log(`🎯 Alternative extraction found count: ${count} via results pattern`);
-        return count;
+        if (this.isValidAdsCount(count)) {
+          console.log(`🎯 Alternative extraction found count: ${count} via results pattern`);
+          return count;
+        }
       }
       
-      // Pattern 4: Look for numbers near "active" or "running"
+      // Pattern 3.5: Look for count in ad-related contexts specifically
+      const adCountPattern = /(?:ad_library|search_results|advertiser)[^}]*"count":\s*(\d+)/i;
+      const adCountMatch = html.match(adCountPattern);
+      if (adCountMatch) {
+        const count = parseInt(adCountMatch[1], 10);
+        if (this.isValidAdsCount(count)) {
+          console.log(`🎯 Alternative extraction found count: ${count} via ad-specific pattern`);
+          return count;
+        }
+      }
+      
+      // Pattern 4: Look for numbers near "active" or "running" (but exclude common false positives)
       const activePattern = /(?:active|running)[^0-9]*(\d+)/i;
       const activeMatch = html.match(activePattern);
       if (activeMatch) {
         const count = parseInt(activeMatch[1], 10);
-        if (count > 0 && count < 10000) { // Reasonable range
+        if (this.isValidAdsCount(count)) {
           console.log(`🎯 Alternative extraction found count: ${count} via active pattern`);
           return count;
         }
@@ -376,42 +406,11 @@ export class BalancedScraperService {
 
   /**
    * Fallback to ScrapeCreators API when all extraction methods fail
+   * DISABLED: ScrapeCreators requests are better used for page search (30 ads) than stats (1 count)
    */
   private async tryScrapeCreatorsFallback(pageId: string, country: string): Promise<AdvertiserStatsResult | null> {
-    try {
-      console.log(`🔄 Trying ScrapeCreators fallback for pageId: ${pageId}`);
-      
-      // Check if ScrapeCreators is available
-      const { scrapeCreatorsService } = await import('./scrapeCreatorsService.js');
-      if (!scrapeCreatorsService.isConfigured()) {
-        console.log(`⚠️ ScrapeCreators not configured, skipping fallback`);
-        return null;
-      }
-      
-      const result = await scrapeCreatorsService.getAdvertiserStats(pageId, country);
-      
-      if (result.totalActiveAds > 0) {
-        console.log(`✅ ScrapeCreators fallback successful: ${result.totalActiveAds} ads`);
-        
-        const stats: AdvertiserStats = {
-          pageId,
-          advertiserName: 'Unknown',
-          totalActiveAds: result.totalActiveAds,
-          lastUpdated: new Date().toISOString()
-        } as AdvertiserStats & { source: string };
-        
-        return {
-          success: true,
-          stats,
-          executionTime: 0
-        };
-      }
-      
-      return null;
-    } catch (error) {
-      console.error(`❌ ScrapeCreators fallback failed:`, error);
-      return null;
-    }
+    console.log(`⚠️ ScrapeCreators fallback disabled - requests better used for page search`);
+    return null;
   }
 
   /**
@@ -449,6 +448,13 @@ export class BalancedScraperService {
       const adsMatches = html.match(adsPattern);
       if (adsMatches && adsMatches.length > 0) {
         console.log(`🔍 DEBUG - Numbers near ads/active:`, adsMatches.slice(0, 5));
+      }
+      
+      // Look specifically for the problematic 3578 pattern
+      const problemPattern = /(?:active|running)[^0-9]*3578/gi;
+      const problemMatches = html.match(problemPattern);
+      if (problemMatches && problemMatches.length > 0) {
+        console.log(`🔍 DEBUG - Found problematic 3578 pattern:`, problemMatches.slice(0, 3));
       }
       
       console.log(`🔍 DEBUG - HTML length: ${html.length} characters`);
