@@ -5,6 +5,7 @@ import {
   Bookmark, 
   History,
   Users,
+  Settings,
   Sparkles,
   Menu,
   X
@@ -42,6 +43,12 @@ const navigationItems = [
     href: '/saved-ads',
     icon: Bookmark,
     description: 'Anuncios guardados'
+  },
+  {
+    name: 'Configuración',
+    href: '/settings',
+    icon: Settings,
+    description: 'Configurar notificaciones'
   },
 ]
 

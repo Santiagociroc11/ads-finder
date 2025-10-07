@@ -10,6 +10,7 @@ interface AuthContextType {
   register: (userData: RegisterRequest) => Promise<{ success: boolean; message?: string }>;
   logout: () => void;
   refreshUser: () => Promise<void>;
+  updateUser: (userData: User) => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -226,6 +227,17 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const updateUser = (userData: User): void => {
+    setUser(userData);
+    // Update stored user data
+    try {
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+      console.log('✅ User data updated successfully');
+    } catch (error) {
+      console.error('Failed to update stored user data:', error);
+    }
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -233,7 +245,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     register,
     logout,
-    refreshUser
+    refreshUser,
+    updateUser
   };
 
   return (

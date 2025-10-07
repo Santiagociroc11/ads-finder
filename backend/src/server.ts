@@ -33,6 +33,7 @@ import scraperComparisonRoutes from '@/routes/scraper-comparison.js';
 import httpDiagnosticRoutes from '@/routes/http-diagnostic.js';
 import searchHistoryRoutes from '@/routes/searchHistory.js';
 import trackedAdvertisersRoutes from '@/routes/trackedAdvertisers.js';
+import userSettingsRoutes from '@/routes/userSettings.js';
 import { monitor } from '@/middleware/concurrencyMonitor.js';
 
 // Verify critical environment variables
@@ -82,6 +83,7 @@ app.use('/api/scraper-comparison', scraperComparisonRoutes);
 app.use('/api/http-diagnostic', httpDiagnosticRoutes);
 app.use('/api/search-history', searchHistoryRoutes);
 app.use('/api/tracked-advertisers', trackedAdvertisersRoutes);
+app.use('/api/user', userSettingsRoutes);
 
 // Health check endpoint with monitoring data
 app.get('/api/health', async (req, res) => {

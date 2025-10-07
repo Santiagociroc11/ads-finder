@@ -271,6 +271,7 @@ export interface User {
   email: string;
   name: string;
   role: 'admin' | 'user';
+  telegramId?: string;
   createdAt: string;
   updatedAt: string;
 }

@@ -253,6 +253,7 @@ MONGO_URL=mongodb://localhost:27017       # MongoDB connection string
 # ===== OPTIONAL =====
 APIFY_API_TOKEN=your_apify_token          # For 💎 Apify Pro scraping
 GEMINI_API_KEY=your_gemini_key            # For 🤖 AI suggestions
+TELEGRAM_BOT_TOKEN=your_bot_token         # For 📱 Telegram notifications
 PORT=3000                                 # Server port (default: 3000)
 NODE_ENV=development                      # Environment
 FRONTEND_URL=http://localhost:5173        # Frontend URL for CORS
