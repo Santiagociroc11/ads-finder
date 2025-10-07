@@ -2,6 +2,8 @@ import { advertiserStatsService } from '@/services/advertiserStatsService.js';
 import { telegramBotService } from '@/services/telegramBotService.js';
 import { collections } from '@/services/database.js';
 import { ObjectId } from 'mongodb';
+import { antiDetectionService } from '@/services/antiDetectionService.js';
+import { blockingMonitorService } from '@/services/blockingMonitorService.js';
 
 interface CronJob {
   id: string;
@@ -46,9 +48,11 @@ export class CronQueueService {
     startTime: null as Date | null
   };
   
-  private readonly PROCESSING_DELAY = 2000; // 2 seconds between requests
-  private readonly MAX_CONCURRENT_JOBS = 1; // Process one at a time
-  private readonly MAX_RETRIES = 3;
+  private readonly PROCESSING_DELAY = 500; // 500ms between batches
+  private readonly MAX_CONCURRENT_JOBS = 10; // Process 10 advertisers simultaneously
+  private readonly BATCH_SIZE = 10; // Process advertisers in batches of 10
+  private readonly MAX_RETRIES = 2; // Reduced retries for faster processing
+  private readonly BATCH_DELAY = 1000; // 1 second between batches
 
   /**
    * Add advertisers to the cron queue
@@ -84,7 +88,7 @@ export class CronQueueService {
   }
 
   /**
-   * Start processing the queue
+   * Start processing the queue with optimized batch processing
    */
   async processQueue(): Promise<CronJobResult[]> {
     if (this.isProcessing) {
@@ -101,50 +105,48 @@ export class CronQueueService {
     this.processingStats.startTime = new Date();
     const results: CronJobResult[] = [];
     
-    console.log(`🚀 Starting to process ${this.queue.length} advertisers...`);
+    // Get dynamic parameters based on blocking patterns
+    const blockingStats = await blockingMonitorService.getBlockingStats();
+    const recommendedBatchSize = await blockingMonitorService.getRecommendedBatchSize();
+    const recommendedConcurrency = await blockingMonitorService.getRecommendedConcurrency();
+    const recommendedDelay = await blockingMonitorService.getRecommendedDelay();
+
+    // Adjust parameters based on blocking patterns
+    const dynamicBatchSize = Math.min(recommendedBatchSize, this.BATCH_SIZE);
+    const dynamicConcurrency = Math.min(recommendedConcurrency, this.MAX_CONCURRENT_JOBS);
+    const dynamicDelay = Math.max(recommendedDelay, this.BATCH_DELAY);
+
+    console.log(`🚀 Starting optimized batch processing for ${this.queue.length} advertisers...`);
+    console.log(`📊 Blocking stats: ${blockingStats.totalBlockings} blockings, severity: ${blockingStats.currentSeverity}`);
+    console.log(`⚙️  Dynamic params: batch=${dynamicBatchSize}, concurrency=${dynamicConcurrency}, delay=${dynamicDelay}ms`);
     
     try {
-      while (this.queue.length > 0) {
-        const job = this.queue.shift();
-        if (!job) break;
+      // Process advertisers in batches with dynamic size
+      const batches = this.createBatches(this.queue, dynamicBatchSize);
+      console.log(`📊 Created ${batches.length} batches for processing`);
+      
+      for (let batchIndex = 0; batchIndex < batches.length; batchIndex++) {
+        const batch = batches[batchIndex];
+        console.log(`📊 Processing batch ${batchIndex + 1}/${batches.length} (${batch.length} advertisers)`);
         
-        const startTime = Date.now();
-        const result = await this.processJob(job);
-        const executionTime = Date.now() - startTime;
-        
-        results.push({
-          ...result,
-          executionTime
-        });
+        // Process batch with dynamic concurrency
+        const batchResults = await this.processBatchWithDynamicConcurrency(batch, dynamicConcurrency);
+        results.push(...batchResults);
         
         // Update stats
-        this.processingStats.totalProcessed++;
-        this.processingStats.totalExecutionTime += executionTime;
-        
-        if (!result.success) {
-          this.processingStats.totalFailed++;
-          
-          // Retry logic
-          if (job.retryCount < job.maxRetries) {
-            job.retryCount++;
-            this.queue.push(job); // Add back to queue for retry
-            console.log(`🔄 Retrying job ${job.id} (attempt ${job.retryCount}/${job.maxRetries})`);
-          } else {
-            console.error(`❌ Job ${job.id} failed after ${job.maxRetries} attempts: ${result.error}`);
-          }
-        }
+        this.processingStats.totalProcessed += batchResults.length;
+        this.processingStats.totalExecutionTime += batchResults.reduce((sum, r) => sum + r.executionTime, 0);
         
         // Log progress
-        const remaining = this.queue.length;
-        const processed = this.processingStats.totalProcessed;
-        const total = processed + remaining;
-        const progress = Math.round((processed / total) * 100);
+        const totalProcessed = this.processingStats.totalProcessed;
+        const totalJobs = this.queue.length + totalProcessed;
+        const progress = Math.round((totalProcessed / totalJobs) * 100);
         
-        console.log(`📊 Progress: ${processed}/${total} (${progress}%) - ${job.pageName}: ${result.previousAds} → ${result.currentAds} (${result.change > 0 ? '+' : ''}${result.change})`);
+        console.log(`📊 Batch ${batchIndex + 1} completed: ${batchResults.length} processed, Progress: ${totalProcessed}/${totalJobs} (${progress}%)`);
         
-        // Wait before next request (rate limiting)
-        if (this.queue.length > 0) {
-          await this.delay(this.PROCESSING_DELAY);
+        // Wait between batches with dynamic delay
+        if (batchIndex < batches.length - 1) {
+          await this.delay(dynamicDelay);
         }
       }
       
@@ -153,14 +155,179 @@ export class CronQueueService {
       await this.sendNotifications(alerts);
       
       const totalTime = Date.now() - (this.processingStats.startTime?.getTime() || 0);
-      console.log(`✅ Queue processing completed in ${Math.round(totalTime / 1000)}s`);
+      const avgTimePerAdvertiser = totalTime / results.length;
+      const estimatedTimeFor500 = avgTimePerAdvertiser * 500 / 1000; // in seconds
+      
+      console.log(`✅ Optimized queue processing completed in ${Math.round(totalTime / 1000)}s`);
       console.log(`📊 Processed: ${this.processingStats.totalProcessed}, Failed: ${this.processingStats.totalFailed}`);
+      console.log(`📊 Average time per advertiser: ${Math.round(avgTimePerAdvertiser)}ms`);
+      console.log(`📊 Estimated time for 500 advertisers: ${Math.round(estimatedTimeFor500)}s (${Math.round(estimatedTimeFor500 / 60)} minutes)`);
       
       return results;
       
     } finally {
       this.isProcessing = false;
     }
+  }
+
+  /**
+   * Create batches from the queue
+   */
+  private createBatches(jobs: CronJob[], batchSize: number): CronJob[][] {
+    const batches: CronJob[][] = [];
+    for (let i = 0; i < jobs.length; i += batchSize) {
+      batches.push(jobs.slice(i, i + batchSize));
+    }
+    return batches;
+  }
+
+  /**
+   * Process a batch of jobs with controlled concurrency
+   */
+  private async processBatch(batch: CronJob[]): Promise<CronJobResult[]> {
+    const results: CronJobResult[] = [];
+    
+    // Process jobs in parallel with controlled concurrency
+    const chunks = this.createBatches(batch, this.MAX_CONCURRENT_JOBS);
+    
+    for (const chunk of chunks) {
+      const chunkPromises = chunk.map(job => this.processJobWithRetry(job));
+      const chunkResults = await Promise.allSettled(chunkPromises);
+      
+      // Process results
+      chunkResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value);
+        } else {
+          // Create error result
+          const job = chunk[index];
+          results.push({
+            success: false,
+            advertiserId: job.advertiserId,
+            pageName: job.pageName,
+            previousAds: 0,
+            currentAds: 0,
+            change: 0,
+            changePercentage: 0,
+            error: result.reason?.message || 'Unknown error',
+            executionTime: 0
+          });
+        }
+      });
+      
+      // Small delay between chunks within a batch
+      if (chunks.indexOf(chunk) < chunks.length - 1) {
+        await this.delay(this.PROCESSING_DELAY);
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * Process a batch of jobs with dynamic concurrency
+   */
+  private async processBatchWithDynamicConcurrency(batch: CronJob[], concurrency: number): Promise<CronJobResult[]> {
+    const results: CronJobResult[] = [];
+    
+    // Process jobs in parallel with dynamic concurrency
+    const chunks = this.createBatches(batch, concurrency);
+    
+    for (const chunk of chunks) {
+      const chunkPromises = chunk.map(job => this.processJobWithRetry(job));
+      const chunkResults = await Promise.allSettled(chunkPromises);
+      
+      // Process results
+      chunkResults.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          results.push(result.value);
+        } else {
+          // Create error result
+          const job = chunk[index];
+          results.push({
+            success: false,
+            advertiserId: job.advertiserId,
+            pageName: job.pageName,
+            previousAds: 0,
+            currentAds: 0,
+            change: 0,
+            changePercentage: 0,
+            error: result.reason?.message || 'Unknown error',
+            executionTime: 0
+          });
+        }
+      });
+      
+      // Small delay between chunks within a batch
+      if (chunks.indexOf(chunk) < chunks.length - 1) {
+        await this.delay(this.PROCESSING_DELAY);
+      }
+    }
+    
+    return results;
+  }
+
+  /**
+   * Process a single job with retry logic and blocking detection
+   */
+  private async processJobWithRetry(job: CronJob): Promise<CronJobResult> {
+    let lastError: Error | null = null;
+    
+    for (let attempt = 1; attempt <= job.maxRetries; attempt++) {
+      try {
+        // Check if we're blocked before processing
+        const antiDetectionStatus = antiDetectionService.getStatus();
+        if (antiDetectionStatus.isCircuitOpen) {
+          const waitTime = Math.ceil((antiDetectionStatus.circuitOpenUntil - Date.now()) / 1000);
+          console.log(`🚫 Circuit breaker is open, waiting ${waitTime} seconds...`);
+          await this.delay(waitTime * 1000);
+        }
+        
+        const startTime = Date.now();
+        const result = await this.processJob(job);
+        const executionTime = Date.now() - startTime;
+        
+        return {
+          ...result,
+          executionTime
+        };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error('Unknown error');
+        
+        // Check if it's a blocking error
+        const isBlockingError = lastError.message.includes('Blocked:') || 
+          lastError.message.includes('rate_limit') ||
+          lastError.message.includes('ip_blocked') ||
+          lastError.message.includes('captcha');
+        
+        if (isBlockingError) {
+          console.warn(`🚫 Blocking detected for job ${job.id}, applying extended delay...`);
+          // Reset anti-detection service and wait longer
+          antiDetectionService.reset();
+          await this.delay(30000); // Wait 30 seconds for blocking
+        }
+        
+        if (attempt < job.maxRetries) {
+          const baseDelay = isBlockingError ? 30000 : 1000; // Longer delay for blocking
+          const delay = Math.min(baseDelay * Math.pow(2, attempt - 1), 300000); // Max 5 minutes
+          console.log(`🔄 Retrying job ${job.id} (attempt ${attempt + 1}/${job.maxRetries}) in ${delay}ms...`);
+          await this.delay(delay);
+        }
+      }
+    }
+    
+    // All retries failed
+    return {
+      success: false,
+      advertiserId: job.advertiserId,
+      pageName: job.pageName,
+      previousAds: 0,
+      currentAds: 0,
+      change: 0,
+      changePercentage: 0,
+      error: lastError?.message || 'Max retries exceeded',
+      executionTime: 0
+    };
   }
 
   /**
@@ -223,8 +390,8 @@ export class CronQueueService {
         ? ((change / previousActiveAds) * 100) 
         : currentActiveAds > 0 ? 100 : 0;
       
-      // Update database
-      await this.updateAdvertiserStats(advertiser, currentActiveAds, change);
+      // Update database with profile image processing
+      await this.updateAdvertiserStats(advertiser, currentActiveAds, change, statsResult.stats);
       
       return {
         success: true,
@@ -254,9 +421,9 @@ export class CronQueueService {
   }
 
   /**
-   * Update advertiser stats in database
+   * Update advertiser stats in database with profile image processing
    */
-  private async updateAdvertiserStats(advertiser: any, currentActiveAds: number, change: number): Promise<void> {
+  private async updateAdvertiserStats(advertiser: any, currentActiveAds: number, change: number, statsData?: any): Promise<void> {
     if (!collections.trackedAdvertisers) {
       throw new Error('Database not initialized');
     }
@@ -290,13 +457,52 @@ export class CronQueueService {
     advertiser.totalAdsTracked = todayStats.totalAds;
     advertiser.lastCheckedDate = new Date();
     
+    // Process profile image if available in stats data
+    if (statsData && statsData.pageProfilePictureUrl) {
+      try {
+        const minioImageUrl = await advertiserStatsService.processProfileImage(
+          statsData.pageProfilePictureUrl, 
+          advertiser.pageId
+        );
+        
+        if (minioImageUrl) {
+          advertiser.pageProfilePictureUrl = minioImageUrl;
+          console.log(`🖼️ Updated profile image to MinIO for ${advertiser.pageName}`);
+        }
+      } catch (error) {
+        console.log(`⚠️ Failed to update profile image for ${advertiser.pageName}:`, error);
+        // Continue without failing the entire job
+      }
+    }
+    
+    // Update other profile data if available
+    if (statsData) {
+      if (statsData.pageProfileUri) {
+        advertiser.pageProfileUri = statsData.pageProfileUri;
+      }
+      if (statsData.pageLikeCount !== undefined) {
+        advertiser.pageLikeCount = statsData.pageLikeCount;
+      }
+      if (statsData.pageCategories) {
+        advertiser.pageCategories = statsData.pageCategories;
+      }
+      if (statsData.pageVerification !== undefined) {
+        advertiser.pageVerification = statsData.pageVerification;
+      }
+    }
+    
     await collections.trackedAdvertisers.updateOne(
       { _id: new ObjectId(advertiser._id) } as any,
       {
         $set: {
           dailyStats: advertiser.dailyStats,
           totalAdsTracked: advertiser.totalAdsTracked,
-          lastCheckedDate: advertiser.lastCheckedDate
+          lastCheckedDate: advertiser.lastCheckedDate,
+          pageProfilePictureUrl: advertiser.pageProfilePictureUrl,
+          pageProfileUri: advertiser.pageProfileUri,
+          pageLikeCount: advertiser.pageLikeCount,
+          pageCategories: advertiser.pageCategories,
+          pageVerification: advertiser.pageVerification
         }
       }
     );

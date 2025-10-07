@@ -114,6 +114,18 @@ class DatabaseService {
     return this.getDb().collection<InvitationToken>('invitationTokens');
   }
 
+  get scheduledBatches(): Collection<any> {
+    return this.getDb().collection<any>('scheduledBatches');
+  }
+
+  get trackedAdvertisers(): Collection<any> {
+    return this.getDb().collection<any>('trackedAdvertisers');
+  }
+
+  get blockingEvents(): Collection<any> {
+    return this.getDb().collection<any>('blockingEvents');
+  }
+
   // Health check
   async isHealthy(): Promise<boolean> {
     try {
@@ -166,6 +178,27 @@ class DatabaseService {
       await this.users.createIndex({ createdAt: -1 });
       await this.users.createIndex({ role: 1 });
 
+      // Indexes for scheduledBatches collection
+      await this.scheduledBatches.createIndex({ batchId: 1 }, { unique: true });
+      await this.scheduledBatches.createIndex({ scheduledTime: 1 });
+      await this.scheduledBatches.createIndex({ processed: 1 });
+      await this.scheduledBatches.createIndex({ priority: 1 });
+      await this.scheduledBatches.createIndex({ createdAt: -1 });
+
+      // Indexes for trackedAdvertisers collection
+      await this.trackedAdvertisers.createIndex({ userId: 1, isActive: 1 });
+      await this.trackedAdvertisers.createIndex({ pageId: 1, userId: 1 }, { unique: true });
+      await this.trackedAdvertisers.createIndex({ trackingStartDate: -1 });
+      await this.trackedAdvertisers.createIndex({ 'dailyStats.date': -1 });
+
+      // Create indexes for blockingEvents
+      await this.blockingEvents.createIndex({ timestamp: 1 });
+      await this.blockingEvents.createIndex({ type: 1 });
+      await this.blockingEvents.createIndex({ severity: 1 });
+      await this.blockingEvents.createIndex({ pageId: 1 });
+      await this.blockingEvents.createIndex({ createdAt: 1 });
+      await this.trackedAdvertisers.createIndex({ lastCheckedDate: -1 });
+
       console.log('📊 Database indexes created successfully');
     } catch (error) {
       console.warn('⚠️  Could not create some indexes:', error);
@@ -195,6 +228,9 @@ export const collections = {
   get trackedPages() { return databaseService.trackedPages; },
   get users() { return databaseService.users; },
   get invitationTokens() { return databaseService.invitationTokens; },
+  get scheduledBatches() { return databaseService.scheduledBatches; },
+  get trackedAdvertisers() { return databaseService.trackedAdvertisers; },
+  get blockingEvents() { return databaseService.blockingEvents; }
 };
 
 export { databaseService };

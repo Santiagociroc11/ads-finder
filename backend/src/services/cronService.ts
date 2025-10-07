@@ -1,4 +1,6 @@
 import { dailyAdvertiserMonitor } from './dailyAdvertiserMonitor.js';
+import { smartScheduler } from './smartScheduler.js';
+import { cronQueueService } from './cronQueue.js';
 
 export class CronService {
   private dailyMonitorInterval: NodeJS.Timeout | null = null;
@@ -42,37 +44,96 @@ export class CronService {
   }
 
   /**
-   * Inicia el monitoreo diario de anunciantes
+   * Inicia el monitoreo diario de anunciantes con programación inteligente
    */
   private startDailyAdvertiserMonitoring(): void {
-    console.log('📊 Scheduling daily advertiser monitoring...');
+    console.log('📊 Starting smart daily advertiser monitoring...');
     
     // Wait 30 seconds after server start to ensure database is ready
-    setTimeout(() => {
-      // Calcular el tiempo hasta la próxima ejecución (6:00 AM)
-      const now = new Date();
-      const nextRun = new Date();
-      nextRun.setHours(6, 0, 0, 0);
+    setTimeout(async () => {
+      try {
+        // Create daily schedule
+        await smartScheduler.scheduleAdvertisersForDay();
+        
+        // Start processing batches every 2 hours
+        this.startBatchProcessing();
+        
+        console.log('✅ Smart daily monitoring started successfully');
+      } catch (error) {
+        console.error('❌ Error starting smart daily monitoring:', error);
+      }
+    }, 30000); // Wait 30 seconds for database initialization
+  }
+
+  /**
+   * Start processing batches every 2 hours
+   */
+  private startBatchProcessing(): void {
+    // Process immediately if there's a batch ready
+    this.processNextBatch();
+    
+    // Then process every 2 hours
+    this.dailyMonitorInterval = setInterval(() => {
+      this.processNextBatch();
+    }, 2 * 60 * 60 * 1000); // 2 hours in milliseconds
+  }
+
+  /**
+   * Process the next scheduled batch
+   */
+  private async processNextBatch(): Promise<void> {
+    try {
+      const nextBatch = await smartScheduler.getNextBatch();
       
-      // Si ya pasaron las 6:00 AM de hoy, programar para mañana
-      if (now >= nextRun) {
-        nextRun.setDate(nextRun.getDate() + 1);
+      if (!nextBatch) {
+        console.log('📊 No batches ready for processing');
+        return;
       }
 
-      const timeUntilNextRun = nextRun.getTime() - now.getTime();
+      console.log(`📊 Processing batch ${nextBatch.batchId} with ${nextBatch.advertiserIds.length} advertisers`);
       
-      console.log(`📊 Next daily monitoring scheduled for: ${nextRun.toISOString()}`);
-      console.log(`📊 Time until next run: ${Math.round(timeUntilNextRun / (1000 * 60 * 60))} hours`);
+      // Get advertisers for this batch
+      const advertisers = await this.getAdvertisersForBatch(nextBatch.advertiserIds);
+      
+      if (advertisers.length === 0) {
+        console.log('📊 No advertisers found for batch, marking as processed');
+        await smartScheduler.markBatchProcessed(nextBatch.batchId);
+        return;
+      }
 
-      // Ejecutar después del tiempo calculado
-      setTimeout(() => {
-        this.runDailyMonitoring();
-        // Después de la primera ejecución, ejecutar cada 24 horas
-        this.dailyMonitorInterval = setInterval(() => {
-          this.runDailyMonitoring();
-        }, 24 * 60 * 60 * 1000); // 24 horas en milisegundos
-      }, timeUntilNextRun);
-    }, 30000); // Wait 30 seconds for database initialization
+      // Process batch using optimized queue
+      await cronQueueService.addAdvertisersToQueue(advertisers);
+      const results = await cronQueueService.processQueue();
+      
+      // Mark batch as processed
+      await smartScheduler.markBatchProcessed(nextBatch.batchId);
+      
+      console.log(`✅ Batch ${nextBatch.batchId} processed: ${results.length} advertisers`);
+      
+    } catch (error) {
+      console.error('❌ Error processing batch:', error);
+    }
+  }
+
+  /**
+   * Get advertisers for a specific batch
+   */
+  private async getAdvertisersForBatch(advertiserIds: string[]): Promise<any[]> {
+    const { collections } = await import('@/services/database.js');
+    const { ObjectId } = await import('mongodb');
+    
+    if (!collections.trackedAdvertisers) {
+      return [];
+    }
+
+    const objectIds = advertiserIds.map(id => new ObjectId(id));
+    
+    return await collections.trackedAdvertisers
+      .find({ 
+        _id: { $in: objectIds },
+        isActive: true 
+      })
+      .toArray();
   }
 
   /**

@@ -1,5 +1,6 @@
 import fetch from 'node-fetch';
 import type { AdvertiserStats, AdvertiserStatsResult } from '../types/shared.js';
+import { antiDetectionService } from './antiDetectionService.js';
 
 
 interface BatchRequest {
@@ -191,40 +192,22 @@ export class BalancedScraperService {
   }
 
   private async fetchHtmlContent(url: string): Promise<string> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000); // 20 second timeout
-
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
-          'Accept-Language': 'en-US,en;q=0.5',
-          'Accept-Encoding': 'gzip, deflate, br',
-          'Connection': 'keep-alive',
-          'Upgrade-Insecure-Requests': '1',
-          'Sec-Fetch-Dest': 'document',
-          'Sec-Fetch-Mode': 'navigate',
-          'Sec-Fetch-Site': 'none',
-          'Cache-Control': 'max-age=0'
-        },
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+    const result = await antiDetectionService.makeRequest(url);
+    
+    if (!result.success) {
+      if (result.blockingDetection?.isBlocked) {
+        console.warn(`🚫 Request blocked: ${result.blockingDetection.reason}`);
+        throw new Error(`Blocked: ${result.blockingDetection.reason}`);
       }
-
-      const html = await response.text();
-      console.log(`📄 HTML fetched: ${html.length} characters`);
-      return html;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      throw error;
+      throw new Error(result.error || 'Failed to fetch HTML');
     }
+
+    if (!result.data) {
+      throw new Error('No data received');
+    }
+
+    console.log(`📄 HTML fetched: ${result.data.length} characters`);
+    return result.data;
   }
 
 
