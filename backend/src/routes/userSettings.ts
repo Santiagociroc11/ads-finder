@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { Request, Response } from 'express';
+import { ObjectId } from 'mongodb';
 import { collections } from '@/services/database.js';
 import { AuthService } from '@/services/authService.js';
 import { logger } from '@/middleware/logger.js';
@@ -12,7 +13,7 @@ const router = Router();
 router.put('/settings', authenticateToken, async (req: Request, res: Response) => {
   try {
     const { telegramId } = req.body;
-    const userId = req.user?.userId;
+    const userId = (req as any).user?._id?.toString();
 
     if (!userId) {
       return res.status(401).json({
@@ -38,7 +39,7 @@ router.put('/settings', authenticateToken, async (req: Request, res: Response) =
 
     // Update user document
     const updateResult = await collections.users.updateOne(
-      { _id: new (await import('mongodb')).ObjectId(userId) },
+      { _id: new ObjectId(userId) } as any,
       { 
         $set: { 
           telegramId: telegramId || null,
@@ -56,7 +57,7 @@ router.put('/settings', authenticateToken, async (req: Request, res: Response) =
 
     // Get updated user data
     const updatedUser = await collections.users.findOne(
-      { _id: new (await import('mongodb')).ObjectId(userId) },
+      { _id: new ObjectId(userId) } as any,
       { projection: { password: 0 } }
     );
 
@@ -67,10 +68,10 @@ router.put('/settings', authenticateToken, async (req: Request, res: Response) =
       });
     }
 
-    logger.info(`User settings updated for user ${userId}`, {
-      userId,
-      telegramId: telegramId ? 'provided' : 'removed'
-    });
+      console.log(`✅ User settings updated for user ${userId}`, {
+        userId,
+        telegramId: telegramId ? 'provided' : 'removed'
+      });
 
     res.json({
       success: true,
@@ -87,7 +88,7 @@ router.put('/settings', authenticateToken, async (req: Request, res: Response) =
     });
 
   } catch (error) {
-    logger.error('Error updating user settings:', error);
+    console.error('❌ Error updating user settings:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor'
@@ -98,7 +99,7 @@ router.put('/settings', authenticateToken, async (req: Request, res: Response) =
 // Get user settings
 router.get('/settings', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.userId;
+    const userId = (req as any).user?._id?.toString();
 
     if (!userId) {
       return res.status(401).json({
@@ -115,7 +116,7 @@ router.get('/settings', authenticateToken, async (req: Request, res: Response) =
     }
 
     const user = await collections.users.findOne(
-      { _id: new (await import('mongodb')).ObjectId(userId) },
+      { _id: new ObjectId(userId) } as any,
       { projection: { password: 0 } }
     );
 
@@ -140,7 +141,7 @@ router.get('/settings', authenticateToken, async (req: Request, res: Response) =
     });
 
   } catch (error) {
-    logger.error('Error getting user settings:', error);
+    console.error('❌ Error getting user settings:', error);
     res.status(500).json({
       success: false,
       message: 'Error interno del servidor'
@@ -151,7 +152,7 @@ router.get('/settings', authenticateToken, async (req: Request, res: Response) =
 // Send test notification to user's Telegram
 router.post('/settings/test-notification', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const userId = req.user?.userId;
+    const userId = (req as any).user?._id?.toString();
 
     if (!userId) {
       return res.status(401).json({
@@ -169,7 +170,7 @@ router.post('/settings/test-notification', authenticateToken, async (req: Reques
 
     // Get user data
     const user = await collections.users.findOne(
-      { _id: new (await import('mongodb')).ObjectId(userId) },
+      { _id: new ObjectId(userId) } as any,
       { projection: { password: 0 } }
     );
 
@@ -214,7 +215,7 @@ Ahora recibirás notificaciones cuando:
 
     await telegramBotService.sendMessage(user.telegramId, testMessage);
 
-    logger.info(`Test notification sent to user ${userId} (${user.telegramId})`);
+    console.log(`✅ Test notification sent to user ${userId} (${user.telegramId})`);
 
     res.json({
       success: true,
@@ -222,7 +223,7 @@ Ahora recibirás notificaciones cuando:
     });
 
   } catch (error) {
-    logger.error('Error sending test notification:', error);
+    console.error('❌ Error sending test notification:', error);
     res.status(500).json({
       success: false,
       message: 'Error al enviar la notificación de prueba'
