@@ -34,7 +34,9 @@ import httpDiagnosticRoutes from '@/routes/http-diagnostic.js';
 import searchHistoryRoutes from '@/routes/searchHistory.js';
 import trackedAdvertisersRoutes from '@/routes/trackedAdvertisers.js';
 import userSettingsRoutes from '@/routes/userSettings.js';
+import monitoringRoutes from '@/routes/monitoring.js';
 import { telegramBotService } from '@/services/telegramBotService.js';
+import { cronService } from '@/services/cronService.js';
 import { monitor } from '@/middleware/concurrencyMonitor.js';
 
 // Verify critical environment variables
@@ -88,6 +90,7 @@ app.use('/api/http-diagnostic', httpDiagnosticRoutes);
 app.use('/api/search-history', searchHistoryRoutes);
 app.use('/api/tracked-advertisers', trackedAdvertisersRoutes);
 app.use('/api/user', userSettingsRoutes);
+app.use('/api/monitoring', monitoringRoutes);
 
 // Health check endpoint with monitoring data
 app.get('/api/health', async (req, res) => {
@@ -159,11 +162,15 @@ async function startServer(): Promise<void> {
         console.log(`🌐 Frontend URL: ${process.env.FRONTEND_URL || 'http://localhost:5173'}`);
       }
 
-      // Start Telegram bot
-      if (process.env.TELEGRAM_BOT_TOKEN) {
-        telegramBotService.start();
-        console.log('🤖 Telegram bot started successfully');
-      }
+          // Start Telegram bot
+          if (process.env.TELEGRAM_BOT_TOKEN) {
+            telegramBotService.start();
+            console.log('🤖 Telegram bot started successfully');
+          }
+
+          // Start Cron service for daily monitoring
+          cronService.start();
+          console.log('⏰ Cron service started successfully');
     });
 
   } catch (error) {
@@ -181,6 +188,10 @@ process.on('SIGINT', () => {
     telegramBotService.stop();
     console.log('🤖 Telegram bot stopped');
   }
+
+  // Stop Cron service
+  cronService.stop();
+  console.log('⏰ Cron service stopped');
   
   process.exit(0);
 });
@@ -193,6 +204,10 @@ process.on('SIGTERM', () => {
     telegramBotService.stop();
     console.log('🤖 Telegram bot stopped');
   }
+
+  // Stop Cron service
+  cronService.stop();
+  console.log('⏰ Cron service stopped');
   
   process.exit(0);
 });
