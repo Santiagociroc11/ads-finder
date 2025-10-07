@@ -23,7 +23,6 @@ export const SettingsPage: React.FC = () => {
       setIsLoading(true);
       try {
         const token = getAuthToken();
-        console.log('🔑 Token check:', { hasToken: !!token, tokenLength: token?.length });
         if (!token) {
           throw new Error('No authentication token found');
         }
@@ -68,7 +67,6 @@ export const SettingsPage: React.FC = () => {
     setIsSaving(true);
     try {
       const token = getAuthToken();
-      console.log('🔑 Save - Token check:', { hasToken: !!token, tokenLength: token?.length });
       if (!token) {
         throw new Error('No authentication token found');
       }
@@ -116,7 +114,6 @@ export const SettingsPage: React.FC = () => {
     setIsTesting(true);
     try {
       const token = getAuthToken();
-      console.log('🔑 Save - Token check:', { hasToken: !!token, tokenLength: token?.length });
       if (!token) {
         throw new Error('No authentication token found');
       }
@@ -205,9 +202,20 @@ export const SettingsPage: React.FC = () => {
                     placeholder="Ej: 123456789"
                     className="w-full px-4 py-3 bg-dark-800 border border-gray-600 rounded-lg text-gray-100 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                   />
-                  <p className="text-xs text-gray-500 mt-2">
-                    Para obtener tu ID de Telegram, envía el comando /id al bot de Ads Finder Pro
-                  </p>
+                  <div className="mt-2 space-y-2">
+                    <p className="text-xs text-gray-500">
+                      Para obtener tu ID de Telegram, envía el comando /id a @adfinderprobot
+                    </p>
+                    <a
+                      href="https://t.me/adfinderprobot"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center space-x-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                    >
+                      <span>📱</span>
+                      <span>Abrir @adfinderprobot</span>
+                    </a>
+                  </div>
                 </div>
 
                 {settings.telegramId && (
@@ -320,8 +328,18 @@ export const SettingsPage: React.FC = () => {
           
           
           <h4 className="text-blue-400 font-medium mb-2">¿Cómo obtener tu ID de Telegram?</h4>
+          <div className="mb-3">
+            <a
+              href="https://t.me/adfinderprobot"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+            >
+              <span>🤖</span>
+              <span>Abrir @adfinderprobot en Telegram</span>
+            </a>
+          </div>
           <ol className="text-blue-300 text-sm space-y-1 list-decimal list-inside">
-            <li>Busca el bot de Ads Finder Pro en Telegram</li>
             <li>Envía el comando /start para comenzar</li>
             <li>Envía el comando /id para obtener tu ID</li>
             <li>Copia el ID que aparece en el mensaje</li>
@@ -329,26 +347,6 @@ export const SettingsPage: React.FC = () => {
           </ol>
         </div>
 
-        {/* Debug Section - Remove in production */}
-        <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
-          <h3 className="text-red-400 font-medium mb-2">Debug Info (Remove in production)</h3>
-          <div className="text-red-300 text-sm space-y-1">
-            <div>Token exists: {getAuthToken() ? 'Yes' : 'No'}</div>
-            <div>Token length: {getAuthToken()?.length || 0}</div>
-            <div>User authenticated: {user ? 'Yes' : 'No'}</div>
-            <div>User ID: {user?._id || 'N/A'}</div>
-            <button
-              onClick={() => {
-                console.log('🔍 Debug - localStorage keys:', Object.keys(localStorage));
-                console.log('🔍 Debug - ads_finder_token:', localStorage.getItem('ads_finder_token'));
-                console.log('🔍 Debug - ads_finder_user:', localStorage.getItem('ads_finder_user'));
-              }}
-              className="mt-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded"
-            >
-              Log Debug Info
-            </button>
-          </div>
-        </div>
       </div>
     </div>
   );

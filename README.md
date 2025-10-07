@@ -309,7 +309,7 @@ The bot responds to these commands:
 
 ### User Setup Process
 
-1. **User finds the bot** in Telegram using the username
+1. **User finds @adfinderprobot** in Telegram
 2. **User sends `/start`** to begin interaction
 3. **User sends `/id`** to get their Telegram ID
 4. **User copies the ID** from the bot response
