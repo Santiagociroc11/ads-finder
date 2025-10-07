@@ -1,6 +1,7 @@
 import { collections } from '@/services/database.js';
 import { advertiserStatsService } from '@/services/advertiserStatsService.js';
 import { telegramBotService } from '@/services/telegramBotService.js';
+import { cronQueueService } from '@/services/cronQueue.js';
 import { ObjectId } from 'mongodb';
 
 interface DailyStatsUpdate {
@@ -61,21 +62,21 @@ export class DailyAdvertiserMonitor {
         return;
       }
 
-      // Procesar cada anunciante
-      const results = await this.processAdvertisers(trackedAdvertisers);
+      // Usar sistema de colas para procesamiento controlado
+      console.log(`📊 Adding ${trackedAdvertisers.length} advertisers to queue for controlled processing...`);
+      await cronQueueService.addAdvertisersToQueue(trackedAdvertisers);
       
-      // Generar alertas
-      const alerts = this.generateAlerts(results);
+      // Procesar la cola (con rate limiting de 2 segundos entre requests)
+      const results = await cronQueueService.processQueue();
       
-      // Enviar notificaciones si hay alertas importantes
-      await this.sendNotifications(alerts);
+      console.log(`📊 Queue processing completed: ${results.length} advertisers processed`);
       
       // Marcar como ejecutado hoy
       this.lastRunDate = new Date();
       
       const executionTime = Date.now() - startTime;
       console.log(`✅ Daily monitoring completed in ${executionTime}ms`);
-      console.log(`📊 Processed ${results.length} advertisers, generated ${alerts.length} alerts`);
+      console.log(`📊 Processed ${results.length} advertisers via queue system`);
       
     } catch (error) {
       console.error('❌ Error in daily advertiser monitoring:', error);

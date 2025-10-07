@@ -451,7 +451,17 @@ export const trackedAdvertisersApi = {
     totalAds: number;
     reachEstimate?: number;
     avgSpend?: number;
-  }): Promise<{ success: boolean; data: TrackedAdvertiser; message: string }> => {
+  }): Promise<{ 
+    success: boolean; 
+    data: TrackedAdvertiser; 
+    message: string;
+    stats?: {
+      previousActiveAds: number;
+      currentActiveAds: number;
+      change: number;
+      changePercentage: number;
+    };
+  }> => {
     const response = await api.post(`/tracked-advertisers/${id}/check`, stats)
     return response.data
   }

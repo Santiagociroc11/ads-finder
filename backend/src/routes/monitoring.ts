@@ -4,17 +4,26 @@ import { authenticateToken } from '@/middleware/authMiddleware.js';
 import { requireAdmin } from '@/middleware/authMiddleware.js';
 import { cronService } from '@/services/cronService.js';
 import { dailyAdvertiserMonitor } from '@/services/dailyAdvertiserMonitor.js';
+import { cronQueueService } from '@/services/cronQueue.js';
 
 const router = Router();
 
 // GET /api/monitoring/status - Get monitoring status
 router.get('/status', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const status = cronService.getStatus();
+    const cronStatus = cronService.getStatus();
+    const queueStats = cronQueueService.getQueueStats();
+    const isQueueProcessing = cronQueueService.isProcessingQueue();
     
     res.json({
       success: true,
-      data: status
+      data: {
+        cron: cronStatus,
+        queue: {
+          ...queueStats,
+          isProcessing: isQueueProcessing
+        }
+      }
     });
   } catch (error) {
     console.error('Error getting monitoring status:', error);
