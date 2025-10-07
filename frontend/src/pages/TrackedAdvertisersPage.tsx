@@ -7,10 +7,6 @@ import {
   Smartphone, 
   Wrench, 
   HelpCircle, 
-  TrendingUp, 
-  Calendar,
-  Users,
-  BarChart3,
   Filter,
   Search,
   MoreVertical,
@@ -39,11 +35,6 @@ const TrackedAdvertisersPage: React.FC = () => {
     }
   );
 
-  // Fetch statistics
-  const { data: statsData, isLoading: isLoadingStats } = useQuery(
-    'tracked-advertisers-stats',
-    () => trackedAdvertisersApi.getStats()
-  );
 
   // Delete tracking mutation
   const deleteMutation = useMutation(
@@ -52,7 +43,6 @@ const TrackedAdvertisersPage: React.FC = () => {
       onSuccess: () => {
         toast.success('Anunciante eliminado del seguimiento');
         queryClient.invalidateQueries('tracked-advertisers');
-        queryClient.invalidateQueries('tracked-advertisers-stats');
       },
       onError: (error: any) => {
         toast.error(error.response?.data?.message || 'Error al eliminar seguimiento');
@@ -119,9 +109,8 @@ const TrackedAdvertisersPage: React.FC = () => {
     return matchesSearch && matchesProductType;
   }) || [];
 
-  const stats = statsData?.data;
 
-  if (isLoadingAdvertisers || isLoadingStats) {
+  if (isLoadingAdvertisers) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900 flex items-center justify-center">
         <div className="text-center">
@@ -146,62 +135,17 @@ const TrackedAdvertisersPage: React.FC = () => {
               <button
                 onClick={() => {
                   queryClient.invalidateQueries('tracked-advertisers');
-                  queryClient.invalidateQueries('tracked-advertisers-stats');
                   toast.success('Datos actualizados');
                 }}
-                disabled={isLoadingAdvertisers || isLoadingStats}
+                disabled={isLoadingAdvertisers}
                 className="px-4 py-2 bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-lg hover:bg-blue-500/30 transition-colors flex items-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <RefreshCw className={`w-4 h-4 ${(isLoadingAdvertisers || isLoadingStats) ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 ${isLoadingAdvertisers ? 'animate-spin' : ''}`} />
                 <span>Actualizar</span>
               </button>
             </div>
           </div>
 
-          {/* Statistics Cards */}
-          {stats && (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-              <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400">Total Seguidos</p>
-                    <p className="text-2xl font-bold text-white">{stats.totalTracked}</p>
-                  </div>
-                  <Eye className="w-8 h-8 text-blue-500" />
-                </div>
-              </div>
-              
-              <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400">Activos</p>
-                    <p className="text-2xl font-bold text-green-400">{stats.activeTracked}</p>
-                  </div>
-                  <TrendingUp className="w-8 h-8 text-green-500" />
-                </div>
-              </div>
-              
-              <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400">Ads Trackeados</p>
-                    <p className="text-2xl font-bold text-purple-400">{formatNumber(stats.totalAdsTracked)}</p>
-                  </div>
-                  <BarChart3 className="w-8 h-8 text-purple-500" />
-                </div>
-              </div>
-              
-              <div className="bg-gray-800/50 rounded-xl p-4 border border-gray-700">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-400">Promedio/Anunciante</p>
-                    <p className="text-2xl font-bold text-yellow-400">{stats.avgAdsPerAdvertiser}</p>
-                  </div>
-                  <Users className="w-8 h-8 text-yellow-500" />
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Filters */}
