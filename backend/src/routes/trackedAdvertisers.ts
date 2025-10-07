@@ -259,15 +259,11 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
-// POST /:id/check - Actualizar estadísticas diarias
+// POST /:id/check - Actualizar estadísticas diarias obteniendo datos reales
 router.post('/:id/check', async (req, res) => {
   try {
     const userId = (req as any).user._id.toString();
     const { id } = req.params;
-    const { activeAds, newAds, totalAds, reachEstimate, avgSpend } = req.body;
-    
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
     
     const advertiser = await TrackedAdvertiser.findOne({ _id: id, userId });
     
@@ -277,19 +273,56 @@ router.post('/:id/check', async (req, res) => {
         message: 'Anunciante no encontrado'
       });
     }
+
+    console.log(`📊 Updating stats for advertiser: ${advertiser.pageName} (${advertiser.pageId})`);
+    
+    // Importar el servicio de estadísticas
+    const { advertiserStatsService } = await import('@/services/advertiserStatsService.js');
+    
+    // Obtener estadísticas reales del anunciante
+    const statsResult = await advertiserStatsService.getAdvertiserStats(
+      advertiser.pageId,
+      'ALL' // Usar 'ALL' como país por defecto
+    );
+
+    if (!statsResult.success || !statsResult.stats) {
+      return res.status(500).json({
+        success: false,
+        message: `Error al obtener estadísticas: ${statsResult.error || 'Error desconocido'}`
+      });
+    }
+
+    const currentActiveAds = statsResult.stats.totalActiveAds || 0;
+    
+    // Obtener estadísticas del día anterior para calcular diferencias
+    const previousDayStats = advertiser.dailyStats
+      ?.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
+    
+    const previousActiveAds = previousDayStats?.activeAds || 0;
+    
+    // Calcular cambios
+    const change = currentActiveAds - previousActiveAds;
+    const changePercentage = previousActiveAds > 0 
+      ? ((change / previousActiveAds) * 100) 
+      : currentActiveAds > 0 ? 100 : 0;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
     
     // Buscar estadísticas de hoy
     const todayStatsIndex = advertiser.dailyStats.findIndex(
-      stat => stat.date.getTime() === today.getTime()
+      stat => new Date(stat.date).getTime() === today.getTime()
     );
     
     const todayStats = {
       date: today,
-      activeAds: activeAds || 0,
-      newAds: newAds || 0,
-      totalAds: totalAds || 0,
-      reachEstimate,
-      avgSpend
+      activeAds: currentActiveAds,
+      newAds: change > 0 ? change : 0,
+      totalAds: advertiser.totalAdsTracked + (change > 0 ? change : 0),
+      reachEstimate: previousDayStats?.reachEstimate,
+      avgSpend: previousDayStats?.avgSpend,
+      change,
+      changePercentage
     };
     
     if (todayStatsIndex >= 0) {
@@ -301,15 +334,23 @@ router.post('/:id/check', async (req, res) => {
     }
     
     // Actualizar totales
-    advertiser.totalAdsTracked = totalAds || advertiser.totalAdsTracked;
+    advertiser.totalAdsTracked = todayStats.totalAds;
     advertiser.lastCheckedDate = new Date();
     
     await advertiser.save();
     
+    console.log(`✅ Stats updated for ${advertiser.pageName}: ${previousActiveAds} → ${currentActiveAds} (${change > 0 ? '+' : ''}${change})`);
+    
     res.json({
       success: true,
       data: advertiser,
-      message: 'Estadísticas actualizadas'
+      message: `Estadísticas actualizadas: ${previousActiveAds} → ${currentActiveAds} anuncios activos`,
+      stats: {
+        previousActiveAds,
+        currentActiveAds,
+        change,
+        changePercentage: Math.round(changePercentage)
+      }
     });
   } catch (error) {
     console.error('Error updating daily stats:', error);

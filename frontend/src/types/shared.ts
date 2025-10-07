@@ -497,6 +497,8 @@ export interface DailyStats {
   totalAds: number;
   reachEstimate?: number;
   avgSpend?: number;
+  change?: number;
+  changePercentage?: number;
 }
 
 export interface TrackedAdvertiserResponse {

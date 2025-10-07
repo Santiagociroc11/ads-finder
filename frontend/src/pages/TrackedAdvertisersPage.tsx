@@ -54,8 +54,16 @@ const TrackedAdvertisersPage: React.FC = () => {
   const updateStatsMutation = useMutation(
     ({ id, stats }: { id: string; stats: any }) => trackedAdvertisersApi.updateDailyStats(id, stats),
     {
-      onSuccess: () => {
-        toast.success('Estadísticas actualizadas');
+      onSuccess: (response) => {
+        // Show detailed success message with stats
+        if (response.stats) {
+          const { previousActiveAds, currentActiveAds, change, changePercentage } = response.stats;
+          toast.success(
+            `Estadísticas actualizadas: ${previousActiveAds} → ${currentActiveAds} anuncios (${change > 0 ? '+' : ''}${change}, ${changePercentage}%)`
+          );
+        } else {
+          toast.success('Estadísticas actualizadas');
+        }
         queryClient.invalidateQueries('tracked-advertisers');
       },
       onError: (error: any) => {
@@ -298,15 +306,11 @@ const TrackedAdvertisersPage: React.FC = () => {
                     <button
                       onClick={() => updateStatsMutation.mutate({ 
                         id: advertiser._id, 
-                        stats: { 
-                          activeAds: 0, 
-                          newAds: 0, 
-                          totalAds: advertiser.totalAdsTracked 
-                        } 
+                        stats: {} // El backend ahora obtiene los datos reales automáticamente
                       })}
                       disabled={updateStatsMutation.isLoading}
                       className="p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded-lg transition-colors"
-                      title="Actualizar estadísticas"
+                      title="Obtener estadísticas actuales del anunciante"
                     >
                       <RefreshCw className={`w-4 h-4 ${updateStatsMutation.isLoading ? 'animate-spin' : ''}`} />
                     </button>

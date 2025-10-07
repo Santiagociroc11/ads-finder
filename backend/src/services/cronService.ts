@@ -45,32 +45,34 @@ export class CronService {
    * Inicia el monitoreo diario de anunciantes
    */
   private startDailyAdvertiserMonitoring(): void {
-    // Ejecutar inmediatamente al iniciar (para testing)
     console.log('📊 Scheduling daily advertiser monitoring...');
     
-    // Calcular el tiempo hasta la próxima ejecución (6:00 AM)
-    const now = new Date();
-    const nextRun = new Date();
-    nextRun.setHours(6, 0, 0, 0);
-    
-    // Si ya pasaron las 6:00 AM de hoy, programar para mañana
-    if (now >= nextRun) {
-      nextRun.setDate(nextRun.getDate() + 1);
-    }
-
-    const timeUntilNextRun = nextRun.getTime() - now.getTime();
-    
-    console.log(`📊 Next daily monitoring scheduled for: ${nextRun.toISOString()}`);
-    console.log(`📊 Time until next run: ${Math.round(timeUntilNextRun / (1000 * 60 * 60))} hours`);
-
-    // Ejecutar después del tiempo calculado
+    // Wait 30 seconds after server start to ensure database is ready
     setTimeout(() => {
-      this.runDailyMonitoring();
-      // Después de la primera ejecución, ejecutar cada 24 horas
-      this.dailyMonitorInterval = setInterval(() => {
+      // Calcular el tiempo hasta la próxima ejecución (6:00 AM)
+      const now = new Date();
+      const nextRun = new Date();
+      nextRun.setHours(6, 0, 0, 0);
+      
+      // Si ya pasaron las 6:00 AM de hoy, programar para mañana
+      if (now >= nextRun) {
+        nextRun.setDate(nextRun.getDate() + 1);
+      }
+
+      const timeUntilNextRun = nextRun.getTime() - now.getTime();
+      
+      console.log(`📊 Next daily monitoring scheduled for: ${nextRun.toISOString()}`);
+      console.log(`📊 Time until next run: ${Math.round(timeUntilNextRun / (1000 * 60 * 60))} hours`);
+
+      // Ejecutar después del tiempo calculado
+      setTimeout(() => {
         this.runDailyMonitoring();
-      }, 24 * 60 * 60 * 1000); // 24 horas en milisegundos
-    }, timeUntilNextRun);
+        // Después de la primera ejecución, ejecutar cada 24 horas
+        this.dailyMonitorInterval = setInterval(() => {
+          this.runDailyMonitoring();
+        }, 24 * 60 * 60 * 1000); // 24 horas en milisegundos
+      }, timeUntilNextRun);
+    }, 30000); // Wait 30 seconds for database initialization
   }
 
   /**

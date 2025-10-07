@@ -40,6 +40,12 @@ export class DailyAdvertiserMonitor {
     try {
       console.log('🚀 Starting daily advertiser monitoring...');
       
+      // Verificar que la base de datos esté lista
+      if (!await this.isDatabaseReady()) {
+        console.log('📊 Database not ready, skipping monitoring');
+        return;
+      }
+      
       // Verificar si ya se ejecutó hoy
       if (this.hasRunToday()) {
         console.log('📊 Daily monitoring already completed today, skipping...');
@@ -79,11 +85,44 @@ export class DailyAdvertiserMonitor {
   }
 
   /**
+   * Verifica si la base de datos está lista
+   */
+  private async isDatabaseReady(): Promise<boolean> {
+    try {
+      // Verificar que las colecciones estén disponibles
+      if (!collections.trackedAdvertisers || !collections.users) {
+        return false;
+      }
+
+      // Hacer una consulta simple para verificar conectividad
+      await collections.trackedAdvertisers.findOne({});
+      return true;
+    } catch (error) {
+      console.log('📊 Database not ready:', error);
+      return false;
+    }
+  }
+
+  /**
    * Obtiene todos los anunciantes trackeados activos
    */
   private async getActiveTrackedAdvertisers(): Promise<any[]> {
+    // Wait for database to be ready with retry logic
+    let retries = 0;
+    const maxRetries = 5;
+    
+    while (retries < maxRetries) {
+      if (collections.trackedAdvertisers) {
+        break;
+      }
+      
+      console.log(`📊 Waiting for database initialization... (attempt ${retries + 1}/${maxRetries})`);
+      await this.delay(2000); // Wait 2 seconds
+      retries++;
+    }
+
     if (!collections.trackedAdvertisers) {
-      throw new Error('Database not initialized');
+      throw new Error('Database not initialized after maximum retries');
     }
 
     const advertisers = await collections.trackedAdvertisers
@@ -181,8 +220,22 @@ export class DailyAdvertiserMonitor {
    * Actualiza las estadísticas del anunciante en la base de datos
    */
   private async updateAdvertiserStats(advertiserId: string, newDailyStat: DailyStatsUpdate, currentActiveAds: number): Promise<void> {
+    // Wait for database to be ready with retry logic
+    let retries = 0;
+    const maxRetries = 3;
+    
+    while (retries < maxRetries) {
+      if (collections.trackedAdvertisers) {
+        break;
+      }
+      
+      console.log(`📊 Waiting for database for update... (attempt ${retries + 1}/${maxRetries})`);
+      await this.delay(1000); // Wait 1 second
+      retries++;
+    }
+
     if (!collections.trackedAdvertisers) {
-      throw new Error('Database not initialized');
+      throw new Error('Database not initialized for update after maximum retries');
     }
 
     await collections.trackedAdvertisers.updateOne(
