@@ -133,6 +133,12 @@ npm start
 - **Statistics**: Track usage patterns and savings
 - **Delete Old**: Remove outdated searches
 
+### 5. Telegram Notifications
+- **Configure Bot**: Set up Telegram ID in Settings
+- **Get Your ID**: Use `/id` command with the bot
+- **Test Notifications**: Send test messages to verify setup
+- **Automatic Alerts**: Receive notifications for new ads and updates
+
 ## 🔧 API Endpoints
 
 ### Search
@@ -154,6 +160,11 @@ npm start
 ### Pages & AI
 - `GET /api/pages` - Tracked pages
 - `POST /api/suggestions` - AI keyword suggestions
+
+### User Settings
+- `GET /api/user/settings` - Get user settings
+- `PUT /api/user/settings` - Update user settings (including Telegram ID)
+- `POST /api/user/settings/test-notification` - Send test Telegram notification
 
 ## 🌟 Key Improvements from v1
 
@@ -265,6 +276,54 @@ FRONTEND_URL=http://localhost:5173        # Frontend URL for CORS
 ```bash
 VITE_API_BASE_URL=        # Backend API URL (optional)
 ```
+
+## 🤖 Telegram Bot Setup
+
+### Creating a Telegram Bot
+
+1. **Create a new bot:**
+   - Open Telegram and search for `@BotFather`
+   - Send `/newbot` command
+   - Choose a name for your bot (e.g., "Ads Finder Pro Bot")
+   - Choose a username (must end with 'bot', e.g., "adsfinderpro_bot")
+   - Copy the bot token provided
+
+2. **Configure the bot:**
+   - Send `/setdescription` to BotFather
+   - Choose your bot and add description: "Bot de notificaciones para Ads Finder Pro"
+   - Send `/setabouttext` to BotFather
+   - Choose your bot and add: "Envía notificaciones sobre nuevos anuncios y actualizaciones"
+
+3. **Add the token to your .env:**
+   ```bash
+   TELEGRAM_BOT_TOKEN=your_bot_token_here
+   ```
+
+### Bot Commands
+
+The bot responds to these commands:
+
+- `/start` - Welcome message and instructions
+- `/id` - Get your Telegram ID for configuration
+- `/help` - Show available commands and help
+
+### User Setup Process
+
+1. **User finds the bot** in Telegram using the username
+2. **User sends `/start`** to begin interaction
+3. **User sends `/id`** to get their Telegram ID
+4. **User copies the ID** from the bot response
+5. **User goes to Settings** in the Ads Finder Pro app
+6. **User pastes the ID** in the Telegram ID field
+7. **User saves settings** and can test notifications
+
+### Notification Features
+
+- **Test Notifications**: Users can send test messages to verify setup
+- **Automatic Alerts**: System can send notifications for:
+  - New ads from tracked advertisers
+  - Updates to saved searches
+  - System alerts and important notifications
 
 ## 🎉 Success! 
 

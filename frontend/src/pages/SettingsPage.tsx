@@ -313,12 +313,21 @@ export const SettingsPage: React.FC = () => {
         {/* Environment Variables Info */}
         <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
           <h3 className="text-blue-400 font-medium mb-2">Configuración del Bot de Telegram</h3>
-          <p className="text-blue-300 text-sm">
+          <p className="text-blue-300 text-sm mb-3">
             Para habilitar las notificaciones, asegúrate de que el token del bot de Telegram esté configurado en las variables de entorno del servidor.
           </p>
-          <code className="block mt-2 text-xs bg-dark-800 px-2 py-1 rounded text-gray-300">
+          <code className="block mb-3 text-xs bg-dark-800 px-2 py-1 rounded text-gray-300">
             TELEGRAM_BOT_TOKEN=tu_token_aqui
           </code>
+          
+          <h4 className="text-blue-400 font-medium mb-2">¿Cómo obtener tu ID de Telegram?</h4>
+          <ol className="text-blue-300 text-sm space-y-1 list-decimal list-inside">
+            <li>Busca el bot de Ads Finder Pro en Telegram</li>
+            <li>Envía el comando /start para comenzar</li>
+            <li>Envía el comando /id para obtener tu ID</li>
+            <li>Copia el ID que aparece en el mensaje</li>
+            <li>Pega el ID en el campo de arriba y guarda</li>
+          </ol>
         </div>
       </div>
     </div>
