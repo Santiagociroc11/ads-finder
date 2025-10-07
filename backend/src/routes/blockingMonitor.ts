@@ -70,6 +70,30 @@ router.post('/cleanup', authenticateToken, asyncHandler(async (req, res) => {
 }));
 
 /**
+ * GET /api/blocking-monitor/scraping-performance
+ * Get scraping performance statistics
+ */
+router.get('/scraping-performance', authenticateToken, asyncHandler(async (req, res) => {
+  try {
+    const { balancedScraperService } = await import('@/services/balancedScraperService.js');
+    const performanceStats = balancedScraperService.getPerformanceStats();
+    
+    res.json({
+      success: true,
+      data: {
+        performance: performanceStats,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+}));
+
+/**
  * GET /api/blocking-monitor/health
  * Check blocking monitor health
  */
