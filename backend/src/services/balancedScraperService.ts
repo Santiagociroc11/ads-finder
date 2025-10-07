@@ -134,6 +134,7 @@ export class BalancedScraperService {
       // Direct extraction only (fast and accurate)
       const directCount = this.extractDirectAdsCount(htmlContent);
       const advertiserName = this.extractAdvertiserName(htmlContent);
+      const profileData = this.extractProfileData(htmlContent);
       
       if (directCount === null) {
         throw new Error('Could not extract ads count from Facebook page');
@@ -143,7 +144,8 @@ export class BalancedScraperService {
         pageId,
         advertiserName: advertiserName || 'Unknown',
         totalActiveAds: directCount,
-        lastUpdated: new Date().toISOString()
+        lastUpdated: new Date().toISOString(),
+        ...profileData
       };
 
       // Cache the result
@@ -333,6 +335,66 @@ export class BalancedScraperService {
     } catch (error) {
       console.error(`❌ Error extracting advertiser name:`, error);
       return null;
+    }
+  }
+
+  private extractProfileData(html: string): Partial<AdvertiserStats> {
+    try {
+      const profileData: Partial<AdvertiserStats> = {};
+
+      // Extract profile picture URL
+      const profilePicturePattern = /"page_profile_picture_url":\s*"([^"]+)"/i;
+      const profilePictureMatch = html.match(profilePicturePattern);
+      if (profilePictureMatch) {
+        profileData.pageProfilePictureUrl = profilePictureMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        console.log(`🖼️ Found profile picture URL`);
+      }
+
+      // Extract profile URI
+      const profileUriPattern = /"page_profile_uri":\s*"([^"]+)"/i;
+      const profileUriMatch = html.match(profileUriPattern);
+      if (profileUriMatch) {
+        profileData.pageProfileUri = profileUriMatch[1].replace(/\\"/g, '"').replace(/\\\\/g, '\\');
+        console.log(`🔗 Found profile URI`);
+      }
+
+      // Extract page like count
+      const likeCountPattern = /"page_like_count":\s*(\d+)/i;
+      const likeCountMatch = html.match(likeCountPattern);
+      if (likeCountMatch) {
+        profileData.pageLikeCount = parseInt(likeCountMatch[1]);
+        console.log(`👥 Found like count: ${profileData.pageLikeCount}`);
+      }
+
+      // Extract page categories
+      const categoriesPattern = /"page_categories":\s*\[([^\]]+)\]/i;
+      const categoriesMatch = html.match(categoriesPattern);
+      if (categoriesMatch) {
+        try {
+          const categoriesString = categoriesMatch[1];
+          const categories = categoriesString
+            .split(',')
+            .map(cat => cat.trim().replace(/^"|"$/g, '').replace(/\\"/g, '"'))
+            .filter(cat => cat.length > 0);
+          profileData.pageCategories = categories;
+          console.log(`📂 Found categories: ${categories.length} items`);
+        } catch (e) {
+          console.log(`⚠️ Error parsing categories: ${e}`);
+        }
+      }
+
+      // Extract page verification status
+      const verificationPattern = /"page_verification":\s*(true|false)/i;
+      const verificationMatch = html.match(verificationPattern);
+      if (verificationMatch) {
+        profileData.pageVerification = verificationMatch[1] === 'true';
+        console.log(`✅ Found verification status: ${profileData.pageVerification}`);
+      }
+
+      return profileData;
+    } catch (error) {
+      console.error(`❌ Error extracting profile data:`, error);
+      return {};
     }
   }
 

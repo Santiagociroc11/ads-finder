@@ -333,9 +333,33 @@ router.post('/:id/check', async (req, res) => {
       advertiser.dailyStats.push(todayStats);
     }
     
-    // Actualizar totales
+    // Actualizar totales y información del perfil
     advertiser.totalAdsTracked = todayStats.totalAds;
     advertiser.lastCheckedDate = new Date();
+    
+    // Actualizar información del perfil si está disponible en las estadísticas
+    if (statsResult.stats) {
+      if (statsResult.stats.pageProfilePictureUrl) {
+        advertiser.pageProfilePictureUrl = statsResult.stats.pageProfilePictureUrl;
+        console.log(`🖼️ Updated profile picture URL for ${advertiser.pageName}`);
+      }
+      if (statsResult.stats.pageProfileUri) {
+        advertiser.pageProfileUri = statsResult.stats.pageProfileUri;
+        console.log(`🔗 Updated profile URI for ${advertiser.pageName}`);
+      }
+      if (statsResult.stats.pageLikeCount !== undefined) {
+        advertiser.pageLikeCount = statsResult.stats.pageLikeCount;
+        console.log(`👥 Updated like count for ${advertiser.pageName}: ${statsResult.stats.pageLikeCount}`);
+      }
+      if (statsResult.stats.pageCategories) {
+        advertiser.pageCategories = statsResult.stats.pageCategories;
+        console.log(`📂 Updated categories for ${advertiser.pageName}: ${statsResult.stats.pageCategories.length} items`);
+      }
+      if (statsResult.stats.pageVerification !== undefined) {
+        advertiser.pageVerification = statsResult.stats.pageVerification;
+        console.log(`✅ Updated verification status for ${advertiser.pageName}: ${statsResult.stats.pageVerification}`);
+      }
+    }
     
     await advertiser.save();
     

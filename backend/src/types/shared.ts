@@ -403,6 +403,12 @@ export interface AdvertiserStats {
   advertiserName: string;
   totalActiveAds: number;
   lastUpdated: string;
+  // Profile information
+  pageProfilePictureUrl?: string;
+  pageProfileUri?: string;
+  pageLikeCount?: number;
+  pageCategories?: string[];
+  pageVerification?: boolean;
 }
 
 export interface AdvertiserStatsResult {
