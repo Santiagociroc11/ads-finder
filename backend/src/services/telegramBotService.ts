@@ -1,5 +1,4 @@
 import TelegramBot from 'node-telegram-bot-api';
-import { logger } from '@/middleware/logger.js';
 
 interface TelegramBotService {
   start(): void;
@@ -20,26 +19,26 @@ class TelegramBotServiceImpl implements TelegramBotService {
     const token = process.env.TELEGRAM_BOT_TOKEN;
     
     if (!token) {
-      logger.warn('⚠️ TELEGRAM_BOT_TOKEN not found - Telegram bot will not start');
+      console.warn('⚠️ TELEGRAM_BOT_TOKEN not found - Telegram bot will not start');
       return;
     }
 
     try {
       this.bot = new TelegramBot(token, { polling: false });
-      logger.info('✅ Telegram bot initialized successfully');
+      console.log('✅ Telegram bot initialized successfully');
     } catch (error) {
-      logger.error('❌ Failed to initialize Telegram bot:', error);
+      console.error('❌ Failed to initialize Telegram bot:', error);
     }
   }
 
   public start(): void {
     if (!this.bot) {
-      logger.warn('⚠️ Telegram bot not initialized - cannot start');
+      console.warn('⚠️ Telegram bot not initialized - cannot start');
       return;
     }
 
     if (this.isPolling) {
-      logger.warn('⚠️ Telegram bot is already running');
+      console.warn('⚠️ Telegram bot is already running');
       return;
     }
 
@@ -54,13 +53,13 @@ class TelegramBotServiceImpl implements TelegramBotService {
       });
 
       this.isPolling = true;
-      logger.info('🚀 Telegram bot started polling');
+      console.log('🚀 Telegram bot started polling');
 
       // Set up command handlers
       this.setupCommandHandlers();
 
     } catch (error) {
-      logger.error('❌ Failed to start Telegram bot polling:', error);
+      console.error('❌ Failed to start Telegram bot polling:', error);
     }
   }
 
@@ -72,9 +71,9 @@ class TelegramBotServiceImpl implements TelegramBotService {
     try {
       this.bot.stopPolling();
       this.isPolling = false;
-      logger.info('🛑 Telegram bot stopped polling');
+      console.log('🛑 Telegram bot stopped polling');
     } catch (error) {
-      logger.error('❌ Error stopping Telegram bot:', error);
+      console.error('❌ Error stopping Telegram bot:', error);
     }
   }
 
@@ -88,9 +87,9 @@ class TelegramBotServiceImpl implements TelegramBotService {
         parse_mode: 'Markdown',
         disable_web_page_preview: true
       });
-      logger.info(`📤 Message sent to chat ${chatId}`);
+      console.log(`📤 Message sent to chat ${chatId}`);
     } catch (error) {
-      logger.error(`❌ Failed to send message to chat ${chatId}:`, error);
+      console.error(`❌ Failed to send message to chat ${chatId}:`, error);
       throw error;
     }
   }
@@ -121,9 +120,9 @@ Para recibir notificaciones, ve a la aplicación y configura tu ID de Telegram e
 
       try {
         await this.sendMessage(chatId, welcomeMessage);
-        logger.info(`✅ Welcome message sent to ${chatId} (${firstName})`);
+        console.log(`✅ Welcome message sent to ${chatId} (${firstName})`);
       } catch (error) {
-        logger.error(`❌ Failed to send welcome message to ${chatId}:`, error);
+        console.error(`❌ Failed to send welcome message to ${chatId}:`, error);
       }
     });
 
@@ -157,9 +156,9 @@ Para recibir notificaciones, ve a la aplicación y configura tu ID de Telegram e
 
       try {
         await this.sendMessage(chatId, idMessage);
-        logger.info(`✅ ID sent to ${chatId} (${firstName}): ${userId}`);
+        console.log(`✅ ID sent to ${chatId} (${firstName}): ${userId}`);
       } catch (error) {
-        logger.error(`❌ Failed to send ID to ${chatId}:`, error);
+        console.error(`❌ Failed to send ID to ${chatId}:`, error);
       }
     });
 
@@ -196,9 +195,9 @@ Para recibir notificaciones, ve a la aplicación y configura tu ID de Telegram e
 
       try {
         await this.sendMessage(chatId, helpMessage);
-        logger.info(`✅ Help message sent to ${chatId} (${firstName})`);
+        console.log(`✅ Help message sent to ${chatId} (${firstName})`);
       } catch (error) {
-        logger.error(`❌ Failed to send help message to ${chatId}:`, error);
+        console.error(`❌ Failed to send help message to ${chatId}:`, error);
       }
     });
 
@@ -219,25 +218,26 @@ Los comandos principales son:
         try {
           await this.sendMessage(chatId, unknownMessage);
         } catch (error) {
-          logger.error(`❌ Failed to send unknown command message to ${chatId}:`, error);
+          console.error(`❌ Failed to send unknown command message to ${chatId}:`, error);
         }
       }
     });
 
     // Handle errors
     this.bot.on('error', (error) => {
-      logger.error('❌ Telegram bot error:', error);
+      console.error('❌ Telegram bot error:', error);
     });
 
     this.bot.on('polling_error', (error) => {
-      logger.error('❌ Telegram bot polling error:', error);
+      console.error('❌ Telegram bot polling error:', error);
     });
 
-    logger.info('✅ Telegram bot command handlers set up');
+    console.log('✅ Telegram bot command handlers set up');
   }
 }
 
 // Singleton instance
 const telegramBotService = new TelegramBotServiceImpl();
 
-export { telegramBotService, TelegramBotService };
+export { telegramBotService };
+export type { TelegramBotService };
