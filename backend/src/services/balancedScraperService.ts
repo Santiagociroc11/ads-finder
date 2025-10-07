@@ -132,7 +132,32 @@ export class BalancedScraperService {
       // Fetch HTML content with proper timeout
       const htmlContent = await this.fetchHtmlContent(adLibraryUrl);
       
-      // Multi-strategy extraction
+      // OPTIMIZATION: Check if HTML has NO preloaded data (CSR-only)
+      // If so, skip extraction attempts and go straight to ScrapeCreators fallback
+      if (this.hasNoPreloadedData(htmlContent)) {
+        console.log(`⚠️ No preloaded data detected (CSR-only), skipping extraction and using ScrapeCreators fallback...`);
+        const fallbackResult = await this.tryScrapeCreatorsFallback(pageId, country);
+        if (fallbackResult) {
+          return fallbackResult;
+        }
+        
+        // If ScrapeCreators also fails, return 0
+        console.log(`⚠️ ScrapeCreators fallback failed, returning 0 ads`);
+        const stats: AdvertiserStats = {
+          pageId,
+          advertiserName: 'Unknown',
+          totalActiveAds: 0,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        return {
+          success: true,
+          stats,
+          executionTime: Date.now() - startTime
+        };
+      }
+      
+      // Multi-strategy extraction (only if we detected preloaded data)
       let directCount = this.extractDirectAdsCount(htmlContent);
       let advertiserName = this.extractAdvertiserName(htmlContent);
       let profileData = this.extractProfileData(htmlContent);
@@ -144,8 +169,9 @@ export class BalancedScraperService {
       }
       
       // Strategy 3: Fallback to ScrapeCreators if available
+      // (This should rarely happen now since we check hasNoPreloadedData first)
       if (directCount === null) {
-        console.log(`⚠️ Alternative patterns failed, trying ScrapeCreators fallback...`);
+        console.log(`⚠️ Alternative patterns failed (unexpected - data should exist), trying ScrapeCreators fallback...`);
         const fallbackResult = await this.tryScrapeCreatorsFallback(pageId, country);
         if (fallbackResult) {
           return fallbackResult;
@@ -224,7 +250,7 @@ export class BalancedScraperService {
     return `${baseUrl}?${params.toString()}`;
   }
 
-  private async fetchHtmlContent(url: string): Promise<string> {
+  private async fetchHtmlContent(url: string, retryCount: number = 0): Promise<string> {
     const result = await antiDetectionService.makeRequest(url);
     
     if (!result.success) {
@@ -239,8 +265,91 @@ export class BalancedScraperService {
       throw new Error('No data received');
     }
 
+    // Check if it's a Facebook error page (like the one you see in browser)
+    if (this.isFacebookErrorPage(result.data)) {
+      if (retryCount < 2) { // Max 2 retries
+        console.log(`⚠️ Facebook error page detected, retrying... (attempt ${retryCount + 1}/2)`);
+        await this.delay(2000 + (retryCount * 1000)); // 2s, 3s delays
+        return this.fetchHtmlContent(url, retryCount + 1);
+      } else {
+        console.log(`❌ Facebook error page after ${retryCount + 1} attempts, giving up`);
+        throw new Error('Facebook error page after multiple retries');
+      }
+    }
+
     console.log(`📄 HTML fetched: ${result.data.length} characters`);
     return result.data;
+  }
+
+  /**
+   * Check if the HTML is a Facebook error page
+   */
+  private isFacebookErrorPage(html: string): boolean {
+    // Check for specific Facebook error page indicators
+    const errorIndicators = [
+      'Sorry, something went wrong',
+      'We\'re working on getting this fixed',
+      'Error</title>',
+      'something went wrong',
+      'working on getting this fixed',
+      '<title>Error</title>',
+      'Error</title>',
+      'error</title>',
+      'ERROR</title>'
+    ];
+    
+    // Also check if HTML is suspiciously short (likely error page)
+    const isShortError = html.length < 5000 && errorIndicators.some(indicator => 
+      html.toLowerCase().includes(indicator.toLowerCase())
+    );
+    
+    // Check for specific error patterns
+    const hasErrorPattern = errorIndicators.some(indicator => 
+      html.toLowerCase().includes(indicator.toLowerCase())
+    );
+    
+    return isShortError || hasErrorPattern;
+  }
+
+  /**
+   * Check if the HTML contains NO DATA (Client-Side Rendering only)
+   * Based on analysis of 16 real production pages
+   */
+  private hasNoPreloadedData(html: string): boolean {
+    // Key indicators that data is NOT preloaded:
+    // 1. No RelayPrefetchedStreamCache (Facebook's SSR marker)
+    // 2. No search_results_connection (the data structure we need)
+    // 3. No ad_library_main (another data structure)
+    // 4. HTML size is ~500-503KB (typical CSR-only size)
+    
+    const hasRelayCache = html.includes('RelayPrefetchedStreamCache');
+    const hasSearchResults = html.includes('search_results_connection');
+    const hasAdLibrary = html.includes('ad_library_main');
+    
+    // If any of these exist, there IS data
+    if (hasRelayCache || hasSearchResults || hasAdLibrary) {
+      return false; // HAS data
+    }
+    
+    // Additional check: typical CSR-only size is 500-503KB
+    // Pages with data are usually 515KB-686KB
+    const isTypicalCSRSize = html.length >= 500000 && html.length <= 504000;
+    
+    if (isTypicalCSRSize) {
+      console.log(`🔍 Detected CSR-only page (size: ${html.length} bytes, no SSR markers)`);
+      return true; // NO data (pure CSR)
+    }
+    
+    // If none of the markers exist but size is unusual, still consider it as no data
+    console.log(`🔍 No SSR markers found (size: ${html.length} bytes)`);
+    return true; // NO data
+  }
+
+  /**
+   * Delay utility for retries
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
 
@@ -396,6 +505,50 @@ export class BalancedScraperService {
         }
       }
       
+      // Pattern 5: Look for any number in JSON-like structures
+      const jsonNumberPattern = /\{[^}]*"count"[^}]*"(\d+)"[^}]*\}/i;
+      const jsonNumberMatch = html.match(jsonNumberPattern);
+      if (jsonNumberMatch) {
+        const count = parseInt(jsonNumberMatch[1], 10);
+        if (this.isValidAdsCount(count)) {
+          console.log(`🎯 Alternative extraction found count: ${count} via JSON number pattern`);
+          return count;
+        }
+      }
+      
+      // Pattern 6: Look for numbers in data structures
+      const dataPattern = /"data":\s*\{[^}]*"count":\s*(\d+)/i;
+      const dataMatch = html.match(dataPattern);
+      if (dataMatch) {
+        const count = parseInt(dataMatch[1], 10);
+        if (this.isValidAdsCount(count)) {
+          console.log(`🎯 Alternative extraction found count: ${count} via data pattern`);
+          return count;
+        }
+      }
+      
+      // Pattern 7: Look for numbers in array structures
+      const arrayPattern = /\[[^\]]*"count":\s*(\d+)[^\]]*\]/i;
+      const arrayMatch = html.match(arrayPattern);
+      if (arrayMatch) {
+        const count = parseInt(arrayMatch[1], 10);
+        if (this.isValidAdsCount(count)) {
+          console.log(`🎯 Alternative extraction found count: ${count} via array pattern`);
+          return count;
+        }
+      }
+      
+      // Pattern 8: Look for any number that might be an ad count (more permissive)
+      const anyNumberPattern = /(\d+)(?=\s*(?:ads?|active|running|total|results))/i;
+      const anyNumberMatch = html.match(anyNumberPattern);
+      if (anyNumberMatch) {
+        const count = parseInt(anyNumberMatch[1], 10);
+        if (this.isValidAdsCount(count)) {
+          console.log(`🎯 Alternative extraction found count: ${count} via any number pattern`);
+          return count;
+        }
+      }
+      
       console.log(`⚠️ No alternative patterns found`);
       return null;
     } catch (error) {
@@ -406,11 +559,43 @@ export class BalancedScraperService {
 
   /**
    * Fallback to ScrapeCreators API when all extraction methods fail
-   * DISABLED: ScrapeCreators requests are better used for page search (30 ads) than stats (1 count)
+   * ENABLED: Only for critical cases where we need 100% success rate
    */
   private async tryScrapeCreatorsFallback(pageId: string, country: string): Promise<AdvertiserStatsResult | null> {
-    console.log(`⚠️ ScrapeCreators fallback disabled - requests better used for page search`);
-    return null;
+    try {
+      console.log(`🔄 Trying ScrapeCreators fallback for critical case: ${pageId}`);
+      
+      // Check if ScrapeCreators is available
+      const { scrapeCreatorsService } = await import('./scrapeCreatorsService.js');
+      if (!scrapeCreatorsService.isConfigured()) {
+        console.log(`⚠️ ScrapeCreators not configured, skipping fallback`);
+        return null;
+      }
+      
+      const result = await scrapeCreatorsService.getAdvertiserStats(pageId, country);
+      
+      if (result.totalActiveAds > 0) {
+        console.log(`✅ ScrapeCreators fallback successful: ${result.totalActiveAds} ads`);
+        
+        const stats: AdvertiserStats = {
+          pageId,
+          advertiserName: 'Unknown',
+          totalActiveAds: result.totalActiveAds,
+          lastUpdated: new Date().toISOString()
+        } as AdvertiserStats & { source: string };
+        
+        return {
+          success: true,
+          stats,
+          executionTime: 0
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error(`❌ ScrapeCreators fallback failed:`, error);
+      return null;
+    }
   }
 
   /**
