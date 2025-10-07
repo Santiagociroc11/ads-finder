@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Settings, Save, AlertCircle, CheckCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { getAuthToken } from '../utils/auth';
 import toast from 'react-hot-toast';
 
 interface UserSettings {
@@ -21,7 +22,8 @@ export const SettingsPage: React.FC = () => {
     const loadSettings = async () => {
       setIsLoading(true);
       try {
-        const token = localStorage.getItem('ads_finder_token');
+        const token = getAuthToken();
+        console.log('🔑 Token check:', { hasToken: !!token, tokenLength: token?.length });
         if (!token) {
           throw new Error('No authentication token found');
         }
@@ -65,7 +67,8 @@ export const SettingsPage: React.FC = () => {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
+      console.log('🔑 Save - Token check:', { hasToken: !!token, tokenLength: token?.length });
       if (!token) {
         throw new Error('No authentication token found');
       }
@@ -112,7 +115,8 @@ export const SettingsPage: React.FC = () => {
   const handleTestNotification = async () => {
     setIsTesting(true);
     try {
-      const token = localStorage.getItem('token');
+      const token = getAuthToken();
+      console.log('🔑 Save - Token check:', { hasToken: !!token, tokenLength: token?.length });
       if (!token) {
         throw new Error('No authentication token found');
       }
@@ -313,12 +317,7 @@ export const SettingsPage: React.FC = () => {
         {/* Environment Variables Info */}
         <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
           <h3 className="text-blue-400 font-medium mb-2">Configuración del Bot de Telegram</h3>
-          <p className="text-blue-300 text-sm mb-3">
-            Para habilitar las notificaciones, asegúrate de que el token del bot de Telegram esté configurado en las variables de entorno del servidor.
-          </p>
-          <code className="block mb-3 text-xs bg-dark-800 px-2 py-1 rounded text-gray-300">
-            TELEGRAM_BOT_TOKEN=tu_token_aqui
-          </code>
+          
           
           <h4 className="text-blue-400 font-medium mb-2">¿Cómo obtener tu ID de Telegram?</h4>
           <ol className="text-blue-300 text-sm space-y-1 list-decimal list-inside">
@@ -328,6 +327,27 @@ export const SettingsPage: React.FC = () => {
             <li>Copia el ID que aparece en el mensaje</li>
             <li>Pega el ID en el campo de arriba y guarda</li>
           </ol>
+        </div>
+
+        {/* Debug Section - Remove in production */}
+        <div className="mt-6 p-4 bg-red-500/10 border border-red-500/20 rounded-lg">
+          <h3 className="text-red-400 font-medium mb-2">Debug Info (Remove in production)</h3>
+          <div className="text-red-300 text-sm space-y-1">
+            <div>Token exists: {getAuthToken() ? 'Yes' : 'No'}</div>
+            <div>Token length: {getAuthToken()?.length || 0}</div>
+            <div>User authenticated: {user ? 'Yes' : 'No'}</div>
+            <div>User ID: {user?._id || 'N/A'}</div>
+            <button
+              onClick={() => {
+                console.log('🔍 Debug - localStorage keys:', Object.keys(localStorage));
+                console.log('🔍 Debug - ads_finder_token:', localStorage.getItem('ads_finder_token'));
+                console.log('🔍 Debug - ads_finder_user:', localStorage.getItem('ads_finder_user'));
+              }}
+              className="mt-2 px-3 py-1 bg-red-600 hover:bg-red-700 text-white text-xs rounded"
+            >
+              Log Debug Info
+            </button>
+          </div>
         </div>
       </div>
     </div>
