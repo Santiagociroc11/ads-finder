@@ -1,5 +1,6 @@
 import { balancedScraperService } from './balancedScraperService.js'
 import { redisCacheService } from './redisCacheService.js'
+import { storageService } from './storageService.js'
 
 export interface AdvertiserStats {
   pageId: string
@@ -80,6 +81,33 @@ export class AdvertiserStatsService {
   // Cache management
   clearCache() {
     balancedScraperService.clearCache();
+  }
+
+  /**
+   * Process and upload profile image to MinIO
+   */
+  async processProfileImage(profileImageUrl: string, pageId: string): Promise<string | null> {
+    if (!profileImageUrl) return null;
+
+    try {
+      console.log(`🖼️ Processing profile image for pageId: ${pageId}`);
+      
+      const uploadResult = await storageService.uploadMediaFromUrl(
+        profileImageUrl, 
+        `advertisers/${pageId}/profile`
+      );
+
+      if (uploadResult.success && uploadResult.url) {
+        console.log(`✅ Profile image uploaded to MinIO: ${uploadResult.url}`);
+        return uploadResult.url;
+      } else {
+        console.error(`❌ Failed to upload profile image: ${uploadResult.error}`);
+        return null;
+      }
+    } catch (error) {
+      console.error(`❌ Error processing profile image:`, error);
+      return null;
+    }
   }
 }
 

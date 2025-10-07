@@ -3,6 +3,7 @@ import { ObjectId } from 'mongodb';
 import { collections } from '@/services/database.js';
 import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
 import { authenticateToken } from '@/middleware/authMiddleware.js';
+import { AdMediaProcessor } from '@/services/adMediaProcessor.js';
 import type { SavedAd, AdData } from '../types/shared.js';
 
 const router = express.Router();
@@ -29,9 +30,14 @@ router.post('/', asyncHandler(async (req, res) => {
     throw new CustomError('Este anuncio ya está guardado', 409);
   }
 
+  // Process and upload media to MinIO
+  console.log(`🎬 Processing media for ad: ${adData.id}`);
+  const processedMedia = await AdMediaProcessor.processAdMedia(adData, adData.id);
+  const updatedAdData = AdMediaProcessor.updateAdDataWithProcessedMedia(adData, processedMedia);
+
   const newSavedAd: any = {
     userId,
-    adData,
+    adData: updatedAdData,
     tags: tags || [],
     notes: notes || '',
     collection: collection || 'General',
@@ -42,6 +48,11 @@ router.post('/', asyncHandler(async (req, res) => {
       hotnessScore: adData.hotness_score || 0,
       daysRunning: adData.days_running || 0,
       isLongRunning: adData.is_long_running || false
+    },
+    // Store original URLs for reference
+    originalMedia: {
+      images: processedMedia.originalImages,
+      videos: processedMedia.originalVideos
     }
   };
 
@@ -251,7 +262,16 @@ router.post('/bulk', asyncHandler(async (req, res) => {
 
   const adsToSave: Omit<SavedAd, '_id'>[] = [];
   
-  for (const adData of ads) {
+  // Process media for all ads in bulk
+  console.log(`🎬 Processing media for ${ads.length} ads in bulk`);
+  const bulkProcessResult = await AdMediaProcessor.processBulkAdsMedia(ads);
+  
+  console.log(`📊 Bulk media processing completed: ${bulkProcessResult.totalProcessed} processed, ${bulkProcessResult.totalFailed} failed`);
+  
+  for (let i = 0; i < ads.length; i++) {
+    const adData = ads[i];
+    const processedAdData = bulkProcessResult.processedAds[i];
+    
     if (existingIds.has(adData.id)) {
       results.skipped++;
       results.details.push({
@@ -264,7 +284,7 @@ router.post('/bulk', asyncHandler(async (req, res) => {
 
     const newSavedAd: any = {
       userId,
-      adData,
+      adData: processedAdData,
       tags: defaultTags || [],
       notes: defaultNotes || '',
       collection: defaultCollection || 'General',
@@ -275,6 +295,11 @@ router.post('/bulk', asyncHandler(async (req, res) => {
         hotnessScore: adData.hotness_score || 0,
         daysRunning: adData.days_running || 0,
         isLongRunning: adData.is_long_running || false
+      },
+      // Store original URLs for reference
+      originalMedia: {
+        images: processedAdData.apify_data?.images || processedAdData.scrapecreators_data?.images_detailed?.map((img: any) => img.url) || [],
+        videos: processedAdData.apify_data?.videos?.map((video: any) => video.video_hd_url || video.video_sd_url) || []
       }
     };
 

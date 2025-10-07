@@ -161,12 +161,29 @@ router.post('/', async (req, res) => {
       });
     }
     
+    // Procesar imagen del perfil si está disponible
+    let processedProfilePictureUrl = pageProfilePictureUrl;
+    if (pageProfilePictureUrl) {
+      const { advertiserStatsService } = await import('@/services/advertiserStatsService.js');
+      const minioImageUrl = await advertiserStatsService.processProfileImage(
+        pageProfilePictureUrl, 
+        pageId
+      );
+      
+      if (minioImageUrl) {
+        processedProfilePictureUrl = minioImageUrl;
+        console.log(`🖼️ Profile image uploaded to MinIO for new advertiser: ${pageName}`);
+      } else {
+        console.log(`⚠️ Using original profile picture URL for new advertiser: ${pageName}`);
+      }
+    }
+    
     const trackedAdvertiser = new TrackedAdvertiser({
       userId,
       pageId,
       pageName,
       pageProfileUri,
-      pageProfilePictureUrl,
+      pageProfilePictureUrl: processedProfilePictureUrl,
       pageLikeCount: pageLikeCount || 0,
       pageCategories: pageCategories || [],
       pageVerification: pageVerification || false,
@@ -339,10 +356,23 @@ router.post('/:id/check', async (req, res) => {
     
     // Actualizar información del perfil si está disponible en las estadísticas
     if (statsResult.stats) {
+      // Procesar y subir imagen del perfil a MinIO
       if (statsResult.stats.pageProfilePictureUrl) {
-        advertiser.pageProfilePictureUrl = statsResult.stats.pageProfilePictureUrl;
-        console.log(`🖼️ Updated profile picture URL for ${advertiser.pageName}`);
+        const minioImageUrl = await advertiserStatsService.processProfileImage(
+          statsResult.stats.pageProfilePictureUrl, 
+          advertiser.pageId
+        );
+        
+        if (minioImageUrl) {
+          advertiser.pageProfilePictureUrl = minioImageUrl;
+          console.log(`🖼️ Updated profile picture URL to MinIO for ${advertiser.pageName}`);
+        } else {
+          // Fallback a la URL original si MinIO falla
+          advertiser.pageProfilePictureUrl = statsResult.stats.pageProfilePictureUrl;
+          console.log(`⚠️ Using original profile picture URL for ${advertiser.pageName}`);
+        }
       }
+      
       if (statsResult.stats.pageProfileUri) {
         advertiser.pageProfileUri = statsResult.stats.pageProfileUri;
         console.log(`🔗 Updated profile URI for ${advertiser.pageName}`);

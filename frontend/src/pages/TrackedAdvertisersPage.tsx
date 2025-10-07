@@ -110,6 +110,34 @@ const TrackedAdvertisersPage: React.FC = () => {
     return num.toString();
   };
 
+  // Función para combinar datos iniciales con estadísticas diarias
+  const getCombinedChartData = (advertiser: TrackedAdvertiser) => {
+    const chartData = [];
+    
+    // Agregar día inicial si existe
+    if (advertiser.initialActiveAdsCount > 0) {
+      chartData.push({
+        date: advertiser.trackingStartDate,
+        activeAds: advertiser.initialActiveAdsCount,
+        isInitial: true
+      });
+    }
+    
+    // Agregar estadísticas diarias
+    if (advertiser.dailyStats && advertiser.dailyStats.length > 0) {
+      advertiser.dailyStats.forEach(stat => {
+        chartData.push({
+          date: stat.date,
+          activeAds: stat.activeAds,
+          isInitial: false
+        });
+      });
+    }
+    
+    // Ordenar por fecha
+    return chartData.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  };
+
   // Filter advertisers based on search term and product type
   const filteredAdvertisers = advertisersData?.data?.filter(advertiser => {
     const matchesSearch = advertiser.pageName.toLowerCase().includes(searchTerm.toLowerCase());
@@ -250,37 +278,46 @@ const TrackedAdvertisersPage: React.FC = () => {
                       )}
 
                       {/* Daily Stats with Mini Chart */}
-                      {advertiser.dailyStats && advertiser.dailyStats.length > 0 && (
+                      {(advertiser.dailyStats && advertiser.dailyStats.length > 0) || advertiser.initialActiveAdsCount > 0 ? (
                         <div className="mt-4">
                           <h4 className="text-sm font-medium text-gray-300 mb-3">Evolución de Anuncios Activos</h4>
                           
                           {/* Mini Chart */}
                           <div className="bg-gray-700/30 rounded-lg p-4 mb-4">
                             <MiniChart 
-                              data={advertiser.dailyStats.map(stat => ({
-                                date: stat.date,
-                                activeAds: stat.activeAds
+                              data={getCombinedChartData(advertiser).map(dataPoint => ({
+                                date: dataPoint.date,
+                                activeAds: dataPoint.activeAds
                               }))}
                               height={80}
                               showTrend={true}
                             />
                           </div>
 
-                          {/* Recent Stats Grid */}
+                          {/* Recent Stats Grid - incluir día inicial si existe */}
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                            {advertiser.dailyStats.slice(-4).map((stat, index) => (
-                              <div key={index} className="bg-gray-700/50 rounded-lg p-3">
-                                <p className="text-xs text-gray-400">{formatDate(stat.date)}</p>
-                                <p className="text-sm font-semibold text-white">{stat.activeAds} activos</p>
-                                <p className="text-xs text-gray-400">{stat.newAds} nuevos</p>
+                            {getCombinedChartData(advertiser).slice(-4).map((dataPoint, index) => (
+                              <div key={index} className={`rounded-lg p-3 ${dataPoint.isInitial ? 'bg-blue-500/20 border border-blue-500/30' : 'bg-gray-700/50'}`}>
+                                <p className="text-xs text-gray-400">
+                                  {dataPoint.isInitial ? 'Inicio del tracking' : formatDate(dataPoint.date)}
+                                </p>
+                                <p className="text-sm font-semibold text-white">{dataPoint.activeAds} activos</p>
+                                {!dataPoint.isInitial && (
+                                  <p className="text-xs text-gray-400">
+                                    {advertiser.dailyStats?.find(stat => stat.date === dataPoint.date)?.newAds || 0} nuevos
+                                  </p>
+                                )}
+                                {dataPoint.isInitial && (
+                                  <p className="text-xs text-blue-300">Día inicial</p>
+                                )}
                               </div>
                             ))}
                           </div>
                         </div>
-                      )}
+                      ) : null}
 
-                      {/* Initial Active Ads Count */}
-                      {advertiser.initialActiveAdsCount > 0 && (
+                      {/* Initial Active Ads Count - Solo mostrar si no hay estadísticas diarias */}
+                      {advertiser.initialActiveAdsCount > 0 && (!advertiser.dailyStats || advertiser.dailyStats.length === 0) && (
                         <div className="mt-4">
                           <h4 className="text-sm font-medium text-gray-300 mb-2">
                             Anuncios Activos Iniciales

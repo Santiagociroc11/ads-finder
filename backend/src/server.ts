@@ -35,6 +35,7 @@ import searchHistoryRoutes from '@/routes/searchHistory.js';
 import trackedAdvertisersRoutes from '@/routes/trackedAdvertisers.js';
 import userSettingsRoutes from '@/routes/userSettings.js';
 import monitoringRoutes from '@/routes/monitoring.js';
+import storageRoutes from '@/routes/storage.js';
 import { telegramBotService } from '@/services/telegramBotService.js';
 import { cronService } from '@/services/cronService.js';
 import { monitor } from '@/middleware/concurrencyMonitor.js';
@@ -91,6 +92,7 @@ app.use('/api/search-history', searchHistoryRoutes);
 app.use('/api/tracked-advertisers', trackedAdvertisersRoutes);
 app.use('/api/user', userSettingsRoutes);
 app.use('/api/monitoring', monitoringRoutes);
+app.use('/api/storage', storageRoutes);
 
 // Health check endpoint with monitoring data
 app.get('/api/health', async (req, res) => {
