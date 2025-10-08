@@ -76,8 +76,7 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
           
           searchResult.autoSaved = {
             saved: true,
-            searchName,
-            message: '💰 Búsqueda Apify guardada automáticamente - Reutilizable sin costo adicional'
+            searchName
           };
           
           console.log(`[AUTO_SAVE] ✅ Apify search auto-saved: "${searchName}" with ${searchResult.data.length} ads`);
