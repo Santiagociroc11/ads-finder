@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from 'react-query'
 import { toast } from 'react-hot-toast'
 import { useSearch } from '../contexts/SearchContext'
+import AdMediaDisplay from '../components/AdMediaDisplay'
 import { 
   Search, 
   Sparkles, 
@@ -2089,105 +2090,16 @@ export function SearchPage() {
                           </div>
                         )}
 
-                        {/* Multimedia Content */}
-                        {(() => {
-                          console.log(`[RENDER] ${ad.page_name} - adInfo.images:`, adInfo.images);
-                          console.log(`[RENDER] ${ad.page_name} - images length:`, adInfo.images?.length);
-                          return (adInfo.images && adInfo.images.length > 0);
-                        })() && (
-                          <div className="facebook-multimedia">
-                            {adInfo.images.length === 1 ? (
-                              // Single image
-                              <div className="w-full h-64 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
-                              <img 
-                                src={adInfo.images[0].resized_image_url || adInfo.images[0].original_image_url} 
-                                alt="Ad creative"
-                                  className="max-w-full max-h-full object-contain"
-                                onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none'
-                                }}
-                              />
-                              </div>
-                            ) : (
-                              // Carousel for multiple images
-                              <div className="ad-media-container">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="flex items-center gap-2 text-xs text-primary-400">
-                                    <Image className="w-3 h-3" />
-                                    <span>{adInfo.images.length} imagen(es)</span>
-                                  </div>
-                                  <div className="flex items-center gap-1 text-xs text-gray-400">
-                                    <span>{getCarouselIndex(ad.id) + 1} de {adInfo.images.length}</span>
-                                  </div>
-                                </div>
-                                
-                                <div className="relative">
-                                  {/* Current Image */}
-                                  <div className="relative w-full h-64 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
-                                    <SmartImage
-                                      src={adInfo.images[getCarouselIndex(ad.id)]?.original_image_url || adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url}
-                                      alt={`Contenido del anuncio ${getCarouselIndex(ad.id) + 1}`}
-                                      fallbackSrc={adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url || adInfo.images[getCarouselIndex(ad.id)]?.original_image_url}
-                                      preserveAspectRatio={true}
-                                      maxHeight="max-h-64"
-                                      containerClassName="w-full h-64"
-                                      onError={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        target.style.display = 'none';
-                                      }}
-                                    />
-                                    
-                                    {/* Navigation Arrows */}
-                                    <button
-                                      onClick={() => prevCarouselItem(ad.id, adInfo.images.length)}
-                                      className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                      </svg>
-                                    </button>
-                                    <button
-                                      onClick={() => nextCarouselItem(ad.id, adInfo.images.length)}
-                                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                      </svg>
-                                    </button>
-                                  </div>
-                                  
-                                  {/* Carousel Indicators */}
-                                  <div className="flex justify-center gap-1 mt-2">
-                                    {adInfo.images.map((_: any, index: number) => (
-                                      <button
-                                        key={index}
-                                        onClick={() => setCarouselIndex(ad.id, index)}
-                                        className={`w-2 h-2 rounded-full transition-colors ${
-                                          index === getCarouselIndex(ad.id)
-                                            ? 'bg-primary-500'
-                                            : 'bg-gray-600 hover:bg-gray-500'
-                                        }`}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        
-                        {(adInfo.videos && adInfo.videos.length > 0) && (
-                          <div className="facebook-multimedia">
-                            {adInfo.videos[0] && (
-                              <video 
-                                src={adInfo.videos[0].video_hd_url || adInfo.videos[0].video_sd_url}
-                                className="w-full h-64 object-cover rounded-lg"
-                                controls
-                                poster={adInfo.videos[0].video_preview_image_url}
-                              />
-                            )}
-                          </div>
-                        )}
+                        {/* Multimedia Content - Smart Aspect Ratio Detection */}
+                        <AdMediaDisplay
+                          images={adInfo.images}
+                          videos={adInfo.videos}
+                          maxHeight="max-h-96"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement | HTMLVideoElement;
+                            target.style.display = 'none';
+                          }}
+                        />
 
                         {/* Link Card Layout */}
                         {(ad.ad_creative_link_titles || ad.ad_creative_link_descriptions || ad.ad_creative_link_captions) && (
