@@ -22,7 +22,6 @@ import {
 } from 'lucide-react'
 import { savedAdsApi } from '@/services/api'
 import type { SavedAd, AdData } from '@/types/shared'
-import AdMediaDisplay from '../components/AdMediaDisplay'
 
 // Smart Image Component with fallback
 const SmartImage = ({ 
@@ -756,16 +755,38 @@ export function SavedAdsPage() {
                         </div>
                       )}
                       
-                      {/* Images - Smart Aspect Ratio Detection */}
-                      <AdMediaDisplay
-                        images={adInfo.images}
-                        videos={adInfo.videos}
-                        maxHeight="max-h-64"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement | HTMLVideoElement;
-                          target.style.display = 'none';
-                        }}
-                      />
+                      {/* Images */}
+                      {adInfo.images && adInfo.images.length > 0 && (
+                        <div className="apify-multimedia">
+                          {adInfo.images.length === 1 ? (
+                            <div className="w-full h-64 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
+                              <img 
+                                src={adInfo.images[0].resized_image_url || adInfo.images[0].original_image_url} 
+                                alt="Ad creative"
+                                className="max-w-full max-h-full object-contain"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).style.display = 'none'
+                                }}
+                              />
+                            </div>
+                          ) : (
+                            <div className="grid grid-cols-2 gap-2">
+                              {adInfo.images.slice(0, 4).map((img: any, index: number) => (
+                                <div key={index} className="aspect-square bg-gray-800 rounded-lg overflow-hidden">
+                                  <img 
+                                    src={img.resized_image_url || img.original_image_url} 
+                                    alt={`Ad creative ${index + 1}`}
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      (e.target as HTMLImageElement).style.display = 'none'
+                                    }}
+                                  />
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ) : (
                     // Simple API format
