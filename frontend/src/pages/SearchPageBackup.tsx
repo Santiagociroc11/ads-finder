@@ -1953,7 +1953,7 @@ export function SearchPage() {
                               <img 
                                 src={adInfo.images[0].resized_image_url || adInfo.images[0].original_image_url} 
                                 alt="Ad creative"
-                                className="w-full h-64 object-cover rounded-lg"
+                                className="w-full h-64 object-contain rounded-lg"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).style.display = 'none'
                                 }}
@@ -1967,7 +1967,7 @@ export function SearchPage() {
                             {adInfo.videos[0] && (
                               <video 
                                 src={adInfo.videos[0].video_hd_url || adInfo.videos[0].video_sd_url}
-                                className="w-full h-64 object-cover rounded-lg"
+                                className="w-full h-64 object-contain rounded-lg"
                                 controls
                                 poster={adInfo.videos[0].video_preview_image_url}
                               />

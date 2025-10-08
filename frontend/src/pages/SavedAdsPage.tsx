@@ -63,13 +63,18 @@ const SmartImage = ({
 
   return (
     <div className={`relative overflow-hidden rounded-lg border border-gray-700 ${containerClassName}`}>
-      <div className="relative h-80">
+      <div className="relative h-80 flex justify-center bg-gray-800/50">
         <img
           src={currentSrc}
           alt={alt}
-          className={`w-full h-full object-cover transition-opacity duration-300 ${
+          className={`max-w-full max-h-full object-contain transition-opacity duration-300 ${
             imageLoaded ? 'opacity-100' : 'opacity-0'
           } ${className}`}
+          style={{
+            maxHeight: '20rem', // h-80 equivalent
+            width: 'auto',
+            height: 'auto'
+          }}
           onLoad={handleLoad}
           onError={handleError}
         />
@@ -661,7 +666,7 @@ export function SavedAdsPage() {
                           {adInfo.videos[0] && (
                             <video 
                               src={adInfo.videos[0].video_hd_url || adInfo.videos[0].video_sd_url}
-                              className="w-full h-64 object-cover rounded-lg"
+                              className="w-full h-64 object-contain rounded-lg"
                               controls
                               poster={adInfo.videos[0].video_preview_image_url}
                             />
