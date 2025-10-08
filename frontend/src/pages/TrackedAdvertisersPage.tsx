@@ -50,6 +50,7 @@ const TrackedAdvertisersPage: React.FC = () => {
     }
   );
 
+
   // Update daily stats mutation
   const updateStatsMutation = useMutation(
     ({ id, stats }: { id: string; stats: any }) => trackedAdvertisersApi.updateDailyStats(id, stats),
@@ -242,13 +243,22 @@ const TrackedAdvertisersPage: React.FC = () => {
                 <div className="flex items-start justify-between">
                   <div className="flex items-start space-x-4 flex-1">
                     {/* Profile Picture */}
-                    {advertiser.pageProfilePictureUrl && (
+                    {advertiser.pageProfilePictureUrl ? (
                       <img
                         src={advertiser.pageProfilePictureUrl}
                         alt={advertiser.pageName}
                         className="w-12 h-12 rounded-lg object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = 'none';
+                          (e.target as HTMLImageElement).nextElementSibling?.classList.remove('hidden');
+                        }}
                       />
-                    )}
+                    ) : null}
+                    
+                    {/* Fallback Avatar */}
+                    <div className={`w-12 h-12 bg-gradient-to-br from-primary-500 to-secondary-500 rounded-lg flex items-center justify-center text-white font-bold ${advertiser.pageProfilePictureUrl ? 'hidden' : ''}`}>
+                      {advertiser.pageName.charAt(0).toUpperCase()}
+                    </div>
 
                     {/* Advertiser Info */}
                     <div className="flex-1 min-w-0">

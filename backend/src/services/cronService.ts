@@ -1,6 +1,7 @@
 import { dailyAdvertiserMonitor } from './dailyAdvertiserMonitor.js';
 import { smartScheduler } from './smartScheduler.js';
 import { cronQueueService } from './cronQueue.js';
+import { personalizedScheduler } from './personalizedScheduler.js';
 
 export class CronService {
   private dailyMonitorInterval: NodeJS.Timeout | null = null;
@@ -17,7 +18,10 @@ export class CronService {
 
     console.log('⏰ Starting cron service...');
     
-    // Monitoreo diario de anunciantes (cada 24 horas a las 6:00 AM)
+    // Sistema personalizado de análisis basado en preferencias de usuario
+    this.startPersonalizedScheduling();
+    
+    // Mantener el sistema legacy para usuarios sin configuración específica
     this.startDailyAdvertiserMonitoring();
     
     this.isStarted = true;
@@ -39,8 +43,28 @@ export class CronService {
       this.dailyMonitorInterval = null;
     }
 
+    // Stop personalized scheduler
+    personalizedScheduler.stop();
+
     this.isStarted = false;
     console.log('✅ Cron service stopped');
+  }
+
+  /**
+   * Inicia el sistema de programación personalizado
+   */
+  private startPersonalizedScheduling(): void {
+    console.log('📅 Starting personalized analysis scheduling...');
+    
+    // Wait 35 seconds after server start to ensure database is ready
+    setTimeout(async () => {
+      try {
+        await personalizedScheduler.start();
+        console.log('✅ Personalized scheduling started successfully');
+      } catch (error) {
+        console.error('❌ Error starting personalized scheduling:', error);
+      }
+    }, 35000); // Wait 35 seconds for database initialization
   }
 
   /**

@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, AlertCircle, CheckCircle } from 'lucide-react';
+import { Settings, Save, AlertCircle, CheckCircle, Clock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAuthToken } from '../utils/auth';
 import toast from 'react-hot-toast';
 
 interface UserSettings {
   telegramId?: string;
+  analysisTime?: string;
 }
 
 export const SettingsPage: React.FC = () => {
   const { user, updateUser } = useAuth();
   const [settings, setSettings] = useState<UserSettings>({
-    telegramId: ''
+    telegramId: '',
+    analysisTime: '09:00'
   });
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -41,7 +43,8 @@ export const SettingsPage: React.FC = () => {
         const data = await response.json();
         if (data.success) {
           setSettings({
-            telegramId: data.user.telegramId || ''
+            telegramId: data.user.telegramId || '',
+            analysisTime: data.user.analysisTime || '09:00'
           });
         }
       } catch (error) {
@@ -84,7 +87,8 @@ export const SettingsPage: React.FC = () => {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          telegramId: settings.telegramId || null
+          telegramId: settings.telegramId || null,
+          analysisTime: settings.analysisTime || '09:00'
         })
       });
 
@@ -255,6 +259,49 @@ export const SettingsPage: React.FC = () => {
                     </span>
                   </div>
                 )}
+              </div>
+            </div>
+
+            {/* Analysis Time Section */}
+            <div className="border-b border-gray-700 pb-6">
+              <div className="flex items-center space-x-3 mb-4">
+                <div className="w-10 h-10 bg-primary-600/20 rounded-lg flex items-center justify-center">
+                  <Clock className="w-5 h-5 text-primary-500" />
+                </div>
+                <div>
+                  <h2 className="text-xl font-semibold text-gray-100">
+                    Análisis Automático
+                  </h2>
+                  <p className="text-gray-400 text-sm">
+                    Configura la hora para el análisis automático de anuncios en seguimiento
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label htmlFor="analysisTime" className="block text-sm font-medium text-gray-300 mb-2">
+                    Hora de Análisis Diario
+                  </label>
+                  <input
+                    type="time"
+                    id="analysisTime"
+                    name="analysisTime"
+                    value={settings.analysisTime}
+                    onChange={handleInputChange}
+                    className="w-full px-4 py-3 bg-dark-800 border border-gray-600 rounded-lg text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
+                  />
+                  <p className="mt-2 text-xs text-gray-500">
+                    El sistema analizará automáticamente los anuncios activos de tu lista de seguimiento a esta hora todos los días
+                  </p>
+                </div>
+
+                <div className="flex items-center space-x-2 p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                  <CheckCircle className="w-5 h-5 text-blue-500" />
+                  <span className="text-blue-400 text-sm">
+                    El análisis se ejecutará todos los días a las {settings.analysisTime || '09:00'}
+                  </span>
+                </div>
               </div>
             </div>
 

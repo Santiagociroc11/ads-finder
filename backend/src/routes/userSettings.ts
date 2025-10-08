@@ -6,13 +6,14 @@ import { AuthService } from '@/services/authService.js';
 import { logger } from '@/middleware/logger.js';
 import { authenticateToken } from '@/middleware/authMiddleware.js';
 import { telegramBotService } from '@/services/telegramBotService.js';
+import { personalizedScheduler } from '@/services/personalizedScheduler.js';
 
 const router = Router();
 
-// Update user settings (telegramId)
+// Update user settings (telegramId, analysisTime)
 router.put('/settings', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const { telegramId } = req.body;
+    const { telegramId, analysisTime } = req.body;
     const userId = (req as any).user?._id?.toString();
 
     if (!userId) {
@@ -37,12 +38,21 @@ router.put('/settings', authenticateToken, async (req: Request, res: Response) =
       });
     }
 
+    // Validate analysisTime format if provided
+    if (analysisTime && !/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(analysisTime)) {
+      return res.status(400).json({
+        success: false,
+        message: 'La hora de análisis debe estar en formato HH:MM'
+      });
+    }
+
     // Update user document
     const updateResult = await collections.users.updateOne(
       { _id: new ObjectId(userId) } as any,
       { 
         $set: { 
           telegramId: telegramId || null,
+          analysisTime: analysisTime || '09:00',
           updatedAt: new Date().toISOString()
         } 
       }
@@ -70,8 +80,20 @@ router.put('/settings', authenticateToken, async (req: Request, res: Response) =
 
       console.log(`✅ User settings updated for user ${userId}`, {
         userId,
-        telegramId: telegramId ? 'provided' : 'removed'
+        telegramId: telegramId ? 'provided' : 'removed',
+        analysisTime: analysisTime || '09:00'
       });
+
+      // Update personalized scheduler if analysis time changed
+      if (analysisTime) {
+        try {
+          await personalizedScheduler.updateUserSchedule(userId, analysisTime);
+          console.log(`📅 Updated analysis schedule for user ${userId} to ${analysisTime}`);
+        } catch (error) {
+          console.error(`❌ Error updating analysis schedule for user ${userId}:`, error);
+          // Don't fail the request if scheduler update fails
+        }
+      }
 
     res.json({
       success: true,
@@ -82,6 +104,7 @@ router.put('/settings', authenticateToken, async (req: Request, res: Response) =
         name: updatedUser.name,
         role: updatedUser.role,
         telegramId: updatedUser.telegramId,
+        analysisTime: (updatedUser as any).analysisTime,
         createdAt: updatedUser.createdAt,
         updatedAt: updatedUser.updatedAt
       }
@@ -135,6 +158,7 @@ router.get('/settings', authenticateToken, async (req: Request, res: Response) =
         name: user.name,
         role: user.role,
         telegramId: user.telegramId,
+        analysisTime: (user as any).analysisTime,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
       }
@@ -227,6 +251,43 @@ Ahora recibirás notificaciones cuando:
     res.status(500).json({
       success: false,
       message: 'Error al enviar la notificación de prueba'
+    });
+  }
+});
+
+// Get scheduler status (admin only)
+router.get('/scheduler-status', authenticateToken, async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?._id;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        message: 'Usuario no autenticado'
+      });
+    }
+
+    // Check if user is admin
+    const user = await collections.users?.findOne({ _id: new ObjectId(userId) as any });
+    if (!user || user.role !== 'admin') {
+      return res.status(403).json({
+        success: false,
+        message: 'Acceso denegado. Solo administradores pueden ver el estado del scheduler'
+      });
+    }
+
+    const status = personalizedScheduler.getStatus();
+    
+    res.json({
+      success: true,
+      schedulerStatus: status
+    });
+
+  } catch (error) {
+    console.error('❌ Error getting scheduler status:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error interno del servidor'
     });
   }
 });

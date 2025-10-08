@@ -272,6 +272,7 @@ export interface User {
   name: string;
   role: 'admin' | 'user';
   telegramId?: string;
+  analysisTime?: string;
   createdAt: string;
   updatedAt: string;
 }

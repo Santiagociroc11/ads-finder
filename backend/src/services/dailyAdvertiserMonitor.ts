@@ -430,6 +430,48 @@ export class DailyAdvertiserMonitor {
   }
 
   /**
+   * Ejecuta análisis para un usuario específico
+   */
+  async runUserAnalysis(userId: string, advertisers: any[]): Promise<void> {
+    if (this.isRunning) {
+      console.log(`📊 Analysis already running, skipping for user ${userId}`);
+      return;
+    }
+
+    this.isRunning = true;
+    const startTime = Date.now();
+    
+    try {
+      console.log(`🚀 Starting personalized analysis for user ${userId}...`);
+      
+      // Verificar que la base de datos esté lista
+      if (!await this.isDatabaseReady()) {
+        console.log(`📊 Database not ready, skipping analysis for user ${userId}`);
+        return;
+      }
+
+      console.log(`📊 Processing ${advertisers.length} advertisers for user ${userId}`);
+
+      // Usar sistema de colas para procesamiento controlado
+      console.log(`📊 Adding ${advertisers.length} advertisers to queue for user ${userId}...`);
+      await cronQueueService.addAdvertisersToQueue(advertisers);
+      
+      // Procesar la cola (con rate limiting)
+      const results = await cronQueueService.processQueue();
+      
+      console.log(`📊 Queue processing completed for user ${userId}: ${results.length} advertisers processed`);
+      
+      const executionTime = Date.now() - startTime;
+      console.log(`✅ Personalized analysis completed for user ${userId} in ${executionTime}ms`);
+      
+    } catch (error) {
+      console.error(`❌ Error in personalized analysis for user ${userId}:`, error);
+    } finally {
+      this.isRunning = false;
+    }
+  }
+
+  /**
    * Obtiene el estado del monitoreo
    */
   getStatus(): { isRunning: boolean; lastRun: Date | null } {

@@ -464,7 +464,8 @@ export const trackedAdvertisersApi = {
   }> => {
     const response = await api.post(`/tracked-advertisers/${id}/check`, stats)
     return response.data
-  }
+  },
+
 }
 
 export default api
