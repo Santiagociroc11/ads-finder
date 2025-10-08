@@ -32,8 +32,9 @@ const AdMediaDisplay: React.FC<AdMediaDisplayProps> = ({
   onError
 }) => {
   const [aspectRatios, setAspectRatios] = useState<MediaAspectRatio[]>([]);
+  const [loadedCount, setLoadedCount] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const imageRefs = useRef<(HTMLImageElement | null)[]>([]);
 
   // Calculate aspect ratio from image dimensions
   const calculateAspectRatio = (width: number, height: number): MediaAspectRatio => {
@@ -62,7 +63,7 @@ const AdMediaDisplay: React.FC<AdMediaDisplayProps> = ({
       return newRatios;
     });
     
-    setIsLoading(false);
+    setLoadedCount(prev => prev + 1);
   };
 
   // Handle video load to get dimensions
@@ -76,7 +77,7 @@ const AdMediaDisplay: React.FC<AdMediaDisplayProps> = ({
       return newRatios;
     });
     
-    setIsLoading(false);
+    setLoadedCount(prev => prev + 1);
   };
 
   // Get container class based on aspect ratio
@@ -114,8 +115,8 @@ const AdMediaDisplay: React.FC<AdMediaDisplayProps> = ({
   // Reset state when media changes
   useEffect(() => {
     setAspectRatios([]);
+    setLoadedCount(0);
     setCurrentImageIndex(0);
-    setIsLoading(true);
   }, [images, videos]);
 
   // If no media, return null
@@ -134,13 +135,14 @@ const AdMediaDisplay: React.FC<AdMediaDisplayProps> = ({
       <div className={`facebook-multimedia ${containerClassName}`}>
         <div className={`relative overflow-hidden rounded-lg border border-gray-700/50 ${containerClass} ${maxHeight}`}>
           <img
+            ref={el => imageRefs.current[0] = el}
             src={image.resized_image_url || image.original_image_url}
             alt="Ad creative"
             className={`w-full h-full ${objectFitClass} transition-opacity duration-300 ${className}`}
             onLoad={(e) => handleImageLoad(0, e)}
             onError={onError}
           />
-          {isLoading && (
+          {loadedCount === 0 && (
             <div className="absolute inset-0 bg-gray-800 animate-pulse flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin" />
             </div>
@@ -167,7 +169,7 @@ const AdMediaDisplay: React.FC<AdMediaDisplayProps> = ({
             onLoadedMetadata={(e) => handleVideoLoad(0, e)}
             onError={onError}
           />
-          {isLoading && (
+          {loadedCount === 0 && (
             <div className="absolute inset-0 bg-gray-800 animate-pulse flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin" />
             </div>
@@ -190,6 +192,7 @@ const AdMediaDisplay: React.FC<AdMediaDisplayProps> = ({
           {images.map((image, index) => (
             <img
               key={index}
+              ref={el => imageRefs.current[index] = el}
               src={image.resized_image_url || image.original_image_url}
               alt={`Ad creative ${index + 1}`}
               className={`w-full h-full ${objectFitClass} transition-opacity duration-300 ${
@@ -237,7 +240,7 @@ const AdMediaDisplay: React.FC<AdMediaDisplayProps> = ({
             </>
           )}
 
-          {isLoading && (
+          {loadedCount === 0 && (
             <div className="absolute inset-0 bg-gray-800 animate-pulse flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin" />
             </div>
@@ -260,13 +263,14 @@ const AdMediaDisplay: React.FC<AdMediaDisplayProps> = ({
       <div className={`facebook-multimedia ${containerClassName}`}>
         <div className={`relative overflow-hidden rounded-lg border border-gray-700/50 ${containerClass} ${maxHeight}`}>
           <img
+            ref={el => imageRefs.current[0] = el}
             src={firstImage.resized_image_url || firstImage.original_image_url}
             alt="Ad creative"
             className={`w-full h-full ${objectFitClass} transition-opacity duration-300 ${className}`}
             onLoad={(e) => handleImageLoad(0, e)}
             onError={onError}
           />
-          {isLoading && (
+          {loadedCount === 0 && (
             <div className="absolute inset-0 bg-gray-800 animate-pulse flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin" />
             </div>
@@ -291,7 +295,7 @@ const AdMediaDisplay: React.FC<AdMediaDisplayProps> = ({
             onLoadedMetadata={(e) => handleVideoLoad(0, e)}
             onError={onError}
           />
-          {isLoading && (
+          {loadedCount === 0 && (
             <div className="absolute inset-0 bg-gray-800 animate-pulse flex items-center justify-center">
               <div className="w-6 h-6 border-2 border-primary-500/30 border-t-primary-500 rounded-full animate-spin" />
             </div>
