@@ -129,8 +129,42 @@ export class BalancedScraperService {
       // Build Facebook Ads Library URL (same as original)
       const adLibraryUrl = this.buildAdLibraryUrl(pageId, country);
       
-      // Fetch HTML content with proper timeout
-      const htmlContent = await this.fetchHtmlContent(adLibraryUrl);
+      let htmlContent: string;
+      try {
+        // Fetch HTML content with proper timeout
+        htmlContent = await this.fetchHtmlContent(adLibraryUrl);
+      } catch (error) {
+        // If Facebook error page or other fetch errors, try ScrapeCreators fallback
+        if (error instanceof Error && (
+          error.message.includes('Facebook error page') ||
+          error.message.includes('Blocked:') ||
+          error.message.includes('Failed to fetch HTML')
+        )) {
+          console.log(`⚠️ HTML fetch failed (${error.message}), trying ScrapeCreators fallback...`);
+          const fallbackResult = await this.tryScrapeCreatorsFallback(pageId, country);
+          if (fallbackResult) {
+            return fallbackResult;
+          }
+          
+          // If ScrapeCreators also fails, return 0 ads
+          console.log(`⚠️ ScrapeCreators fallback failed, returning 0 ads`);
+          const stats: AdvertiserStats = {
+            pageId,
+            advertiserName: 'Unknown',
+            totalActiveAds: 0,
+            lastUpdated: new Date().toISOString()
+          };
+          
+          return {
+            success: true,
+            stats,
+            executionTime: Date.now() - startTime
+          };
+        }
+        
+        // Re-throw other errors
+        throw error;
+      }
       
       // OPTIMIZATION: Check if HTML has NO preloaded data (CSR-only)
       // If so, skip extraction attempts and go straight to ScrapeCreators fallback

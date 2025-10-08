@@ -130,9 +130,9 @@ const defaultPaginationData: PaginationData = {
 };
 
 const defaultSortConfig: SortConfig = {
-  primary: null,
-  secondary: null,
-  tertiary: null
+  primary: { field: 'collation_count', direction: 'desc' },
+  secondary: { field: 'advertiser_active_ads', direction: 'desc' },
+  tertiary: { field: 'days_running', direction: 'desc' }
 };
 
 const defaultTrackingModal = {

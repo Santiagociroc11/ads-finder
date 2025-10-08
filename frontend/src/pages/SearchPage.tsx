@@ -17,7 +17,8 @@ import {
   Video,
   MessageCircle,
   Heart,
-  Eye
+  Eye,
+  ChevronUp
 } from 'lucide-react'
 
 import { searchApi, suggestionsApi, savedAdsApi, completeSearchesApi, scraperApi } from '@/services/api'
@@ -243,6 +244,8 @@ const SmartVideo = ({
 
 export function SearchPage() {
   const queryClient = useQueryClient()
+  const [showScrollToTop, setShowScrollToTop] = useState(false)
+  
   
   // Use search context instead of local state
   const {
@@ -600,7 +603,6 @@ export function SearchPage() {
         setSearchResults(data.data)
         if (debugMode) {
           setDebugData(data)
-          console.log('🔍 DEBUG - Scraper raw data:', data)
         }
         toast.success(`¡Se encontraron ${data.data.length} anuncios mediante scraping!`)
       },
@@ -608,7 +610,6 @@ export function SearchPage() {
         console.error('Scraper error:', error)
         if (debugMode) {
           setDebugData({ error: error.response?.data || error.message })
-          console.log('🔍 DEBUG - Scraper error:', error)
         }
         toast.error(error.response?.data?.error || 'Error en el scraping')
       }
@@ -744,6 +745,15 @@ export function SearchPage() {
     const newDisplayedCount = paginationData.displayedCount + 20
     const maxResults = allCachedResults.length
     
+    // Show informative toast about sorting
+    toast.success(
+      '✨ Los nuevos anuncios se ordenarán automáticamente: primero los más duplicados, luego por actividad del anunciante y finalmente por días ejecutándose',
+      { 
+        duration: 5000,
+        icon: '🎯'
+      }
+    )
+    
     if (newDisplayedCount > maxResults) {
       // If we need more results than we have cached, load more from server
       handleLoadMore()
@@ -769,6 +779,7 @@ export function SearchPage() {
     
     suggestionsMutation.mutate(searchParams.value)
   }
+
 
   const handleSaveAll = () => {
     if (searchResults.length === 0) {
@@ -857,7 +868,6 @@ export function SearchPage() {
       })
 
       if (debugMode) {
-        console.log(`🔍 DEBUG - Stats for pageId ${pageId}:`, result)
         setDebugData((prev: any) => ({
           ...prev,
           [`stats_${pageId}`]: result
@@ -878,7 +888,6 @@ export function SearchPage() {
     } catch (error) {
       console.error('Error getting advertiser stats:', error)
       if (debugMode) {
-        console.log(`🔍 DEBUG - Stats error for pageId ${pageId}:`, error)
       }
       setAdvertiserStats(prev => new Map(prev.set(pageId, { 
         totalActiveAds: 0, 
@@ -1179,7 +1188,7 @@ export function SearchPage() {
   const getAdData = (ad: AdData) => {
     const adData = ad as any
     
-   
+    
     
     // Check if it's Apify format (has apify_data) - PRIORITY CHECK
     if (adData.apify_data && typeof adData.apify_data === 'object' && adData.apify_data !== null) {
@@ -1205,7 +1214,6 @@ export function SearchPage() {
         processedImages = originalSnapshot.images
       } else if (originalSnapshot.cards && Array.isArray(originalSnapshot.cards)) {
         // Extract images from cards (CAROUSEL format)
-        console.log('Processing cards for images:', originalSnapshot.cards.length);
         processedImages = originalSnapshot.cards
           .filter((card: any) => card.original_image_url || card.resized_image_url)
           .map((card: any) => ({
@@ -1213,7 +1221,6 @@ export function SearchPage() {
             resized_image_url: card.resized_image_url,
             watermarked_resized_image_url: card.watermarked_resized_image_url
           }))
-        console.log('Processed images from cards:', processedImages.length);
       }
 
       // Handle videos - check both apify_data.videos and cards
@@ -1337,7 +1344,40 @@ export function SearchPage() {
     return result
   }
 
+  useEffect(() => {
+    const mainContent = document.querySelector('.main-content')
+    
+    const handleScroll = () => {
+      if (mainContent) {
+        const scrollTop = mainContent.scrollTop
+        const shouldShow = scrollTop > 300
+        setShowScrollToTop(shouldShow)
+      }
+    }
+
+    if (mainContent) {
+      mainContent.addEventListener('scroll', handleScroll)
+    }
+
+    return () => {
+      if (mainContent) {
+        mainContent.removeEventListener('scroll', handleScroll)
+      }
+    }
+  }, [])
+
+  const scrollToTop = () => {
+    const mainContent = document.querySelector('.main-content')
+    if (mainContent) {
+      mainContent.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      })
+    }
+  }
+
   return (
+    <>
     <div className="space-y-8">
       {/* Header */}
       <div className="text-center">
@@ -2101,23 +2141,22 @@ export function SearchPage() {
 
                         {/* Multimedia Content */}
                         {(() => {
-                          console.log(`[RENDER] ${ad.page_name} - adInfo.images:`, adInfo.images);
-                          console.log(`[RENDER] ${ad.page_name} - images length:`, adInfo.images?.length);
                           return (adInfo.images && adInfo.images.length > 0);
                         })() && (
                           <div className="facebook-multimedia">
                             {adInfo.images.length === 1 ? (
                               // Single image
-                              <div className="w-full h-64 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
-                              <img 
-                                src={adInfo.images[0].resized_image_url || adInfo.images[0].original_image_url} 
+                              <SmartImage
+                                src={adInfo.images[0].resized_image_url || adInfo.images[0].original_image_url}
                                 alt="Ad creative"
-                                  className="max-w-full max-h-full object-contain"
+                                fallbackSrc={adInfo.images[0].original_image_url || adInfo.images[0].resized_image_url}
+                                preserveAspectRatio={true}
+                                maxHeight="max-h-96"
                                 onError={(e) => {
-                                  (e.target as HTMLImageElement).style.display = 'none'
+                                  const target = e.target as HTMLImageElement;
+                                  target.style.display = 'none';
                                 }}
                               />
-                              </div>
                             ) : (
                               // Carousel for multiple images
                               <div className="ad-media-container">
@@ -2133,38 +2172,35 @@ export function SearchPage() {
                                 
                                 <div className="relative">
                                   {/* Current Image */}
-                                  <div className="relative w-full h-64 bg-gray-800 rounded-lg flex items-center justify-center overflow-hidden">
-                                    <SmartImage
-                                      src={adInfo.images[getCarouselIndex(ad.id)]?.original_image_url || adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url}
-                                      alt={`Contenido del anuncio ${getCarouselIndex(ad.id) + 1}`}
-                                      fallbackSrc={adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url || adInfo.images[getCarouselIndex(ad.id)]?.original_image_url}
-                                      preserveAspectRatio={true}
-                                      maxHeight="max-h-64"
-                                      containerClassName="w-full h-64"
-                                      onError={(e) => {
-                                        const target = e.target as HTMLImageElement;
-                                        target.style.display = 'none';
-                                      }}
-                                    />
+                                  <SmartImage
+                                    src={adInfo.images[getCarouselIndex(ad.id)]?.original_image_url || adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url}
+                                    alt={`Contenido del anuncio ${getCarouselIndex(ad.id) + 1}`}
+                                    fallbackSrc={adInfo.images[getCarouselIndex(ad.id)]?.resized_image_url || adInfo.images[getCarouselIndex(ad.id)]?.original_image_url}
+                                    preserveAspectRatio={true}
+                                    maxHeight="max-h-96"
+                                    onError={(e) => {
+                                      const target = e.target as HTMLImageElement;
+                                      target.style.display = 'none';
+                                    }}
+                                  />
                                     
-                                    {/* Navigation Arrows */}
-                                    <button
-                                      onClick={() => prevCarouselItem(ad.id, adInfo.images.length)}
-                                      className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                                      </svg>
-                                    </button>
-                                    <button
-                                      onClick={() => nextCarouselItem(ad.id, adInfo.images.length)}
-                                      className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
-                                    >
-                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                                      </svg>
-                                    </button>
-                                  </div>
+                                  {/* Navigation Arrows */}
+                                  <button
+                                    onClick={() => prevCarouselItem(ad.id, adInfo.images.length)}
+                                    className="absolute left-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                  </button>
+                                  <button
+                                    onClick={() => nextCarouselItem(ad.id, adInfo.images.length)}
+                                    className="absolute right-2 top-1/2 transform -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                                    </svg>
+                                  </button>
                                   
                                   {/* Carousel Indicators */}
                                   <div className="flex justify-center gap-1 mt-2">
@@ -2189,11 +2225,16 @@ export function SearchPage() {
                         {(adInfo.videos && adInfo.videos.length > 0) && (
                           <div className="facebook-multimedia">
                             {adInfo.videos[0] && (
-                              <video 
-                                src={adInfo.videos[0].video_hd_url || adInfo.videos[0].video_sd_url}
-                                className="w-full h-64 object-contain rounded-lg"
-                                controls
-                                poster={adInfo.videos[0].video_preview_image_url}
+                              <SmartVideo
+                                videoHdUrl={adInfo.videos[0].video_hd_url}
+                                videoSdUrl={adInfo.videos[0].video_sd_url}
+                                previewImageUrl={adInfo.videos[0].video_preview_image_url}
+                                preserveAspectRatio={true}
+                                maxHeight="max-h-96"
+                                onError={(e) => {
+                                  const target = e.target as HTMLVideoElement;
+                                  target.style.display = 'none';
+                                }}
                               />
                             )}
                           </div>
@@ -2445,5 +2486,16 @@ export function SearchPage() {
         onSuccess={handleTrackingSuccess}
       />
     </div>
+
+    {showScrollToTop && (
+      <button
+        onClick={scrollToTop}
+        className="fixed bottom-6 right-6 z-50 bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 text-white p-3 rounded-full shadow-lg transition-all duration-300 transform hover:scale-110 hover:shadow-xl animate-fade-in"
+        aria-label="Ir arriba"
+      >
+        <ChevronUp className="w-6 h-6" />
+      </button>
+    )}
+    </>
   )
 }

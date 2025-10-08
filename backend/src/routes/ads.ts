@@ -133,18 +133,26 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
       }
     }
 
-    // Sort by hotness score
+    // Sort by priority: 1) Duplicates, 2) Days running, 3) Hotness score
     searchResult.data.sort((a: any, b: any) => {
-      // First by hotness score (descending)
-      if (b.hotness_score !== a.hotness_score) {
-        return b.hotness_score - a.hotness_score;
+      // 1. First by collation count (duplicates) - most duplicated ads first
+      const aDuplicates = a.collation_count || 0;
+      const bDuplicates = b.collation_count || 0;
+      if (bDuplicates !== aDuplicates) {
+        return bDuplicates - aDuplicates;
       }
-      // Then by collation count
-      if (b.collation_count !== a.collation_count) {
-        return (b.collation_count || 0) - (a.collation_count || 0);
+      
+      // 2. Then by days running - longer running ads first
+      const aDays = a.days_running || 0;
+      const bDays = b.days_running || 0;
+      if (bDays !== aDays) {
+        return bDays - aDays;
       }
-      // Finally by days running
-      return (b.days_running || 0) - (a.days_running || 0);
+      
+      // 3. Finally by hotness score - higher score first
+      const aHotness = a.hotness_score || 0;
+      const bHotness = b.hotness_score || 0;
+      return bHotness - aHotness;
     });
 
     console.log(`[SEARCH] ✅ Search completed: ${searchResult.data.length} ads found`);
