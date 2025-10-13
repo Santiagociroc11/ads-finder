@@ -8,12 +8,17 @@ import {
   Settings,
   Sparkles,
   Menu,
-  X
+  X,
+  Crown,
+  Sliders
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { LogOut } from 'lucide-react'
 import { UsageCounter } from './UsageCounter'
+import { LimitReachedModal } from './LimitReachedModal'
+import { useQuery } from 'react-query'
+import { userPlansApi } from '../services/userPlansApi'
 import toast from 'react-hot-toast'
 
 interface LayoutProps {
@@ -45,18 +50,48 @@ const navigationItems = [
     icon: Bookmark,
     description: 'Anuncios guardados'
   },
-  {
-    name: 'Planes y Límites',
-    href: '/user-plans',
-    icon: Settings,
-    description: 'Gestionar plan y límites'
-  },
 ]
 
 export function Layout({ children }: LayoutProps) {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [showLimitModal, setShowLimitModal] = useState(false)
   const { user, logout } = useAuth()
+
+  // Fetch user usage to check if at limit
+  const { data: usageData } = useQuery({
+    queryKey: ['userUsage'],
+    queryFn: () => userPlansApi.getUserUsage(),
+    refetchInterval: 30000, // Check every 30 seconds
+    enabled: !!user
+  })
+
+  const usage = usageData?.usage
+
+  // Check if user is at limit and show modal on every navigation
+  useEffect(() => {
+    if (usage) {
+      const usagePercentage = (usage.adsFetched / usage.monthlyLimit) * 100
+      const isAtLimit = usagePercentage >= 100
+
+      if (isAtLimit) {
+        // Show modal on every page navigation when at limit
+        setShowLimitModal(true)
+      }
+    }
+  }, [usage, location.pathname]) // Trigger on usage change AND route change
+
+  // Reset modal state when usage changes (e.g., after upgrade)
+  useEffect(() => {
+    if (usage) {
+      const usagePercentage = (usage.adsFetched / usage.monthlyLimit) * 100
+      const isAtLimit = usagePercentage >= 100
+      
+      if (!isAtLimit) {
+        setShowLimitModal(false)
+      }
+    }
+  }, [usage])
 
   const handleLogout = async () => {
     try {
@@ -145,56 +180,63 @@ export function Layout({ children }: LayoutProps) {
           </nav>
 
           {/* User Info Footer */}
-          <div className="mt-auto pt-6 border-t border-primary-500/20">
+          <div className="mt-auto pt-4 border-t border-gray-700/30">
             {user && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 {/* Usage Counter */}
-                <UsageCounter showDetails={true} className="mb-4" />
+                <UsageCounter showDetails={false} className="mb-3" />
 
-                {/* Settings Button */}
-                <Link
-                  to="/settings"
-                  className={`flex items-center px-3 py-2 rounded-lg transition-colors ${
-                    location.pathname === '/settings'
-                      ? 'bg-primary-600 text-white'
-                      : 'text-gray-300 hover:text-white hover:bg-gray-700'
-                  }`}
-                >
-                  <Settings className="w-5 h-5 mr-3" />
-                  <div>
-                    <div className="font-medium">Configuración</div>
-                    <div className="text-xs text-gray-400">Configurar notificaciones</div>
+                {/* Compact User Info */}
+                <div className="flex items-center justify-between px-2 py-2">
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
+                      <span className="text-white text-xs font-semibold">
+                        {getInitials(user.name)}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {user.name}
+                      </p>
+                      <p className="text-xs text-gray-400 truncate">
+                        {user.role === 'admin' ? 'Admin' : 'Usuario'}
+                      </p>
+                    </div>
                   </div>
-                </Link>
-
-                {/* User Info */}
-                <div className="flex items-center space-x-3 px-3 py-2 rounded-lg bg-dark-800/50">
-                  <div className="w-10 h-10 bg-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
-                    <span className="text-white text-sm font-medium">
-                      {getInitials(user.name)}
-                    </span>
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-100 truncate">
-                      {user.name}
-                    </p>
-                    <p className="text-xs text-gray-400 truncate">
-                      {user.email}
-                    </p>
-                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary-100 text-primary-800 mt-1">
-                      {user.role === 'admin' ? 'Admin' : 'Usuario'}
-                    </span>
+                  
+                  {/* Compact Action Buttons */}
+                  <div className="flex items-center gap-1">
+                    <Link
+                      to="/user-plans"
+                      className={`p-2 rounded-md transition-colors ${
+                        location.pathname === '/user-plans'
+                          ? 'bg-primary-500/20 text-primary-300'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                      }`}
+                      title="Planes y Límites"
+                    >
+                      <Crown className="w-4 h-4" />
+                    </Link>
+                    <Link
+                      to="/settings"
+                      className={`p-2 rounded-md transition-colors ${
+                        location.pathname === '/settings'
+                          ? 'bg-primary-500/20 text-primary-300'
+                          : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
+                      }`}
+                      title="Configuración"
+                    >
+                      <Sliders className="w-4 h-4" />
+                    </Link>
+                    <button
+                      onClick={handleLogout}
+                      className="p-2 text-gray-400 hover:text-red-400 hover:bg-red-500/10 rounded-md transition-colors"
+                      title="Cerrar Sesión"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
-
-                {/* Logout Button */}
-                <button
-                  onClick={handleLogout}
-                  className="w-full flex items-center justify-center space-x-2 px-3 py-2 text-sm font-medium text-red-400 hover:text-red-300 hover:bg-red-500/10 rounded-lg transition-colors"
-                >
-                  <LogOut className="w-4 h-4" />
-                  <span>Cerrar Sesión</span>
-                </button>
 
               </div>
             )}
@@ -215,12 +257,7 @@ export function Layout({ children }: LayoutProps) {
               <Menu className="w-5 h-5" />
             </button>
             
-            {/* Desktop title */}
-            <div className="flex-1">
-              <h2 className="text-lg font-semibold text-gray-100">
-                Panel de Control
-              </h2>
-            </div>
+           
           </div>
         </header>
 
@@ -229,6 +266,17 @@ export function Layout({ children }: LayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* Global Limit Reached Modal */}
+      {usage && (
+        <LimitReachedModal
+          isOpen={showLimitModal}
+          onClose={() => setShowLimitModal(false)}
+          currentUsage={usage.adsFetched}
+          monthlyLimit={usage.monthlyLimit}
+          planType={usage.planType}
+        />
+      )}
     </div>
   )
 }

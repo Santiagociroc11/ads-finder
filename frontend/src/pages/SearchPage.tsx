@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from 'react-query'
 import { toast } from 'react-hot-toast'
 import { useSearch } from '../contexts/SearchContext'
-import { LimitReachedModal } from '../components/LimitReachedModal'
 import { 
   Search, 
   Sparkles, 
@@ -246,12 +245,6 @@ const SmartVideo = ({
 export function SearchPage() {
   const queryClient = useQueryClient()
   const [showScrollToTop, setShowScrollToTop] = useState(false)
-  const [showLimitModal, setShowLimitModal] = useState(false)
-  const [limitModalData, setLimitModalData] = useState({
-    currentUsage: 0,
-    monthlyLimit: 0,
-    planType: 'free'
-  })
   
   
   // Use search context instead of local state
@@ -482,14 +475,7 @@ export function SearchPage() {
         
         // Handle limit exceeded error
         if (error.response?.status === 403 && error.response?.data?.error?.includes('Límite de anuncios excedido')) {
-          // For now, use default values and let the modal fetch current usage
-          setLimitModalData({
-            currentUsage: 100, // Will be updated by the modal
-            monthlyLimit: 100,
-            planType: 'free'
-          });
-          setShowLimitModal(true);
-          
+          // The global modal from Layout will handle this automatically
           toast.error('Has alcanzado tu límite mensual de anuncios', { duration: 5000 });
         } else if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
           toast.error('La búsqueda tardó más de 15 minutos. El servicio puede estar sobrecargado. Intenta de nuevo más tarde.', { duration: 10000 })
@@ -532,14 +518,7 @@ export function SearchPage() {
         
         // Handle limit exceeded error
         if (error.response?.status === 403 && error.response?.data?.error?.includes('Límite de anuncios excedido')) {
-          // For now, use default values and let the modal fetch current usage
-          setLimitModalData({
-            currentUsage: 100, // Will be updated by the modal
-            monthlyLimit: 100,
-            planType: 'free'
-          });
-          setShowLimitModal(true);
-          
+          // The global modal from Layout will handle this automatically
           toast.error('Has alcanzado tu límite mensual de anuncios', { duration: 5000 });
         } else {
           toast.error('Error al cargar más resultados')
@@ -2534,14 +2513,6 @@ export function SearchPage() {
       </button>
     )}
 
-    {/* Limit Reached Modal */}
-    <LimitReachedModal
-      isOpen={showLimitModal}
-      onClose={() => setShowLimitModal(false)}
-      currentUsage={limitModalData.currentUsage}
-      monthlyLimit={limitModalData.monthlyLimit}
-      planType={limitModalData.planType}
-    />
     </>
   )
 }

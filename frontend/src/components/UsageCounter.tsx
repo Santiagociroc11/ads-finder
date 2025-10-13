@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from 'react-query';
-import { BarChart3, TrendingUp, AlertCircle, Crown, Zap, Gift } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { BarChart3, TrendingUp, AlertCircle, Crown, Zap, Gift, ArrowRight } from 'lucide-react';
 import { userPlansApi } from '../services/userPlansApi';
 import type { UserUsage } from '../types/shared';
 
@@ -132,6 +133,16 @@ export function UsageCounter({ className = '', showDetails = false }: UsageCount
           ></div>
         </div>
       </div>
+
+      {/* Ver Planes Button */}
+      <Link 
+        to="/user-plans" 
+        className="mt-3 flex items-center justify-center gap-2 text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-500/10 rounded-md py-1.5 px-2 transition-colors"
+      >
+        <Crown className="w-3 h-3" />
+        Ver Planes
+        <ArrowRight className="w-3 h-3" />
+      </Link>
 
       {/* Expanded details */}
       {isExpanded && showDetails && (
