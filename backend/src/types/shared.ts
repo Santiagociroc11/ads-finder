@@ -182,6 +182,12 @@ export interface SearchResponse {
     searchName?: string;
     message: string;
   };
+  usageInfo?: {
+    planType: string;
+    adsRemaining: number;
+    currentUsage: number;
+    monthlyLimit: number;
+  };
 }
 
 export interface SavedAd {
@@ -273,6 +279,32 @@ export interface User {
   role: 'admin' | 'user';
   telegramId?: string;
   analysisTime?: string;
+  
+  // Plan and limits
+  plan: {
+    type: 'free' | 'basic' | 'premium' | 'enterprise';
+    name: string;
+    adsLimit: number;
+    features: string[];
+  };
+  
+  // Usage tracking
+  usage: {
+    currentMonth: string;
+    adsFetched: number;
+    searchesPerformed: number;
+    lastResetDate: string;
+  };
+  
+  // Plan management
+  subscription?: {
+    status: 'active' | 'inactive' | 'cancelled' | 'expired';
+    startDate: string;
+    endDate?: string;
+    autoRenew: boolean;
+    paymentMethod?: string;
+  };
+  
   createdAt: string;
   updatedAt: string;
 }

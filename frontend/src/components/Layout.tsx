@@ -13,6 +13,7 @@ import {
 import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { LogOut } from 'lucide-react'
+import { UsageCounter } from './UsageCounter'
 import toast from 'react-hot-toast'
 
 interface LayoutProps {
@@ -43,6 +44,12 @@ const navigationItems = [
     href: '/saved-ads',
     icon: Bookmark,
     description: 'Anuncios guardados'
+  },
+  {
+    name: 'Planes y Límites',
+    href: '/user-plans',
+    icon: Settings,
+    description: 'Gestionar plan y límites'
   },
 ]
 
@@ -141,6 +148,9 @@ export function Layout({ children }: LayoutProps) {
           <div className="mt-auto pt-6 border-t border-primary-500/20">
             {user && (
               <div className="space-y-4">
+                {/* Usage Counter */}
+                <UsageCounter showDetails={true} className="mb-4" />
+
                 {/* Settings Button */}
                 <Link
                   to="/settings"

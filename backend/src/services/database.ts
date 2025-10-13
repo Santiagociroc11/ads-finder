@@ -16,6 +16,7 @@ import type {
   User 
 } from '../types/shared.js';
 import type { InvitationToken } from './invitationService.js';
+import { User as UserModel } from '../models/User.js';
 
 class DatabaseService {
   private client: MongoClient | null = null;
@@ -108,6 +109,11 @@ class DatabaseService {
 
   get users(): Collection<User & { password: string }> {
     return this.getDb().collection<User & { password: string }>('users');
+  }
+
+  // Get Mongoose User model for advanced operations
+  get userModel() {
+    return UserModel;
   }
 
   get invitationTokens(): Collection<InvitationToken> {

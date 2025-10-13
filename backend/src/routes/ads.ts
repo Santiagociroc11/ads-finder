@@ -7,6 +7,7 @@ import type { SearchParams, SearchResponse } from '../types/shared.js';
 import { AdvertiserStatsService } from '../services/advertiserStatsService.js';
 import { searchRateLimit, scrapingRateLimit } from '@/middleware/rateLimiter.js';
 import { authenticateToken } from '@/middleware/authMiddleware.js';
+import { checkAdsLimit, trackAdsFetched, trackSearchPerformed, addUsageInfo } from '@/middleware/adsLimitMiddleware.js';
 import { cacheService } from '@/services/cacheService.js';
 import { advertiserStatsQueue } from '@/services/simpleQueue.js';
 import { SearchHistory } from '@/models/SearchHistory.js';
@@ -23,7 +24,7 @@ function getFacebookService(): FacebookService {
 }
 
 // POST /api/search - Main search endpoint
-router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, res) => {
+router.post('/', authenticateToken, searchRateLimit, checkAdsLimit(20), trackSearchPerformed(), trackAdsFetched(), asyncHandler(async (req, res) => {
   const searchParams: SearchParams = req.body;
   
   // Validate required fields
@@ -155,6 +156,16 @@ router.post('/', authenticateToken, searchRateLimit, asyncHandler(async (req, re
     });
 
     console.log(`[SEARCH] ✅ Search completed: ${searchResult.data.length} ads found`);
+    
+    // Add usage information to response
+    if (req.userLimits) {
+      searchResult.usageInfo = {
+        planType: req.userLimits.planType,
+        adsRemaining: req.userLimits.adsRemaining,
+        currentUsage: req.userLimits.currentUsage,
+        monthlyLimit: req.userLimits.monthlyLimit
+      };
+    }
     
       // Save search to history (only if there are results)
       if (searchResult.data.length > 0) {

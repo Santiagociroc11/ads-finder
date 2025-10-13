@@ -183,6 +183,12 @@ export interface SearchResponse {
     searchName?: string;
     message: string;
   };
+  usageInfo?: {
+    planType: string;
+    adsRemaining: number;
+    currentUsage: number;
+    monthlyLimit: number;
+  };
 }
 
 export interface SavedAd {
@@ -271,6 +277,32 @@ export interface User {
   name: string;
   role: 'admin' | 'user';
   telegramId?: string;
+  
+  // Plan and limits
+  plan: {
+    type: 'free' | 'pioneros' | 'tactico' | 'conquista' | 'imperio';
+    name: string;
+    adsLimit: number;
+    features: string[];
+  };
+  
+  // Usage tracking
+  usage: {
+    currentMonth: string;
+    adsFetched: number;
+    searchesPerformed: number;
+    lastResetDate: string;
+  };
+  
+  // Plan management
+  subscription?: {
+    status: 'active' | 'inactive' | 'cancelled' | 'expired';
+    startDate: string;
+    endDate?: string;
+    autoRenew: boolean;
+    paymentMethod?: string;
+  };
+  
   createdAt: string;
   updatedAt: string;
 }
@@ -278,6 +310,36 @@ export interface User {
 export interface AuthRequest {
   email: string;
   password: string;
+}
+
+// === USER PLANS TYPES ===
+export interface UserPlan {
+  type: 'free' | 'pioneros' | 'tactico' | 'conquista' | 'imperio';
+  name: string;
+  adsLimit: number;
+  price: number;
+  features: string[];
+  popular?: boolean;
+}
+
+export interface UserUsage {
+  currentMonth: string;
+  adsFetched: number;
+  searchesPerformed: number;
+  adsRemaining: number;
+  monthlyLimit: number;
+  planType: string;
+  planName: string;
+  resetDate: string;
+}
+
+export interface PlanLimitCheck {
+  canFetchAds: boolean;
+  adsRemaining: number;
+  limitExceeded: boolean;
+  planType: string;
+  currentUsage: number;
+  monthlyLimit: number;
 }
 
 export interface RegisterRequest extends AuthRequest {

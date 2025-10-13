@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery, useQueryClient } from 'react-query';
+import { useNavigate } from 'react-router-dom';
 import { 
   History, 
   Search, 
@@ -12,13 +13,17 @@ import {
   Clock,
   Zap,
   TrendingUp,
-  Activity
+  Activity,
+  RotateCcw
 } from 'lucide-react';
 import { searchHistoryApi } from '../services/api';
+import { useSearch } from '../contexts/SearchContext';
 import type { SearchHistoryEntry, SearchHistoryStats } from '../types/shared';
 
 export function SearchHistoryPage() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const { setSearchParams } = useSearch();
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState({
     search: '',
@@ -59,6 +64,28 @@ export function SearchHistoryPage() {
   const handleFilterChange = (key: string, value: string) => {
     setFilters(prev => ({ ...prev, [key]: value }));
     setCurrentPage(1);
+  };
+
+  // Function to repeat a search from history
+  const handleRepeatSearch = (searchEntry: SearchHistoryEntry) => {
+    // Set the search parameters from the history entry
+    setSearchParams({
+      searchType: searchEntry.searchParams.searchType as 'keyword' | 'page',
+      value: searchEntry.searchParams.value,
+      country: searchEntry.searchParams.country,
+      minDays: searchEntry.searchParams.minDays,
+      adType: searchEntry.searchParams.adType,
+      mediaType: searchEntry.searchParams.mediaType,
+      searchPhraseType: searchEntry.searchParams.searchPhraseType as 'exact' | 'unordered',
+      languages: searchEntry.searchParams.languages,
+      apifyCount: searchEntry.searchParams.apifyCount
+    });
+    
+    // Refresh user usage when repeating a search
+    queryClient.invalidateQueries('userUsage');
+    
+    // Navigate to search page
+    navigate('/search');
   };
 
   // History deletion functions removed for audit and limit control
@@ -342,6 +369,16 @@ export function SearchHistoryPage() {
                         </div>
                       </div>
                       
+                      <div className="ml-4 flex flex-col gap-2">
+                        <button
+                          onClick={() => handleRepeatSearch(search)}
+                          className="btn-primary flex items-center gap-2 px-4 py-2 text-sm hover:bg-blue-600 transition-colors"
+                          title="Repetir esta búsqueda"
+                        >
+                          <RotateCcw className="w-4 h-4" />
+                          Repetir
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
