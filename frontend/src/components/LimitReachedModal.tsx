@@ -194,24 +194,35 @@ export function LimitReachedModal({
                         </ul>
                       </div>
                       
-                      <button
-                        onClick={() => handleUpgrade(plan.type)}
-                        disabled={upgradeMutation.isLoading || user?.role !== 'admin'}
-                        className={`w-full py-2 px-3 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-1 ${
-                          user?.role !== 'admin'
-                            ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
-                            : 'bg-blue-600 hover:bg-blue-700 text-white'
-                        }`}
-                        title={user?.role !== 'admin' ? 'Solo administradores pueden cambiar planes' : ''}
-                      >
-                        {upgradeMutation.isLoading ? (
-                          <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                        ) : (
-                          <>
-                            {user?.role !== 'admin' ? 'Contactar' : 'Actualizar'}
-                          </>
-                        )}
-                      </button>
+                      {plan.paymentLink ? (
+                        <a
+                          href={plan.paymentLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="w-full py-2 px-3 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-1 bg-green-600 hover:bg-green-700 text-white"
+                        >
+                          Comprar - ${plan.price}
+                        </a>
+                      ) : (
+                        <button
+                          onClick={() => handleUpgrade(plan.type)}
+                          disabled={upgradeMutation.isLoading || user?.role !== 'admin'}
+                          className={`w-full py-2 px-3 rounded-lg font-medium text-sm transition-colors flex items-center justify-center gap-1 ${
+                            user?.role !== 'admin'
+                              ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                              : 'bg-blue-600 hover:bg-blue-700 text-white'
+                          }`}
+                          title={user?.role !== 'admin' ? 'Solo administradores pueden cambiar planes' : ''}
+                        >
+                          {upgradeMutation.isLoading ? (
+                            <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                          ) : (
+                            <>
+                              {user?.role !== 'admin' ? 'Contactar' : 'Actualizar'}
+                            </>
+                          )}
+                        </button>
+                      )}
                     </div>
                   ))}
               </div>

@@ -64,7 +64,8 @@ router.get('/plans', asyncHandler(async (req, res) => {
       adsLimit: 100,
       price: 0,
       features: ['Búsquedas básicas', 'Hasta 100 anuncios por mes', 'Soporte por email'],
-      popular: false
+      popular: false,
+      paymentLink: null
     },
     pioneros: {
       type: 'pioneros',
@@ -72,7 +73,8 @@ router.get('/plans', asyncHandler(async (req, res) => {
       adsLimit: 5000,
       price: 14.97,
       features: ['Hasta 5,000 anuncios por mes', '1 anunciante en seguimiento', '30 ads guardados', 'Soporte por email'],
-      popular: false
+      popular: false,
+      paymentLink: 'https://pay.hotmart.com/J102289941H?off=njjfgsha'
     },
     tactico: {
       type: 'tactico',
@@ -80,7 +82,8 @@ router.get('/plans', asyncHandler(async (req, res) => {
       adsLimit: 14000,
       price: 27,
       features: ['Hasta 14,000 anuncios por mes', '1 anunciante en seguimiento', '30 ads guardados', 'Análisis de competencia', 'Soporte prioritario'],
-      popular: false
+      popular: false,
+      paymentLink: 'https://pay.hotmart.com/J102289941H?off=eyh033ft'
     },
     conquista: {
       type: 'conquista',
@@ -88,7 +91,8 @@ router.get('/plans', asyncHandler(async (req, res) => {
       adsLimit: 35000,
       price: 57,
       features: ['Hasta 35,000 anuncios por mes', '10 anunciantes en seguimiento', 'Sin límite de ads guardados', 'Análisis avanzados', 'Exportación completa', 'Soporte prioritario'],
-      popular: true
+      popular: true,
+      paymentLink: 'https://pay.hotmart.com/J102289941H?off=o7ro371x'
     },
     imperio: {
       type: 'imperio',
@@ -96,7 +100,8 @@ router.get('/plans', asyncHandler(async (req, res) => {
       adsLimit: 90000,
       price: 127,
       features: ['Hasta 90,000 anuncios por mes', '50 anunciantes en seguimiento', 'Sin límite de ads guardados', 'Análisis premium', 'Exportación completa', 'API completa', 'Soporte dedicado'],
-      popular: false
+      popular: false,
+      paymentLink: 'https://pay.hotmart.com/J102289941H?off=o7ro371x'
     }
   };
   

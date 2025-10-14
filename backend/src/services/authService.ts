@@ -291,4 +291,62 @@ export class AuthService {
       return null;
     }
   }
+
+  // Change user password
+  public static async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<AuthResponse> {
+    try {
+      if (!collections.users) {
+        throw new Error('Database not initialized');
+      }
+
+      // Find user by ID
+      const userDoc = await collections.users.findOne({ 
+        _id: new ObjectId(userId) 
+      });
+
+      if (!userDoc) {
+        return {
+          success: false,
+          message: 'User not found'
+        };
+      }
+
+      // Verify current password
+      const isCurrentPasswordValid = await this.comparePassword(currentPassword, userDoc.password);
+      if (!isCurrentPasswordValid) {
+        return {
+          success: false,
+          message: 'Current password is incorrect'
+        };
+      }
+
+      // Hash new password
+      const hashedNewPassword = await this.hashPassword(newPassword);
+
+      // Update password in database
+      await collections.users.updateOne(
+        { _id: new ObjectId(userId) },
+        { 
+          $set: { 
+            password: hashedNewPassword,
+            updatedAt: new Date().toISOString()
+          } 
+        }
+      );
+
+      console.log(`[AUTH] ✅ Password changed successfully for user: ${userDoc.email}`);
+
+      return {
+        success: true,
+        message: 'Password changed successfully'
+      };
+
+    } catch (error) {
+      console.error('[AUTH] ❌ Change password error:', error);
+      return {
+        success: false,
+        message: 'Internal server error during password change'
+      };
+    }
+  }
 }

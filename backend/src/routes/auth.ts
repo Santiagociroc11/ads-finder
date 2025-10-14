@@ -88,4 +88,32 @@ router.post('/logout', authenticateToken, asyncHandler(async (req, res) => {
   });
 }));
 
+// PUT /api/auth/change-password - Change user password
+router.put('/change-password', authenticateToken, asyncHandler(async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+  const userId = req.user?._id;
+
+  if (!currentPassword || !newPassword) {
+    throw new CustomError('Current password and new password are required', 400);
+  }
+
+  if (!userId) {
+    throw new CustomError('User not found', 404);
+  }
+
+  if (newPassword.length < 6) {
+    throw new CustomError('New password must be at least 6 characters long', 400);
+  }
+
+  const result = await AuthService.changePassword(userId, currentPassword, newPassword);
+
+  if (!result.success) {
+    throw new CustomError(result.message || 'Password change failed', 400);
+  }
+
+  console.log(`[AUTH] ✅ User changed password: ${req.user?.email}`);
+
+  res.json(result);
+}));
+
 export default router;

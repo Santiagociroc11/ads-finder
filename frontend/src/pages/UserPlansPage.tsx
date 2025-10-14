@@ -272,31 +272,50 @@ export function UserPlansPage() {
               </div>
 
               {/* Action Button */}
-              <button
-                onClick={() => handleUpgrade(plan.type)}
-                disabled={isCurrentPlan || isUpgrading || user?.role !== 'admin'}
-                className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-all duration-300 ${
-                  isCurrentPlan || user?.role !== 'admin'
-                    ? 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
-                    : plan.popular
-                    ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg hover:shadow-purple-500/25'
-                    : 'bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 text-white shadow-lg hover:shadow-primary-500/25'
-                }`}
-                title={user?.role !== 'admin' ? 'Solo administradores pueden cambiar planes' : ''}
-              >
-                {isUpgrading ? (
-                  <div className="flex items-center justify-center gap-2">
-                    <RefreshCw className="w-3 h-3 animate-spin" />
-                    Actualizando...
-                  </div>
-                ) : isCurrentPlan ? (
-                  'Plan Actual'
-                ) : user?.role !== 'admin' ? (
-                  'Contactar Admin'
-                ) : (
-                  'Seleccionar'
-                )}
-              </button>
+              {plan.type === 'free' ? (
+                <div className="w-full py-2 px-4 rounded-lg font-medium text-sm bg-gray-700/50 text-gray-500 cursor-not-allowed text-center">
+                  Plan Actual
+                </div>
+              ) : plan.paymentLink ? (
+                <a
+                  href={plan.paymentLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-all duration-300 text-center block ${
+                    plan.popular
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg hover:shadow-purple-500/25'
+                      : 'bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 text-white shadow-lg hover:shadow-primary-500/25'
+                  }`}
+                >
+                  Comprar Ahora - ${plan.price}
+                </a>
+              ) : (
+                <button
+                  onClick={() => handleUpgrade(plan.type)}
+                  disabled={isCurrentPlan || isUpgrading || user?.role !== 'admin'}
+                  className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-all duration-300 ${
+                    isCurrentPlan || user?.role !== 'admin'
+                      ? 'bg-gray-700/50 text-gray-500 cursor-not-allowed'
+                      : plan.popular
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white shadow-lg hover:shadow-purple-500/25'
+                      : 'bg-gradient-to-r from-primary-500 to-secondary-500 hover:from-primary-600 hover:to-secondary-600 text-white shadow-lg hover:shadow-primary-500/25'
+                  }`}
+                  title={user?.role !== 'admin' ? 'Solo administradores pueden cambiar planes' : ''}
+                >
+                  {isUpgrading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      Actualizando...
+                    </div>
+                  ) : isCurrentPlan ? (
+                    'Plan Actual'
+                  ) : user?.role !== 'admin' ? (
+                    'Contactar Admin'
+                  ) : (
+                    'Seleccionar'
+                  )}
+                </button>
+              )}
             </div>
           );
         })}

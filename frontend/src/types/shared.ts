@@ -320,6 +320,7 @@ export interface UserPlan {
   price: number;
   features: string[];
   popular?: boolean;
+  paymentLink?: string | null;
 }
 
 export interface UserUsage {
