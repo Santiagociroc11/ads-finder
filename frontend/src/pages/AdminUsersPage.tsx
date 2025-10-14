@@ -290,7 +290,7 @@ export function AdminUsersPage() {
   });
 
   const handlePlanUpdate = (userId: string, newPlanType: string) => {
-    updatePlanMutation.mutate({ userId, newPlanType });
+    updatePlanMutation.mutate({ userId, planType: newPlanType });
   };
 
   const handleOpenPlanModal = (user: AdminUser) => {
