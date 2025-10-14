@@ -47,16 +47,6 @@ export function UserPlansPage() {
     }
   );
 
-  // Reset usage mutation
-  const resetUsageMutation = useMutation(
-    () => userPlansApi.resetUsage(),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('userUsage');
-        setSelectedPlan(null);
-      }
-    }
-  );
 
   const usage = usageData?.usage;
   const plans = plansData?.plans || [];
@@ -105,16 +95,6 @@ export function UserPlansPage() {
     }
   };
 
-  const handleResetUsage = () => {
-    if (user?.role !== 'admin') {
-      alert('Solo los administradores pueden resetear el uso.');
-      return;
-    }
-    
-    if (confirm('¿Estás seguro de que quieres resetear el uso mensual? Esta acción no se puede deshacer.')) {
-      resetUsageMutation.mutate();
-    }
-  };
 
   if (usageLoading || plansLoading) {
     return (
@@ -144,19 +124,6 @@ export function UserPlansPage() {
         </p>
 
         {/* Admin Actions */}
-        {user?.role === 'admin' && (
-          <div className="flex justify-center gap-3 mb-8">
-            <button
-              onClick={handleResetUsage}
-              disabled={resetUsageMutation.isLoading}
-              className="bg-red-500/20 hover:bg-red-500/30 border border-red-500/50 text-red-300 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-              title="Solo administradores pueden resetear el uso"
-            >
-              <RefreshCw className={`w-4 h-4 ${resetUsageMutation.isLoading ? 'animate-spin' : ''}`} />
-              Resetear Uso
-            </button>
-          </div>
-        )}
       </div>
 
       {/* Current Usage Section */}

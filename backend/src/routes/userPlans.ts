@@ -139,28 +139,5 @@ router.post('/upgrade', authenticateToken, asyncHandler(async (req, res) => {
   });
 }));
 
-// POST /api/user-plans/reset-usage - Reset user usage (admin only)
-router.post('/reset-usage', authenticateToken, asyncHandler(async (req, res) => {
-  const userId = (req as any).user?._id?.toString();
-  const { targetUserId } = req.body;
-  
-  if (!userId) {
-    throw new CustomError('User not authenticated', 401);
-  }
-
-  // Only allow admins to reset usage
-  const user = await User.findById(userId);
-  if (!user || user.role !== 'admin') {
-    throw new CustomError('Unauthorized: Only admins can reset usage', 403);
-  }
-
-  const resetUserId = targetUserId || userId;
-  await UserLimitsService.resetUserUsage(resetUserId);
-  
-  res.json({
-    success: true,
-    message: `Usage reset successfully for user ${resetUserId}`
-  });
-}));
 
 export default router;

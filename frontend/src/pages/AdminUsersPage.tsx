@@ -180,23 +180,6 @@ export function AdminUsersPage() {
     }
   );
 
-  // Reset usage mutation
-  const resetUsageMutation = useMutation(
-    (userId: string) =>
-      apiClient.post('/admin/users/reset-usage', { userId }).then(res => res.data),
-    {
-      onSuccess: () => {
-        queryClient.invalidateQueries('adminUsers');
-        queryClient.invalidateQueries('adminCreditsStats');
-        queryClient.invalidateQueries('adminCreditsUsers');
-        toast.success('Uso resetado exitosamente');
-      },
-      onError: (error: any) => {
-        toast.error('Error al resetar el uso');
-        console.error('Reset usage error:', error);
-      }
-    }
-  );
 
 
   // Create user mutation
@@ -303,11 +286,6 @@ export function AdminUsersPage() {
     updatePlanMutation.mutate({ userId, newPlanType });
   };
 
-  const handleResetUsage = (userId: string, userName: string) => {
-    if (confirm(`¿Estás seguro de resetear el uso mensual de ${userName}?`)) {
-      resetUsageMutation.mutate(userId);
-    }
-  };
 
 
   const handleCreateUser = () => {
@@ -710,15 +688,6 @@ export function AdminUsersPage() {
                       >
                         <Edit className="w-3 h-3" />
                         Editar
-                      </button>
-                      <button
-                        onClick={() => handleResetUsage(user._id, user.name)}
-                        disabled={resetUsageMutation.isLoading}
-                        className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs rounded transition-colors disabled:opacity-50"
-                        title="Resetear uso mensual"
-                      >
-                        <RefreshCw className={`w-3 h-3 ${resetUsageMutation.isLoading ? 'animate-spin' : ''}`} />
-                        Resetear Uso
                       </button>
                     </div>
                   </td>

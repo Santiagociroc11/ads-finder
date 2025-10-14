@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Settings, Save, AlertCircle, CheckCircle, Clock, Lock, Eye, EyeOff } from 'lucide-react';
+import { Settings, Save, AlertCircle, CheckCircle, Clock, Lock, Eye, EyeOff, User, Bell, Shield } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { getAuthToken } from '../utils/auth';
 import toast from 'react-hot-toast';
@@ -31,6 +31,9 @@ export const SettingsPage: React.FC = () => {
     confirm: false
   });
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  // Tab state
+  const [activeTab, setActiveTab] = useState<'profile' | 'notifications' | 'security'>('profile');
 
   // Load user settings on component mount
   useEffect(() => {
@@ -247,11 +250,99 @@ export const SettingsPage: React.FC = () => {
           </p>
         </div>
 
-        {/* Settings Form */}
+        {/* Tab Navigation */}
+        <div className="mb-6">
+          <div className="border-b border-gray-700">
+            <nav className="-mb-px flex space-x-8">
+              {[
+                { id: 'profile', label: 'Perfil', icon: User },
+                { id: 'notifications', label: 'Notificaciones', icon: Bell },
+                { id: 'security', label: 'Seguridad', icon: Shield }
+              ].map((tab) => {
+                const Icon = tab.icon;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveTab(tab.id as any)}
+                    className={`flex items-center space-x-2 py-2 px-1 border-b-2 font-medium text-sm transition-colors ${
+                      activeTab === tab.id
+                        ? 'border-primary-500 text-primary-400'
+                        : 'border-transparent text-gray-400 hover:text-gray-300 hover:border-gray-300'
+                    }`}
+                  >
+                    <Icon className="w-4 h-4" />
+                    <span>{tab.label}</span>
+                  </button>
+                );
+              })}
+            </nav>
+          </div>
+        </div>
+
+        {/* Tab Content */}
         <div className="bg-dark-900 rounded-xl border border-primary-500/20 p-6">
-          <div className="space-y-6">
-            {/* Telegram Notifications Section */}
-            <div className="border-b border-gray-700 pb-6">
+          {/* Profile Tab */}
+          {activeTab === 'profile' && (
+            <div className="space-y-6">
+              {/* User Information Section */}
+              <div className="border-b border-gray-700 pb-6">
+                <div className="flex items-center space-x-3 mb-4">
+                  <div className="w-10 h-10 bg-blue-600/20 rounded-lg flex items-center justify-center">
+                    <User className="w-5 h-5 text-blue-500" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-100">
+                      Información del Perfil
+                    </h2>
+                    <p className="text-gray-400 text-sm">
+                      Tu información personal y datos de cuenta
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                      Nombre
+                    </label>
+                    <div className="px-4 py-3 bg-dark-800 rounded-lg text-gray-300">
+                      {user?.name}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                      Email
+                    </label>
+                    <div className="px-4 py-3 bg-dark-800 rounded-lg text-gray-300">
+                      {user?.email}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                      Rol
+                    </label>
+                    <div className="px-4 py-3 bg-dark-800 rounded-lg text-gray-300">
+                      {user?.role === 'admin' ? 'Administrador' : 'Usuario'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-400 mb-1">
+                      Miembro desde
+                    </label>
+                    <div className="px-4 py-3 bg-dark-800 rounded-lg text-gray-300">
+                      {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notifications Tab */}
+          {activeTab === 'notifications' && (
+            <div className="space-y-6">
+              {/* Telegram Notifications Section */}
+              <div className="border-b border-gray-700 pb-6">
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-10 h-10 bg-primary-600/20 rounded-lg flex items-center justify-center">
                   <span className="text-primary-500 font-semibold">📱</span>
@@ -379,49 +470,56 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
 
-            {/* User Info Section */}
-            <div className="border-b border-gray-700 pb-6">
-              <h3 className="text-lg font-semibold text-gray-100 mb-4">
-                Información de la Cuenta
-              </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">
-                    Nombre
-                  </label>
-                  <div className="px-4 py-3 bg-dark-800 rounded-lg text-gray-300">
-                    {user?.name}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">
-                    Email
-                  </label>
-                  <div className="px-4 py-3 bg-dark-800 rounded-lg text-gray-300">
-                    {user?.email}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">
-                    Rol
-                  </label>
-                  <div className="px-4 py-3 bg-dark-800 rounded-lg text-gray-300">
-                    {user?.role === 'admin' ? 'Administrador' : 'Usuario'}
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-400 mb-1">
-                    Miembro desde
-                  </label>
-                  <div className="px-4 py-3 bg-dark-800 rounded-lg text-gray-300">
-                    {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
-                  </div>
-                </div>
+            {/* Help Section */}
+            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+              <h3 className="text-blue-400 font-medium mb-2">¿Cómo obtener tu ID de Telegram?</h3>
+              <div className="mb-3">
+                <a
+                  href="https://t.me/adfinderprobot"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
+                >
+                  <span>🤖</span>
+                  <span>Abrir @adfinderprobot en Telegram</span>
+                </a>
               </div>
+              <ol className="text-blue-300 text-sm space-y-1 list-decimal list-inside">
+                <li>Envía el comando /start para comenzar</li>
+                <li>Envía el comando /id para obtener tu ID</li>
+                <li>Copia el ID que aparece en el mensaje</li>
+                <li>Pega el ID en el campo de arriba y guarda</li>
+              </ol>
             </div>
 
-            {/* Password Change Section */}
-            <div className="border-b border-gray-700 pb-6">
+            {/* Save Button for Notifications Tab */}
+            <div className="flex justify-end pt-6">
+              <button
+                onClick={handleSave}
+                disabled={isSaving}
+                className="flex items-center space-x-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
+              >
+                {isSaving ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <span>Guardando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    <span>Guardar Configuración</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+          )}
+
+          {/* Security Tab */}
+          {activeTab === 'security' && (
+            <div className="space-y-6">
+              {/* Password Change Section */}
+              <div className="border-b border-gray-700 pb-6">
               <div className="flex items-center space-x-3 mb-4">
                 <div className="w-10 h-10 bg-red-600/20 rounded-lg flex items-center justify-center">
                   <Lock className="w-5 h-5 text-red-500" />
@@ -532,54 +630,8 @@ export const SettingsPage: React.FC = () => {
               </div>
             </div>
           </div>
-
-          {/* Save Button */}
-          <div className="flex justify-end pt-6">
-            <button
-              onClick={handleSave}
-              disabled={isSaving}
-              className="flex items-center space-x-2 px-6 py-3 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors"
-            >
-              {isSaving ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  <span>Guardando...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  <span>Guardar Configuración</span>
-                </>
-              )}
-            </button>
-          </div>
+          )}
         </div>
-
-        {/* Environment Variables Info */}
-        <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg">
-          <h3 className="text-blue-400 font-medium mb-2">Configuración del Bot de Telegram</h3>
-          
-          
-          <h4 className="text-blue-400 font-medium mb-2">¿Cómo obtener tu ID de Telegram?</h4>
-          <div className="mb-3">
-            <a
-              href="https://t.me/adfinderprobot"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center space-x-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium rounded-lg transition-colors"
-            >
-              <span>🤖</span>
-              <span>Abrir @adfinderprobot en Telegram</span>
-            </a>
-          </div>
-          <ol className="text-blue-300 text-sm space-y-1 list-decimal list-inside">
-            <li>Envía el comando /start para comenzar</li>
-            <li>Envía el comando /id para obtener tu ID</li>
-            <li>Copia el ID que aparece en el mensaje</li>
-            <li>Pega el ID en el campo de arriba y guarda</li>
-          </ol>
-        </div>
-
       </div>
     </div>
   );

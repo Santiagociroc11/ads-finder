@@ -80,33 +80,6 @@ router.post('/users/plan', requireAdmin, asyncHandler(async (req, res) => {
   });
 }));
 
-// POST /api/admin/users/reset-usage - Reset user usage (admin only)
-router.post('/users/reset-usage', requireAdmin, asyncHandler(async (req, res) => {
-  const { userId } = req.body;
-
-  if (!userId) {
-    throw new CustomError('User ID is required', 400);
-  }
-
-  const user = await User.findById(userId);
-  if (!user) {
-    throw new CustomError('User not found', 404);
-  }
-
-  // Reset usage for current month
-  const currentMonth = new Date().toISOString().slice(0, 7);
-  user.usage.currentMonth = currentMonth;
-  user.usage.adsFetched = 0;
-  user.usage.searchesPerformed = 0;
-  user.usage.lastResetDate = new Date();
-
-  await user.save();
-
-  res.json({
-    success: true,
-    message: 'User usage reset successfully'
-  });
-}));
 
 // POST /api/admin/users/toggle-admin - Toggle admin status (admin only)
 router.post('/users/toggle-admin', requireAdmin, asyncHandler(async (req, res) => {

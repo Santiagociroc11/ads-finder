@@ -26,9 +26,4 @@ export const userPlansApi = {
     return response.data;
   },
 
-  // Reset user usage (admin only)
-  async resetUsage(targetUserId?: string): Promise<{ success: boolean; message: string }> {
-    const response = await apiClient.post('/user-plans/reset-usage', { targetUserId });
-    return response.data;
-  }
 };

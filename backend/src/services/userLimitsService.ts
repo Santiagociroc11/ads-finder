@@ -217,27 +217,4 @@ export class UserLimitsService {
     }
   }
 
-  /**
-   * Reset user usage (admin function)
-   */
-  static async resetUserUsage(userId: string): Promise<void> {
-    try {
-      const user = await User.findById(userId);
-      
-      if (!user) {
-        throw new CustomError('User not found', 404);
-      }
-
-      user.usage.adsFetched = 0;
-      user.usage.searchesPerformed = 0;
-      user.usage.lastResetDate = new Date();
-      await user.save();
-
-      console.log(`[USER_LIMITS] 🔄 User ${userId} usage reset by admin`);
-
-    } catch (error) {
-      console.error('[USER_LIMITS] ❌ Error resetting user usage:', error);
-      throw new CustomError('Error resetting user usage', 500);
-    }
-  }
 }
