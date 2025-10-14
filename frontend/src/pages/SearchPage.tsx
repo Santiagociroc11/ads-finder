@@ -656,7 +656,7 @@ export function SearchPage() {
       onError: (error: any) => {
         console.error('Bulk save error:', error);
         
-        if (error.response?.status === 403 && error.response?.data?.error?.includes('Límite de anuncios guardados')) {
+        if (error.response?.status === 403 && error.response?.data?.error?.includes('anuncios guardados')) {
           toast.error('🚫 Tu plan actual no permite guardar anuncios. Considera hacer upgrade a un plan superior.', {
             duration: 6000,
             icon: '👑'
@@ -690,16 +690,19 @@ export function SearchPage() {
       },
       onError: (error: any) => {
         console.error('Save individual error:', error);
+        console.error('Error response data:', error.response?.data);
+        console.error('Error status:', error.response?.status);
         
         if (error.response?.status === 409) {
           toast.error('Este anuncio ya está guardado');
-        } else if (error.response?.status === 403 && error.response?.data?.error?.includes('Límite de anuncios guardados')) {
+        } else if (error.response?.status === 403 && error.response?.data?.error?.includes('anuncios guardados')) {
           toast.error('🚫 Tu plan actual no permite guardar anuncios. Considera hacer upgrade a un plan superior.', {
             duration: 6000,
             icon: '👑'
           });
         } else {
-          toast.error('Error al guardar el anuncio');
+          console.error('Unexpected error type:', error.response?.data);
+          toast.error(`Error al guardar el anuncio: ${error.response?.data?.error || 'Error desconocido'}`);
         }
       }
     }
