@@ -9,7 +9,7 @@ export interface ITrackedAdvertiser extends Document {
   pageLikeCount?: number;
   pageCategories?: string[];
   pageVerification?: boolean;
-  productType: 'physical' | 'digital' | 'service' | 'other';
+  productType: 'physical' | 'digital';
   notes?: string;
   isActive: boolean;
   trackingStartDate: Date;
@@ -62,7 +62,7 @@ const TrackedAdvertiserSchema = new Schema<ITrackedAdvertiser>({
   },
   productType: {
     type: String,
-    enum: ['physical', 'digital', 'service', 'other'],
+    enum: ['physical', 'digital'],
     required: true
   },
   notes: {

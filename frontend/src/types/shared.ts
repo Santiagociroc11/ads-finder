@@ -540,7 +540,7 @@ export interface TrackedAdvertiser {
   pageLikeCount?: number;
   pageCategories?: string[];
   pageVerification?: boolean;
-  productType: 'physical' | 'digital' | 'service' | 'other';
+  productType: 'physical' | 'digital';
   notes?: string;
   isActive: boolean;
   trackingStartDate: string;

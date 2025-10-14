@@ -424,7 +424,7 @@ export const trackedAdvertisersApi = {
     pageLikeCount?: number;
     pageCategories?: string[];
     pageVerification?: boolean;
-    productType: 'physical' | 'digital' | 'service' | 'other';
+    productType: 'physical' | 'digital';
     notes?: string;
     initialActiveAdsCount?: number;
   }): Promise<{ success: boolean; data: TrackedAdvertiser; message: string }> => {
