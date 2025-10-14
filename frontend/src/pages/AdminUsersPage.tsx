@@ -157,17 +157,11 @@ export function AdminUsersPage() {
     enabled: showCreditsStats
   });
 
-  // Fetch user password
-  const { data: userPasswordData, refetch: fetchUserPassword } = useQuery({
-    queryKey: ['userPassword', editingUser?._id],
-    queryFn: async (): Promise<{ success: boolean; password: string }> => {
-      if (!editingUser?._id) throw new Error('No user selected');
-      const response = await apiClient.get(`/admin/users/${editingUser._id}/password`);
-      return response.data;
-    },
-    enabled: false, // Only fetch when manually triggered
-    retry: false // Don't retry on error
-  });
+  // Function to fetch user password directly
+  const fetchUserPassword = async (userId: string): Promise<{ success: boolean; password: string }> => {
+    const response = await apiClient.get(`/admin/users/${userId}/password`);
+    return response.data;
+  };
 
   // Update user plan mutation
   const updatePlanMutation = useMutation(
@@ -336,13 +330,13 @@ export function AdminUsersPage() {
     });
     setShowEditModal(true);
     
-    // Fetch user password after setting the editing user
+    // Fetch user password directly with userId
     try {
-      const result = await fetchUserPassword();
-      if (result.data?.success && result.data.password) {
+      const result = await fetchUserPassword(user._id);
+      if (result.success && result.password) {
         setEditForm(prev => ({
           ...prev,
-          currentPasswordDisplay: result.data.password
+          currentPasswordDisplay: result.password
         }));
       } else {
         setEditForm(prev => ({
