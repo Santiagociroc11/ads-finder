@@ -147,6 +147,8 @@ export class SimpleQueue {
     const { AdvertiserStatsService } = await import('./advertiserStatsService.js');
     const statsService = new AdvertiserStatsService();
     
+    console.log(`[QUEUE_WORKER] Processing 'advertiser-stats' for pageId: ${data.pageId}, userId: ${data.userId}`);
+
     // Retry logic for timeouts
     let lastError;
     for (let attempt = 1; attempt <= 2; attempt++) {

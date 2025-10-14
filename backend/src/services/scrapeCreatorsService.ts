@@ -207,6 +207,7 @@ export class ScrapeCreatorsService {
     ads: any[];
   }> {
     try {
+      console.log(`[SCRAPECREATORS] LOGGING: Executing getAdvertiserStats WITH credit tracking for userId: ${userId}`);
       console.log(`[SCRAPECREATORS] 📊 Getting advertiser stats for pageId: ${pageId}`);
 
       const response = await axios.get(`${this.apiUrl.replace('/search/ads', '/company/ads')}`, {
@@ -403,6 +404,7 @@ export class ScrapeCreatorsService {
     ads: AdData[];
   }> {
     try {
+      console.log(`[SCRAPECREATORS] LOGGING: Executing getAdvertiserStats WITHOUT credit tracking.`);
       console.log(`[SCRAPECREATORS] 📊 Getting stats for pageId: ${pageId}, country: ${country || 'ALL'}`);
       
       const companyAdsUrl = `${this.apiUrl.replace('/search/ads', '/company/ads')}`;

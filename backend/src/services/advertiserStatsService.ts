@@ -108,7 +108,7 @@ export class AdvertiserStatsService {
       // Process all requests in the batch concurrently
       const batchPromises = batch.map(async (request) => {
         try {
-          console.log(`🚀 Batch processing pageId: ${request.pageId}`);
+          console.log(`[AdvertiserStatsService] Processing batch for pageId: ${request.pageId}, passing userId: ${request.userId}`);
           const result = await scrapeCreatorsService.getAdvertiserStats(request.pageId, request.country, request.userId);
           
           if (result.totalActiveAds >= 0) {
