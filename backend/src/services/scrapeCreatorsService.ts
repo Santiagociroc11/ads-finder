@@ -234,9 +234,8 @@ export class ScrapeCreatorsService {
         ad_snapshot_url: adLibraryUrl,
         publisher_platforms: ad.publisher_platform || [],
         languages: ['es'], // Default to Spanish
-        days_running: ad.start_date && ad.end_date ? 
-          Math.floor((ad.end_date - ad.start_date) / 86400) : 
-          (ad.start_date ? Math.floor((Date.now() / 1000 - ad.start_date) / 86400) : 0),
+        days_running: ad.start_date ? 
+          Math.floor((Date.now() / 1000 - ad.start_date) / 86400) : 0,
         is_long_running: ad.total_active_time ? ad.total_active_time > (7 * 86400) : false,
         is_indefinite: !ad.end_date,
         is_active: ad.is_active,

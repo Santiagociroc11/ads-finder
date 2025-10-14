@@ -153,7 +153,7 @@ router.get('/users/:userId/password', requireAdmin, asyncHandler(async (req, res
 
   res.json({
     success: true,
-    password: user.password // Return the hashed password (for display purposes)
+    password: '••••••••' // Return masked password (cannot show actual password)
   });
 }));
 
