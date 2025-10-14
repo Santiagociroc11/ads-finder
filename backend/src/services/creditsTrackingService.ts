@@ -51,6 +51,42 @@ export class CreditsTrackingService {
   }
 
   /**
+   * Track system credits usage (for cron jobs and system operations)
+   */
+  async trackSystemCreditsUsage(creditsUsed: number = 1): Promise<void> {
+    try {
+      if (!collections.users) {
+        throw new Error('Users collection not available');
+      }
+
+      // Create or update a system user record for tracking system credits
+      const systemUserId = 'system_credits';
+      
+      await collections.users.updateOne(
+        { _id: systemUserId } as any,
+        {
+          $inc: {
+            'usage.scrapeCreatorsCreditsMonth': creditsUsed,
+            'usage.scrapeCreatorsCreditsTotal': creditsUsed
+          },
+          $set: {
+            'usage.lastUsed': new Date(),
+            email: 'system@adfinder.com',
+            name: 'System Credits',
+            plan: { type: 'system' }
+          }
+        } as any,
+        { upsert: true }
+      );
+
+      console.log(`🔧 Tracked ${creditsUsed} ScrapeCreators system credits`);
+    } catch (error) {
+      console.error('❌ Error tracking system credits usage:', error);
+      // Don't throw error to avoid breaking the main flow
+    }
+  }
+
+  /**
    * Get credits usage for a specific user
    */
   async getUserCreditsUsage(userId: string): Promise<{

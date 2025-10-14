@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from 'react-query'
 import { toast } from 'react-hot-toast'
 import { useSearch } from '../contexts/SearchContext'
+import { useAuth } from '../contexts/AuthContext'
 import { 
   Search, 
   Sparkles, 
@@ -244,6 +245,7 @@ const SmartVideo = ({
 
 export function SearchPage() {
   const queryClient = useQueryClient()
+  const { user } = useAuth() // Get user for passing userId
   const [showScrollToTop, setShowScrollToTop] = useState(false)
   
   
@@ -913,7 +915,8 @@ export function SearchPage() {
     try {
       const result = await scraperApi.getAdvertiserStats({
         pageId,
-        country: searchParams.country
+        country: searchParams.country,
+        userId: user?._id // Pass userId for credit tracking
       })
 
       if (debugMode) {

@@ -300,7 +300,8 @@ router.post('/:id/check', async (req, res) => {
     // Obtener estadísticas reales del anunciante
     const statsResult = await advertiserStatsService.getAdvertiserStats(
       advertiser.pageId,
-      'ALL' // Usar 'ALL' como país por defecto
+      'ALL', // Usar 'ALL' como país por defecto
+      userId // Pasar userId para tracking de créditos
     );
 
     if (!statsResult.success || !statsResult.stats) {
