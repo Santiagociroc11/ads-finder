@@ -371,30 +371,45 @@ export function SearchPage() {
   };
 
 
-  // Process stats queue one by one
+  // Process stats queue in batches
   useEffect(() => {
     if (statsQueue.length > 0 && !isProcessingStats) {
       setIsProcessingStats(true)
       
-      const processNext = async () => {
-        const pageId = statsQueue[0]
-        if (pageId && !advertiserStats.has(pageId)) {
-          await getAdvertiserStats(pageId)
+      const processBatch = async () => {
+        // Take up to 5 items from the queue
+        const batch = statsQueue.slice(0, 5).filter(pageId => !advertiserStats.has(pageId))
+        
+        if (batch.length === 0) {
+          setIsProcessingStats(false)
+          return
         }
         
-        // Update progress counter
-        setStatsLoaded(prev => prev + 1)
+        console.log(`🚀 Frontend: Processing batch of ${batch.length} advertiser stats`)
         
-        // Remove processed item and continue
-        setStatsQueue(prev => prev.slice(1))
+        // Process all items in the batch concurrently
+        const promises = batch.map(pageId => getAdvertiserStats(pageId))
         
-        // Small delay to prevent overwhelming
-          setTimeout(() => {
+        try {
+          await Promise.allSettled(promises)
+          
+          // Update progress counter
+          setStatsLoaded(prev => prev + batch.length)
+          
+          // Remove processed items from queue
+          setStatsQueue(prev => prev.slice(batch.length))
+          
+        } catch (error) {
+          console.error('Error processing stats batch:', error)
+        }
+        
+        // Small delay before next batch
+        setTimeout(() => {
           setIsProcessingStats(false)
-        }, 50) // Reduced to 50ms delay between requests
+        }, 100) // 100ms delay between batches
       }
       
-      processNext()
+      processBatch()
     }
   }, [statsQueue, isProcessingStats])
 
