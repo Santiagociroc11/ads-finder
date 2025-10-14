@@ -24,7 +24,7 @@ export interface AdvertiserStatsResult {
 
 export class AdvertiserStatsService {
   async getAdvertiserStats(pageId: string, country: string = 'ALL'): Promise<AdvertiserStatsResult> {
-    console.log(`🔍 Getting stats for pageId: ${pageId} using BALANCED SCRAPER approach`);
+    console.log(`🔍 Getting stats for pageId: ${pageId} using SCRAPECREATORS approach`);
     
     try {
       // Check Redis cache first
@@ -43,31 +43,61 @@ export class AdvertiserStatsService {
         };
       }
 
-      // If not in Redis cache, use balanced scraper
-      const result = await balancedScraperService.getAdvertiserStats(pageId, country);
+      // Use ScrapeCreators directly for faster results
+      const { scrapeCreatorsService } = await import('./scrapeCreatorsService.js');
       
-      if (result.success && result.stats) {
-        console.log(`✅ Balanced scraper successful: ${result.stats.totalActiveAds || 0} ads`);
+      if (!scrapeCreatorsService.isConfigured()) {
+        console.error(`❌ ScrapeCreators not configured for ${pageId}`);
+        return {
+          success: false,
+          error: 'ScrapeCreators service not configured',
+          executionTime: 0
+        };
+      }
+
+      console.log(`🚀 Using ScrapeCreators for fast stats retrieval: ${pageId}`);
+      const result = await scrapeCreatorsService.getAdvertiserStats(pageId, country);
+      
+      if (result.totalActiveAds >= 0) {
+        console.log(`✅ ScrapeCreators successful: ${result.totalActiveAds} ads for ${pageId}`);
+        
+        const stats: AdvertiserStats = {
+          pageId,
+          advertiserName: 'Unknown',
+          totalActiveAds: result.totalActiveAds,
+          lastUpdated: new Date().toISOString()
+        };
         
         // Cache the result in Redis
         await redisCacheService.setAdvertiserStats(
           pageId, 
           country, 
           { 
-            totalActiveAds: result.stats.totalActiveAds, 
+            totalActiveAds: result.totalActiveAds, 
             loading: false 
           }, 
           15 // 15 minutes TTL
         );
+        
+        return {
+          success: true,
+          stats,
+          executionTime: 0
+        };
+      } else {
+        console.error(`❌ ScrapeCreators failed for ${pageId}`);
+        return {
+          success: false,
+          error: 'ScrapeCreators returned invalid data',
+          executionTime: 0
+        };
       }
       
-      return result;
-      
     } catch (error) {
-      console.error(`❌ Balanced scraper failed for ${pageId}:`, error);
+      console.error(`❌ ScrapeCreators failed for ${pageId}:`, error);
       return {
         success: false,
-        error: `Balanced scraper failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: `ScrapeCreators failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
         executionTime: 0
       };
     }
@@ -75,12 +105,17 @@ export class AdvertiserStatsService {
 
   // Performance monitoring
   getCacheStats() {
-    return balancedScraperService.getPerformanceStats();
+    return {
+      service: 'ScrapeCreators',
+      message: 'Using ScrapeCreators for fast advertiser stats retrieval'
+    };
   }
 
   // Cache management
-  clearCache() {
-    balancedScraperService.clearCache();
+  async clearCache() {
+    // Note: Redis cache will expire automatically based on TTL
+    // For manual clearing, we would need to implement a clear method in RedisCacheService
+    console.log('ℹ️ Advertiser stats cache will expire automatically based on TTL (15 minutes)');
   }
 
   /**
