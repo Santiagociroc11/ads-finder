@@ -116,16 +116,16 @@ export class UserLimitsService {
 
       // Calculate next reset date based on subscription expiration or next month
       const now = new Date();
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
       let nextResetDate: Date;
       
       if (user.subscription && user.subscription.endDate) {
         const expirationDate = new Date(user.subscription.endDate);
-        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
         // Use whichever comes first: subscription expiration or next month
         nextResetDate = expirationDate < nextMonth ? expirationDate : nextMonth;
       } else {
         // Default to first day of next month
-        nextResetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        nextResetDate = nextMonth;
       }
 
       return {
