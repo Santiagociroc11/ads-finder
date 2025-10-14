@@ -403,7 +403,7 @@
 
   /* Sidebar */
   .sidebar {
-    @apply w-full md:w-80 lg:w-96 flex-shrink-0;
+    @apply w-full md:w-64 lg:w-72 flex-shrink-0;
   }
 
   /* Main content */

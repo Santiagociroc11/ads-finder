@@ -2058,7 +2058,7 @@ export function SearchPage() {
                             return (
                               <div>
                                 <div className="text-xs text-gray-400 mb-1">Anuncios totales activos del anunciante</div>
-                                <span className={`text-sm font-bold whitespace-nowrap ${
+                                <span className={`text-sm font-bold break-words ${
                                   isHighActivity 
                                     ? 'text-yellow-300 bg-yellow-500/10 px-2 py-1 rounded border border-yellow-500/30' 
                                     : 'text-green-300'
@@ -2420,37 +2420,34 @@ export function SearchPage() {
                     )}
 
                     {/* Action Buttons */}
-                    <div className="flex flex-col sm:flex-row justify-center gap-2 pt-2 border-t border-primary-500/20">
+                    <div className="grid grid-cols-1 2xl:grid-cols-3 gap-2 pt-2 border-t border-primary-500/20">
                         <button
                         onClick={() => {
                           if (ad.ad_snapshot_url) {
                             window.open(ad.ad_snapshot_url, '_blank');
                           }
                         }}
-                        className="btn-secondary text-xs px-3 sm:px-4 py-2 flex items-center justify-center gap-2 flex-1 sm:flex-none"
+                        className="btn-secondary text-xs px-3 py-3 flex items-center justify-center gap-2"
                       >
-                                                <ExternalLink className="w-3 h-3" />
-                        <span className="hidden sm:inline">IR A BIBLIOTECA</span>
-                        <span className="sm:hidden">BIBLIOTECA</span>
+                        <ExternalLink className="w-4 h-4 flex-shrink-0" />
+                        <span>IR</span>
                         </button>
                       
                       <button
                         onClick={() => openTrackingModal(ad)}
-                        className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 hover:text-purple-200 border border-purple-500/30 hover:border-purple-500/50 text-xs px-3 sm:px-4 py-2 flex items-center justify-center gap-2 rounded-lg transition-all duration-200 flex-1 sm:flex-none"
+                        className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 hover:text-purple-200 border border-purple-500/30 hover:border-purple-500/50 text-xs px-3 py-3 flex items-center justify-center gap-2 rounded-lg transition-all duration-200"
                       >
-                        <Eye className="w-3 h-3" />
-                        <span className="hidden sm:inline">INICIAR SEGUIMIENTO</span>
-                        <span className="sm:hidden">SEGUIR</span>
+                        <Eye className="w-4 h-4 flex-shrink-0" />
+                        <span>SEGUIR</span>
                         </button>
                       
                       <button
                         onClick={() => handleSaveIndividual(ad)}
                         disabled={saveIndividualMutation.isLoading}
-                        className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 hover:text-blue-200 border border-blue-500/30 hover:border-blue-500/50 text-xs px-3 sm:px-4 py-2 flex items-center justify-center gap-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex-1 sm:flex-none"
+                        className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 hover:text-blue-200 border border-blue-500/30 hover:border-blue-500/50 text-xs px-3 py-3 flex items-center justify-center gap-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
-                        <Bookmark className="w-3 h-3" />
-                        <span className="hidden sm:inline">{saveIndividualMutation.isLoading ? 'Guardando...' : 'GUARDAR ANUNCIO'}</span>
-                        <span className="sm:hidden">{saveIndividualMutation.isLoading ? 'Guardando...' : 'GUARDAR'}</span>
+                        <Bookmark className="w-4 h-4 flex-shrink-0" />
+                        <span>{saveIndividualMutation.isLoading ? 'Guardando...' : 'GUARDAR'}</span>
                         </button>
                       </div>
                     </div>
