@@ -654,8 +654,16 @@ export function SearchPage() {
         }
       },
       onError: (error: any) => {
-        console.error('Bulk save error:', error)
-        toast.error('Error al guardar los anuncios')
+        console.error('Bulk save error:', error);
+        
+        if (error.response?.status === 403 && error.response?.data?.error?.includes('Límite de anuncios guardados')) {
+          toast.error('🚫 Tu plan actual no permite guardar anuncios. Considera hacer upgrade a un plan superior.', {
+            duration: 6000,
+            icon: '👑'
+          });
+        } else {
+          toast.error('Error al guardar los anuncios');
+        }
       }
     }
   )
@@ -681,10 +689,17 @@ export function SearchPage() {
         )
       },
       onError: (error: any) => {
+        console.error('Save individual error:', error);
+        
         if (error.response?.status === 409) {
-          toast.error('Este anuncio ya está guardado')
+          toast.error('Este anuncio ya está guardado');
+        } else if (error.response?.status === 403 && error.response?.data?.error?.includes('Límite de anuncios guardados')) {
+          toast.error('🚫 Tu plan actual no permite guardar anuncios. Considera hacer upgrade a un plan superior.', {
+            duration: 6000,
+            icon: '👑'
+          });
         } else {
-          toast.error('Error al guardar el anuncio')
+          toast.error('Error al guardar el anuncio');
         }
       }
     }
