@@ -357,7 +357,6 @@ export class CronQueueService {
       }
       
       // Get real stats from advertiserStatsService
-      // NO pasar userId para que no se trackeen créditos (es proceso del sistema)
       const statsResult = await advertiserStatsService.getAdvertiserStats(
         job.pageId,
         'ALL'
