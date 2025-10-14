@@ -207,7 +207,7 @@ export class ScrapeCreatorsService {
     ads: any[];
   }> {
     try {
-      console.log(`[SCRAPECREATORS] 📊 Getting advertiser stats for pageId: ${pageId}`);
+      console.log(`[SCRAPECREATORS] 📊 Getting advertiser stats for pageId: ${pageId}, userId: ${userId || 'undefined'}`);
 
       const response = await axios.get(`${this.apiUrl.replace('/search/ads', '/company/ads')}`, {
         headers: {
@@ -225,11 +225,15 @@ export class ScrapeCreatorsService {
       // Track credits usage
       if (userId) {
         try {
+          console.log(`💳 Tracking credits for userId: ${userId}`);
           const { creditsTrackingService } = await import('./creditsTrackingService.js');
           await creditsTrackingService.trackCreditsUsage(userId, 1);
+          console.log(`💳 Successfully tracked 1 credit for userId: ${userId}`);
         } catch (error) {
           console.error('❌ Error tracking credits for advertiser stats:', error);
         }
+      } else {
+        console.log(`⚠️ No userId provided, skipping credit tracking for pageId: ${pageId}`);
       }
 
       return {

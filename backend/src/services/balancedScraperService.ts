@@ -102,6 +102,7 @@ export class BalancedScraperService {
           console.log(`🚀 Batch processing pageId: ${request.pageId}`);
           
           // Use ScrapeCreators as primary method
+          console.log(`🔍 Calling ScrapeCreators with userId: ${request.userId || 'undefined'}`);
           const result = await scrapeCreatorsService.getAdvertiserStats(
             request.pageId, 
             request.country, 
