@@ -162,11 +162,28 @@ UserSchema.index({ 'plan.type': 1 });
 UserSchema.index({ 'usage.currentMonth': 1 });
 UserSchema.index({ 'subscription.status': 1 });
 
-// Pre-save middleware to handle monthly reset
+// Pre-save middleware to handle monthly reset and plan expiration
 UserSchema.pre('save', function(next) {
   const currentMonth = new Date().toISOString().slice(0, 7);
+  const now = new Date();
   
-  // If it's a new month, reset the usage counters
+  // Check if subscription has expired
+  if (this.subscription && this.subscription.endDate) {
+    const expirationDate = new Date(this.subscription.endDate);
+    if (now > expirationDate) {
+      // Subscription has expired, downgrade to free plan
+      this.plan = {
+        type: 'free',
+        name: 'GRATIS',
+        adsLimit: 100,
+        features: ['Búsquedas básicas', 'Hasta 100 anuncios por mes', 'Soporte por email']
+      };
+      this.subscription.status = 'expired';
+      console.log(`[USER] ⏰ User ${this.email} subscription expired, downgraded to FREE plan`);
+    }
+  }
+  
+  // If it's a new month, reset the usage counters (only for active subscriptions)
   if (this.usage.currentMonth !== currentMonth) {
     this.usage.currentMonth = currentMonth;
     this.usage.adsFetched = 0;
@@ -174,6 +191,9 @@ UserSchema.pre('save', function(next) {
     this.usage.scrapeCreatorsCreditsMonth = 0; // Reset monthly credits
     // Note: scrapeCreatorsCreditsTotal is NOT reset (historical tracking)
     this.usage.lastResetDate = new Date();
+    
+    // Log the reset
+    console.log(`[USER] 🔄 Monthly reset for user ${this.email} (plan: ${this.plan.type})`);
   }
   
   next();

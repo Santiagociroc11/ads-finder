@@ -74,7 +74,7 @@ router.get('/plans', asyncHandler(async (req, res) => {
       price: 14.97,
       features: ['Hasta 5,000 anuncios por mes', '1 anunciante en seguimiento', '30 ads guardados', 'Soporte por email'],
       popular: false,
-      paymentLink: 'https://pay.hotmart.com/J102289941H?off=njjfgsha'
+      paymentLink: 'https://pay.hotmart.com/J102289941H?off=yaiquhs7'
     },
     tactico: {
       type: 'tactico',
@@ -83,7 +83,7 @@ router.get('/plans', asyncHandler(async (req, res) => {
       price: 27,
       features: ['Hasta 14,000 anuncios por mes', '1 anunciante en seguimiento', '30 ads guardados', 'Análisis de competencia', 'Soporte prioritario'],
       popular: false,
-      paymentLink: 'https://pay.hotmart.com/J102289941H?off=eyh033ft'
+      paymentLink: 'https://pay.hotmart.com/J102289941H?off=njjfgsha'
     },
     conquista: {
       type: 'conquista',
@@ -92,7 +92,7 @@ router.get('/plans', asyncHandler(async (req, res) => {
       price: 57,
       features: ['Hasta 35,000 anuncios por mes', '10 anunciantes en seguimiento', 'Sin límite de ads guardados', 'Análisis avanzados', 'Exportación completa', 'Soporte prioritario'],
       popular: true,
-      paymentLink: 'https://pay.hotmart.com/J102289941H?off=o7ro371x'
+      paymentLink: 'https://pay.hotmart.com/J102289941H?off=eyh033ft'
     },
     imperio: {
       type: 'imperio',

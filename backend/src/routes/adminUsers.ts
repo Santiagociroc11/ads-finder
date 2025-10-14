@@ -55,7 +55,7 @@ router.get('/users', requireAdmin, asyncHandler(async (req, res) => {
 
 // POST /api/admin/users/plan - Update user plan (admin only)
 router.post('/users/plan', requireAdmin, asyncHandler(async (req, res) => {
-  const { userId, planType } = req.body;
+  const { userId, planType, expirationDate } = req.body;
 
   if (!userId || !planType) {
     throw new CustomError('User ID and plan type are required', 400);
@@ -71,12 +71,25 @@ router.post('/users/plan', requireAdmin, asyncHandler(async (req, res) => {
     throw new CustomError('User not found', 404);
   }
 
-  // Update user plan using the existing service
-  await UserLimitsService.upgradeUserPlan(userId, planType);
+  // Calculate expiration date - if not provided, default to 1 month from now
+  let planExpirationDate: Date;
+  if (expirationDate) {
+    planExpirationDate = new Date(expirationDate);
+    if (isNaN(planExpirationDate.getTime())) {
+      throw new CustomError('Invalid expiration date format', 400);
+    }
+  } else {
+    // Default to 1 month from now
+    planExpirationDate = new Date();
+    planExpirationDate.setMonth(planExpirationDate.getMonth() + 1);
+  }
+
+  // Update user plan and subscription info
+  await UserLimitsService.upgradeUserPlan(userId, planType, planExpirationDate);
 
   res.json({
     success: true,
-    message: `User plan updated to ${planType.toUpperCase()}`
+    message: `User plan updated to ${planType.toUpperCase()} with expiration date ${planExpirationDate.toISOString().split('T')[0]}`
   });
 }));
 

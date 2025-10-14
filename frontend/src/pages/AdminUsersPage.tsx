@@ -80,6 +80,13 @@ export function AdminUsersPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [editingUserPlan, setEditingUserPlan] = useState<string | null>(null);
+  const [showPlanModal, setShowPlanModal] = useState(false);
+  const [planChangeForm, setPlanChangeForm] = useState({
+    userId: '',
+    userName: '',
+    newPlanType: 'free',
+    expirationDate: ''
+  });
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'user'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -165,8 +172,8 @@ export function AdminUsersPage() {
 
   // Update user plan mutation
   const updatePlanMutation = useMutation(
-    ({ userId, newPlanType }: { userId: string; newPlanType: string }) =>
-      apiClient.post('/admin/users/plan', { userId, planType: newPlanType }).then(res => res.data),
+    ({ userId, planType, expirationDate }: { userId: string; planType: string; expirationDate?: string }) =>
+      apiClient.post('/admin/users/plan', { userId, planType, expirationDate }).then(res => res.data),
     {
       onSuccess: () => {
         queryClient.invalidateQueries('adminUsers');
@@ -284,6 +291,46 @@ export function AdminUsersPage() {
 
   const handlePlanUpdate = (userId: string, newPlanType: string) => {
     updatePlanMutation.mutate({ userId, newPlanType });
+  };
+
+  const handleOpenPlanModal = (user: AdminUser) => {
+    setPlanChangeForm({
+      userId: user._id,
+      userName: user.name,
+      newPlanType: user.plan.type,
+      expirationDate: ''
+    });
+    setShowPlanModal(true);
+    setEditingUserPlan(null);
+  };
+
+  const handlePlanChange = () => {
+    if (!planChangeForm.userId || !planChangeForm.newPlanType) {
+      toast.error('Todos los campos son requeridos');
+      return;
+    }
+
+    const updateData: any = {
+      userId: planChangeForm.userId,
+      planType: planChangeForm.newPlanType
+    };
+
+    // Only include expirationDate if provided
+    if (planChangeForm.expirationDate) {
+      updateData.expirationDate = planChangeForm.expirationDate;
+    }
+
+    updatePlanMutation.mutate(updateData, {
+      onSuccess: () => {
+        setShowPlanModal(false);
+        setPlanChangeForm({
+          userId: '',
+          userName: '',
+          newPlanType: 'free',
+          expirationDate: ''
+        });
+      }
+    });
   };
 
 
@@ -595,40 +642,19 @@ export function AdminUsersPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {editingUserPlan === user._id ? (
-                      <div className="flex items-center gap-2">
-                        <select
-                          defaultValue={user.plan.type}
-                          onChange={(e) => handlePlanUpdate(user._id, e.target.value)}
-                          className="px-2 py-1 bg-gray-700 border border-gray-600 rounded text-white text-sm focus:outline-none focus:border-primary-500"
-                        >
-                          <option value="free">GRATIS</option>
-                          <option value="pioneros">PIONEROS</option>
-                          <option value="tactico">TACTICO</option>
-                          <option value="conquista">CONQUISTA</option>
-                          <option value="imperio">IMPERIO</option>
-                        </select>
-                        <button
-                          onClick={() => setEditingUserPlan(null)}
-                          className="text-gray-400 hover:text-white"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getPlanColor(user.plan.type)}`}>
-                          {getPlanIcon(user.plan.type)}
-                          {user.plan.name}
-                        </span>
-                        <button
-                          onClick={() => setEditingUserPlan(user._id)}
-                          className="text-gray-400 hover:text-white"
-                        >
-                          <Edit className="w-4 h-4" />
-                        </button>
-                      </div>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getPlanColor(user.plan.type)}`}>
+                        {getPlanIcon(user.plan.type)}
+                        {user.plan.name}
+                      </span>
+                      <button
+                        onClick={() => handleOpenPlanModal(user)}
+                        className="text-gray-400 hover:text-white"
+                        title="Cambiar plan"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <div className="text-sm">
@@ -1009,6 +1035,90 @@ export function AdminUsersPage() {
                     <Save className="w-4 h-4" />
                     Guardar Cambios
                   </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Plan Change Modal */}
+      {showPlanModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="holographic-panel p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-bold text-white">Cambiar Plan de Usuario</h3>
+              <button
+                onClick={() => setShowPlanModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Usuario
+                </label>
+                <div className="px-3 py-2 bg-gray-700 rounded-lg text-white">
+                  {planChangeForm.userName}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Nuevo Plan
+                </label>
+                <select
+                  value={planChangeForm.newPlanType}
+                  onChange={(e) => setPlanChangeForm({ ...planChangeForm, newPlanType: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                >
+                  <option value="free">GRATIS</option>
+                  <option value="pioneros">PIONEROS</option>
+                  <option value="tactico">TACTICO</option>
+                  <option value="conquista">CONQUISTA</option>
+                  <option value="imperio">IMPERIO</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Fecha de Vencimiento (Opcional)
+                </label>
+                <input
+                  type="date"
+                  value={planChangeForm.expirationDate}
+                  onChange={(e) => setPlanChangeForm({ ...planChangeForm, expirationDate: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                  min={new Date().toISOString().split('T')[0]}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Si no se especifica, se establecerá a 1 mes desde hoy
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowPlanModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handlePlanChange}
+                disabled={updatePlanMutation.isLoading}
+                className="flex-1 px-4 py-2 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white rounded-lg transition-colors"
+              >
+                {updatePlanMutation.isLoading ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    Actualizando...
+                  </div>
+                ) : (
+                  'Actualizar Plan'
                 )}
               </button>
             </div>

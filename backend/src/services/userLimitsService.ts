@@ -18,6 +18,40 @@ export interface PlanLimitCheck {
 export class UserLimitsService {
   
   /**
+   * Helper method to check subscription expiration and reset usage if needed
+   */
+  private static async checkAndResetUserUsage(user: any): Promise<void> {
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    
+    if (user.usage.currentMonth !== currentMonth) {
+      // Check if subscription has expired before resetting
+      const now = new Date();
+      if (user.subscription && user.subscription.endDate) {
+        const expirationDate = new Date(user.subscription.endDate);
+        if (now > expirationDate) {
+          // Subscription expired, downgrade to free plan
+          user.plan = {
+            type: 'free',
+            name: 'GRATIS',
+            adsLimit: 100,
+            features: ['Búsquedas básicas', 'Hasta 100 anuncios por mes', 'Soporte por email']
+          };
+          user.subscription.status = 'expired';
+          console.log(`[USER_LIMITS] ⏰ User ${user.email} subscription expired, downgraded to FREE plan`);
+        }
+      }
+      
+      user.usage.currentMonth = currentMonth;
+      user.usage.adsFetched = 0;
+      user.usage.searchesPerformed = 0;
+      user.usage.scrapeCreatorsCreditsMonth = 0;
+      // Note: scrapeCreatorsCreditsTotal is NOT reset (historical tracking)
+      user.usage.lastResetDate = new Date();
+      await user.save();
+    }
+  }
+
+  /**
    * Check if user can fetch more ads based on their plan limits
    */
   static async checkAdsLimit(userId: string, requestedAds: number = 1): Promise<PlanLimitCheck> {
@@ -28,17 +62,8 @@ export class UserLimitsService {
         throw new CustomError('User not found', 404);
       }
 
-      // Ensure usage is up to date (check if month has changed)
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      if (user.usage.currentMonth !== currentMonth) {
-        user.usage.currentMonth = currentMonth;
-        user.usage.adsFetched = 0;
-        user.usage.searchesPerformed = 0;
-        user.usage.scrapeCreatorsCreditsMonth = 0;
-        // Note: scrapeCreatorsCreditsTotal is NOT reset (historical tracking)
-        user.usage.lastResetDate = new Date();
-        await user.save();
-      }
+      // Ensure usage is up to date (check if month has changed and subscription status)
+      await this.checkAndResetUserUsage(user);
 
       const currentUsage = user.usage.adsFetched;
       const monthlyLimit = user.plan.adsLimit;
@@ -82,25 +107,26 @@ export class UserLimitsService {
         throw new CustomError('User not found', 404);
       }
 
-      // Ensure usage is up to date (check if month has changed)
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      if (user.usage.currentMonth !== currentMonth) {
-        user.usage.currentMonth = currentMonth;
-        user.usage.adsFetched = 0;
-        user.usage.searchesPerformed = 0;
-        user.usage.scrapeCreatorsCreditsMonth = 0;
-        // Note: scrapeCreatorsCreditsTotal is NOT reset (historical tracking)
-        user.usage.lastResetDate = new Date();
-        await user.save();
-      }
+      // Ensure usage is up to date (check if month has changed and subscription status)
+      await this.checkAndResetUserUsage(user);
 
       const currentUsage = user.usage.adsFetched;
       const monthlyLimit = user.plan.adsLimit;
       const adsRemaining = Math.max(0, monthlyLimit - currentUsage);
 
-      // Calculate next reset date (first day of next month)
+      // Calculate next reset date based on subscription expiration or next month
       const now = new Date();
-      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      let nextResetDate: Date;
+      
+      if (user.subscription && user.subscription.endDate) {
+        const expirationDate = new Date(user.subscription.endDate);
+        const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        // Use whichever comes first: subscription expiration or next month
+        nextResetDate = expirationDate < nextMonth ? expirationDate : nextMonth;
+      } else {
+        // Default to first day of next month
+        nextResetDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+      }
 
       return {
         adsFetched: currentUsage,
@@ -129,16 +155,8 @@ export class UserLimitsService {
         throw new CustomError('User not found', 404);
       }
 
-      // Ensure usage is up to date
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      if (user.usage.currentMonth !== currentMonth) {
-        user.usage.currentMonth = currentMonth;
-        user.usage.adsFetched = 0;
-        user.usage.searchesPerformed = 0;
-        user.usage.scrapeCreatorsCreditsMonth = 0;
-        // Note: scrapeCreatorsCreditsTotal is NOT reset (historical tracking)
-        user.usage.lastResetDate = new Date();
-      }
+      // Ensure usage is up to date (check if month has changed and subscription status)
+      await this.checkAndResetUserUsage(user);
 
       user.usage.adsFetched += adsCount;
       await user.save();
@@ -162,16 +180,8 @@ export class UserLimitsService {
         throw new CustomError('User not found', 404);
       }
 
-      // Ensure usage is up to date
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      if (user.usage.currentMonth !== currentMonth) {
-        user.usage.currentMonth = currentMonth;
-        user.usage.adsFetched = 0;
-        user.usage.searchesPerformed = 0;
-        user.usage.scrapeCreatorsCreditsMonth = 0;
-        // Note: scrapeCreatorsCreditsTotal is NOT reset (historical tracking)
-        user.usage.lastResetDate = new Date();
-      }
+      // Ensure usage is up to date (check if month has changed and subscription status)
+      await this.checkAndResetUserUsage(user);
 
       user.usage.searchesPerformed += 1;
       await user.save();
@@ -188,7 +198,7 @@ export class UserLimitsService {
   /**
    * Upgrade user plan
    */
-  static async upgradeUserPlan(userId: string, newPlanType: 'free' | 'pioneros' | 'tactico' | 'conquista' | 'imperio'): Promise<void> {
+  static async upgradeUserPlan(userId: string, newPlanType: 'free' | 'pioneros' | 'tactico' | 'conquista' | 'imperio', expirationDate?: Date): Promise<void> {
     try {
       const user = await User.findById(userId);
       
@@ -199,17 +209,25 @@ export class UserLimitsService {
       // Update user plan limits using the new service
       await PlanLimitsService.updateUserPlanLimits(userId, newPlanType);
 
+      // Calculate expiration date if not provided
+      const planExpirationDate = expirationDate || (() => {
+        const date = new Date();
+        date.setMonth(date.getMonth() + 1);
+        return date;
+      })();
+
       // Update subscription info
       user.subscription = {
         status: 'active',
         startDate: new Date(),
+        endDate: planExpirationDate,
         autoRenew: true,
         ...user.subscription
       };
 
       await user.save();
 
-      console.log(`[USER_LIMITS] ⬆️ User ${userId} upgraded to ${newPlanType}`);
+      console.log(`[USER_LIMITS] ⬆️ User ${userId} upgraded to ${newPlanType} with expiration ${planExpirationDate.toISOString().split('T')[0]}`);
 
     } catch (error) {
       console.error('[USER_LIMITS] ❌ Error upgrading user plan:', error);
