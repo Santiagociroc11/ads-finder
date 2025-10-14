@@ -3,6 +3,7 @@ import { authenticateToken } from '../middleware/authMiddleware.js';
 import { asyncHandler, CustomError } from '../middleware/errorHandler.js';
 import { User } from '../models/User.js';
 import { UserLimitsService } from '../services/userLimitsService.js';
+import bcrypt from 'bcryptjs';
 
 const router = express.Router();
 
@@ -132,6 +133,96 @@ router.post('/users/toggle-admin', requireAdmin, asyncHandler(async (req, res) =
     success: true,
     message: `User admin status updated to ${user.role}`,
     newRole: user.role
+  });
+}));
+
+// POST /api/admin/users/create - Create new user (admin only)
+router.post('/users/create', requireAdmin, asyncHandler(async (req, res) => {
+  const { name, email, password, planType = 'free', role = 'user' } = req.body;
+
+  // Validate required fields
+  if (!name || !email || !password) {
+    throw new CustomError('Name, email, and password are required', 400);
+  }
+
+  // Validate email format
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(email)) {
+    throw new CustomError('Invalid email format', 400);
+  }
+
+  // Validate password strength
+  if (password.length < 6) {
+    throw new CustomError('Password must be at least 6 characters long', 400);
+  }
+
+  // Validate plan type
+  const validPlanTypes = ['free', 'pioneros', 'tactico', 'conquista', 'imperio'];
+  if (!validPlanTypes.includes(planType)) {
+    throw new CustomError('Invalid plan type', 400);
+  }
+
+  // Validate role
+  if (!['user', 'admin'].includes(role)) {
+    throw new CustomError('Invalid role', 400);
+  }
+
+  // Check if user already exists
+  const existingUser = await User.findOne({ email: email.toLowerCase() });
+  if (existingUser) {
+    throw new CustomError('User with this email already exists', 409);
+  }
+
+  // Hash password
+  const saltRounds = 12;
+  const hashedPassword = await bcrypt.hash(password, saltRounds);
+
+  // Get plan configuration
+  const planConfig = (User as any).getPlanConfig(planType);
+
+  // Create new user
+  const newUser = new User({
+    name: name.trim(),
+    email: email.toLowerCase().trim(),
+    password: hashedPassword,
+    role,
+    plan: {
+      type: planType,
+      name: planConfig.name,
+      adsLimit: planConfig.adsLimit,
+      trackedAdvertisersLimit: planConfig.trackedAdvertisersLimit,
+      savedAdsLimit: planConfig.savedAdsLimit,
+      features: planConfig.features
+    },
+    usage: {
+      currentMonth: new Date().toISOString().slice(0, 7),
+      adsFetched: 0,
+      searchesPerformed: 0,
+      scrapeCreatorsCreditsMonth: 0,
+      scrapeCreatorsCreditsTotal: 0,
+      lastResetDate: new Date()
+    }
+  });
+
+  await newUser.save();
+
+  console.log(`[ADMIN] ✅ New user created by admin: ${email} (${planType} plan)`);
+
+  // Return user data without password
+  const userResponse = {
+    _id: newUser._id,
+    email: newUser.email,
+    name: newUser.name,
+    role: newUser.role,
+    plan: newUser.plan,
+    usage: newUser.usage,
+    createdAt: newUser.createdAt
+  };
+
+  res.status(201).json({
+    success: true,
+    message: 'User created successfully',
+    user: userResponse
   });
 }));
 

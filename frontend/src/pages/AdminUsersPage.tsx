@@ -12,7 +12,9 @@ import {
   X,
   RefreshCw,
   Search,
-  Filter
+  Filter,
+  Plus,
+  UserPlus
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
@@ -48,6 +50,14 @@ export function AdminUsersPage() {
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'user'>('all');
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [newUser, setNewUser] = useState({
+    name: '',
+    email: '',
+    password: '',
+    planType: 'free' as 'free' | 'pioneros' | 'tactico' | 'conquista' | 'imperio',
+    role: 'user' as 'user' | 'admin'
+  });
 
   // Debug: Log user info
   console.log('🔍 AdminUsersPage - Current user:', user);
@@ -113,6 +123,31 @@ export function AdminUsersPage() {
     }
   );
 
+  // Create user mutation
+  const createUserMutation = useMutation(
+    (userData: typeof newUser) =>
+      apiClient.post('/admin/users/create', userData).then(res => res.data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('adminUsers');
+        toast.success('Usuario creado exitosamente');
+        setShowCreateModal(false);
+        setNewUser({
+          name: '',
+          email: '',
+          password: '',
+          planType: 'free',
+          role: 'user'
+        });
+      },
+      onError: (error: any) => {
+        const message = error.response?.data?.message || 'Error al crear usuario';
+        toast.error(message);
+        console.error('Create user error:', error);
+      }
+    }
+  );
+
   const users = usersData?.users || [];
 
   const getPlanIcon = (planType: string) => {
@@ -155,6 +190,14 @@ export function AdminUsersPage() {
     }
   };
 
+  const handleCreateUser = () => {
+    if (!newUser.name || !newUser.email || !newUser.password) {
+      toast.error('Todos los campos son requeridos');
+      return;
+    }
+    createUserMutation.mutate(newUser);
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -186,9 +229,18 @@ export function AdminUsersPage() {
           <h1 className="text-3xl font-bold text-white mb-2">Gestión de Usuarios</h1>
           <p className="text-gray-400">Administra usuarios y sus planes</p>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-400">
-          <Users className="w-5 h-5" />
-          <span>{filteredUsers.length} usuarios</span>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors"
+          >
+            <UserPlus className="w-4 h-4" />
+            Crear Usuario
+          </button>
+          <div className="flex items-center gap-2 text-sm text-gray-400">
+            <Users className="w-5 h-5" />
+            <span>{filteredUsers.length} usuarios</span>
+          </div>
         </div>
       </div>
 
@@ -323,6 +375,121 @@ export function AdminUsersPage() {
         <div className="text-center py-8">
           <Users className="w-12 h-12 text-gray-400 mx-auto mb-4" />
           <p className="text-gray-400">No se encontraron usuarios</p>
+        </div>
+      )}
+
+      {/* Create User Modal */}
+      {showCreateModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="holographic-panel p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white">Crear Nuevo Usuario</h2>
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Nombre
+                </label>
+                <input
+                  type="text"
+                  value={newUser.name}
+                  onChange={(e) => setNewUser({ ...newUser, name: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500"
+                  placeholder="Nombre completo"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Email
+                </label>
+                <input
+                  type="email"
+                  value={newUser.email}
+                  onChange={(e) => setNewUser({ ...newUser, email: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500"
+                  placeholder="usuario@ejemplo.com"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Contraseña
+                </label>
+                <input
+                  type="password"
+                  value={newUser.password}
+                  onChange={(e) => setNewUser({ ...newUser, password: e.target.value })}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500"
+                  placeholder="Mínimo 6 caracteres"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Plan
+                </label>
+                <select
+                  value={newUser.planType}
+                  onChange={(e) => setNewUser({ ...newUser, planType: e.target.value as any })}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                >
+                  <option value="free">GRATIS</option>
+                  <option value="pioneros">PIONEROS</option>
+                  <option value="tactico">TACTICO</option>
+                  <option value="conquista">CONQUISTA</option>
+                  <option value="imperio">IMPERIO</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">
+                  Rol
+                </label>
+                <select
+                  value={newUser.role}
+                  onChange={(e) => setNewUser({ ...newUser, role: e.target.value as any })}
+                  className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white focus:outline-none focus:border-primary-500"
+                >
+                  <option value="user">Usuario</option>
+                  <option value="admin">Administrador</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => setShowCreateModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleCreateUser}
+                disabled={createUserMutation.isLoading}
+                className="flex-1 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {createUserMutation.isLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Creando...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Crear Usuario
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
