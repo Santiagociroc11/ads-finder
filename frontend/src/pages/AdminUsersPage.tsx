@@ -317,13 +317,11 @@ export function AdminUsersPage() {
           currentPasswordDisplay: result.password
         }));
         
-        // Show success message if temporary password was generated
-        if (result.isTemporary) {
-          toast.success('🔑 Contraseña temporal generada. El usuario debe cambiarla en su próximo login.', { 
-            duration: 8000,
-            icon: '⚠️'
-          });
-        }
+        // Show success message for temporary password generation
+        toast.success('🔑 Contraseña temporal generada. El usuario debe cambiarla en su próximo login.', { 
+          duration: 8000,
+          icon: '⚠️'
+        });
       } else {
         setEditForm(prev => ({
           ...prev,
