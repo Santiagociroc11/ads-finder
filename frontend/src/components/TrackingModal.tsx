@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Eye, Package, Smartphone, Save, Loader, Crown, ArrowRight } from 'lucide-react';
 import { AdData } from '../types/shared';
 import { trackedAdvertisersApi } from '../services/api';
@@ -19,14 +19,17 @@ const TrackingModal: React.FC<TrackingModalProps> = ({ isOpen, onClose, ad, acti
   const [error, setError] = useState('');
   const [isPlanLimitError, setIsPlanLimitError] = useState(false);
 
-  if (!isOpen || !ad) {
-    // Reset states when modal is closed
+  // Reset states when modal is closed
+  useEffect(() => {
     if (!isOpen) {
       setError('');
       setIsPlanLimitError(false);
       setProductType('physical');
       setNotes('');
     }
+  }, [isOpen]);
+
+  if (!isOpen || !ad) {
     return null;
   }
 
