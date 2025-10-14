@@ -55,7 +55,7 @@ router.get('/plans', asyncHandler(async (req, res) => {
       name: 'PIONEROS',
       adsLimit: 5000,
       price: 14.97,
-      features: ['Búsquedas básicas', 'Hasta 5,000 anuncios por mes', 'Soporte por email', 'Historial de búsquedas'],
+      features: ['Hasta 5,000 anuncios por mes', '1 anunciante en seguimiento', '30 ads guardados', 'Soporte por email'],
       popular: false
     },
     tactico: {
@@ -63,7 +63,7 @@ router.get('/plans', asyncHandler(async (req, res) => {
       name: 'TACTICO',
       adsLimit: 14000,
       price: 27,
-      features: ['Búsquedas avanzadas', 'Hasta 14,000 anuncios por mes', 'Análisis de competencia', 'Exportación básica', 'Soporte prioritario'],
+      features: ['Hasta 14,000 anuncios por mes', '1 anunciante en seguimiento', '30 ads guardados', 'Análisis de competencia', 'Soporte prioritario'],
       popular: false
     },
     conquista: {
@@ -71,7 +71,7 @@ router.get('/plans', asyncHandler(async (req, res) => {
       name: 'CONQUISTA',
       adsLimit: 35000,
       price: 57,
-      features: ['Búsquedas ilimitadas', 'Hasta 35,000 anuncios por mes', 'Análisis avanzados', 'Exportación completa', 'API básica', 'Soporte prioritario'],
+      features: ['Hasta 35,000 anuncios por mes', '10 anunciantes en seguimiento', 'Sin límite de ads guardados', 'Análisis avanzados', 'Exportación completa', 'Soporte prioritario'],
       popular: true
     },
     imperio: {
@@ -79,7 +79,7 @@ router.get('/plans', asyncHandler(async (req, res) => {
       name: 'IMPERIO',
       adsLimit: 90000,
       price: 127,
-      features: ['Búsquedas ilimitadas', 'Hasta 90,000 anuncios por mes', 'Análisis premium', 'Exportación completa', 'API completa', 'Integraciones personalizadas', 'Soporte dedicado', 'Consultoría estratégica'],
+      features: ['Hasta 90,000 anuncios por mes', '50 anunciantes en seguimiento', 'Sin límite de ads guardados', 'Análisis premium', 'Exportación completa', 'API completa', 'Soporte dedicado'],
       popular: false
     }
   };

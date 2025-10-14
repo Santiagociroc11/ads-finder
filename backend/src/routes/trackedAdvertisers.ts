@@ -2,6 +2,7 @@ import express from 'express';
 import { authenticateToken } from '@/middleware/authMiddleware.js';
 import { TrackedAdvertiser } from '@/models/TrackedAdvertiser.js';
 import { connectDatabase } from '@/services/database.js';
+import { checkTrackedAdvertisersLimit, addPlanLimitsInfo } from '../middleware/planLimitsMiddleware.js';
 
 const router = express.Router();
 
@@ -132,7 +133,7 @@ router.get('/stats', async (req, res) => {
 });
 
 // POST / - Agregar anunciante al seguimiento
-router.post('/', async (req, res) => {
+router.post('/', checkTrackedAdvertisersLimit, addPlanLimitsInfo, async (req, res) => {
   try {
     const userId = (req as any).user._id.toString();
     const {

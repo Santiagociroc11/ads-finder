@@ -13,6 +13,8 @@ export interface IUser extends Document {
     type: 'free' | 'pioneros' | 'tactico' | 'conquista' | 'imperio';
     name: string;
     adsLimit: number; // Monthly limit for ads fetched
+    trackedAdvertisersLimit: number; // Limit for tracked advertisers
+    savedAdsLimit: number; // Limit for saved ads (0 = unlimited)
     features: string[];
   };
   
@@ -68,25 +70,33 @@ const UserSchema = new Schema<IUser>({
     required: false
   },
   
-  // Plan configuration
-  plan: {
-          type: {
-            type: String,
-            enum: ['free', 'pioneros', 'tactico', 'conquista', 'imperio'],
-            default: 'free'
-          },
-    name: {
-      type: String,
-      default: 'GRATIS'
+    // Plan configuration
+    plan: {
+      type: {
+        type: String,
+        enum: ['free', 'pioneros', 'tactico', 'conquista', 'imperio'],
+        default: 'free'
+      },
+      name: {
+        type: String,
+        default: 'GRATIS'
+      },
+      adsLimit: {
+        type: Number,
+        default: 100 // FREE plan: 100 ads per month
+      },
+      trackedAdvertisersLimit: {
+        type: Number,
+        default: 0 // FREE plan: 0 tracked advertisers
+      },
+      savedAdsLimit: {
+        type: Number,
+        default: 0 // FREE plan: 0 saved ads
+      },
+      features: [{
+        type: String
+      }]
     },
-    adsLimit: {
-      type: Number,
-      default: 100 // FREE plan: 100 ads per month
-    },
-    features: [{
-      type: String
-    }]
-  },
   
   // Usage tracking
   usage: {
@@ -164,31 +174,41 @@ UserSchema.statics.getPlanConfig = function(planType: string) {
       type: 'free',
       name: 'GRATIS',
       adsLimit: 100,
+      trackedAdvertisersLimit: 0,
+      savedAdsLimit: 0,
       features: ['Búsquedas básicas', 'Hasta 100 anuncios por mes', 'Soporte por email']
     },
     pioneros: {
       type: 'pioneros',
       name: 'PIONEROS',
       adsLimit: 5000,
-      features: ['Búsquedas básicas', 'Hasta 5,000 anuncios por mes', 'Soporte por email', 'Historial de búsquedas']
+      trackedAdvertisersLimit: 1,
+      savedAdsLimit: 30,
+      features: ['Hasta 5,000 anuncios por mes', '1 anunciante en seguimiento', '30 ads guardados', 'Soporte por email']
     },
     tactico: {
       type: 'tactico',
       name: 'TACTICO',
       adsLimit: 14000,
-      features: ['Búsquedas avanzadas', 'Hasta 14,000 anuncios por mes', 'Análisis de competencia', 'Exportación básica', 'Soporte prioritario']
+      trackedAdvertisersLimit: 1,
+      savedAdsLimit: 30,
+      features: ['Hasta 14,000 anuncios por mes', '1 anunciante en seguimiento', '30 ads guardados', 'Análisis de competencia', 'Soporte prioritario']
     },
     conquista: {
       type: 'conquista',
       name: 'CONQUISTA',
       adsLimit: 35000,
-      features: ['Búsquedas ilimitadas', 'Hasta 35,000 anuncios por mes', 'Análisis avanzados', 'Exportación completa', 'API básica', 'Soporte prioritario']
+      trackedAdvertisersLimit: 10,
+      savedAdsLimit: -1, // -1 = unlimited
+      features: ['Hasta 35,000 anuncios por mes', '10 anunciantes en seguimiento', 'Sin límite de ads guardados', 'Análisis avanzados', 'Exportación completa', 'Soporte prioritario']
     },
     imperio: {
       type: 'imperio',
       name: 'IMPERIO',
       adsLimit: 90000,
-      features: ['Búsquedas ilimitadas', 'Hasta 90,000 anuncios por mes', 'Análisis premium', 'Exportación completa', 'API completa', 'Integraciones personalizadas', 'Soporte dedicado', 'Consultoría estratégica']
+      trackedAdvertisersLimit: 50,
+      savedAdsLimit: -1, // -1 = unlimited
+      features: ['Hasta 90,000 anuncios por mes', '50 anunciantes en seguimiento', 'Sin límite de ads guardados', 'Análisis premium', 'Exportación completa', 'API completa', 'Soporte dedicado']
     }
   };
   

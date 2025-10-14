@@ -2,6 +2,7 @@ import { collections } from './database.js';
 import { User } from '../models/User.js';
 import type { User as UserType } from '../types/shared.js';
 import { CustomError } from '../middleware/errorHandler.js';
+import { PlanLimitsService } from './planLimitsService.js';
 
 export interface PlanLimitCheck {
   canFetchAds: boolean;
@@ -168,7 +169,7 @@ export class UserLimitsService {
   /**
    * Upgrade user plan
    */
-  static async upgradeUserPlan(userId: string, newPlanType: 'pioneros' | 'tactico' | 'conquista' | 'imperio'): Promise<void> {
+  static async upgradeUserPlan(userId: string, newPlanType: 'free' | 'pioneros' | 'tactico' | 'conquista' | 'imperio'): Promise<void> {
     try {
       const user = await User.findById(userId);
       
@@ -176,12 +177,8 @@ export class UserLimitsService {
         throw new CustomError('User not found', 404);
       }
 
-      const planConfig = (User as any).getPlanConfig(newPlanType);
-      
-      user.plan.type = planConfig.type;
-      user.plan.name = planConfig.name;
-      user.plan.adsLimit = planConfig.adsLimit;
-      user.plan.features = planConfig.features;
+      // Update user plan limits using the new service
+      await PlanLimitsService.updateUserPlanLimits(userId, newPlanType);
 
       // Update subscription info
       user.subscription = {
@@ -193,7 +190,7 @@ export class UserLimitsService {
 
       await user.save();
 
-      console.log(`[USER_LIMITS] ⬆️ User ${userId} upgraded to ${planConfig.name}`);
+      console.log(`[USER_LIMITS] ⬆️ User ${userId} upgraded to ${newPlanType}`);
 
     } catch (error) {
       console.error('[USER_LIMITS] ❌ Error upgrading user plan:', error);

@@ -68,14 +68,17 @@ export function Layout({ children }: LayoutProps) {
 
   const usage = usageData?.usage
 
-  // Check if user is at limit and show modal on every navigation
+  // Check if user is at limit and show modal on every navigation (except config and plans pages)
   useEffect(() => {
     if (usage) {
       const usagePercentage = (usage.adsFetched / usage.monthlyLimit) * 100
       const isAtLimit = usagePercentage >= 100
 
-      if (isAtLimit) {
-        // Show modal on every page navigation when at limit
+      // Don't show modal on config or plans pages
+      const isExcludedPage = location.pathname === '/settings' || location.pathname === '/user-plans'
+
+      if (isAtLimit && !isExcludedPage) {
+        // Show modal on every page navigation when at limit (except excluded pages)
         setShowLimitModal(true)
       }
     }
@@ -87,6 +90,7 @@ export function Layout({ children }: LayoutProps) {
       const usagePercentage = (usage.adsFetched / usage.monthlyLimit) * 100
       const isAtLimit = usagePercentage >= 100
       
+      // Only auto-close if not at limit (regardless of current page)
       if (!isAtLimit) {
         setShowLimitModal(false)
       }

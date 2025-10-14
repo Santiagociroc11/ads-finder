@@ -4,6 +4,7 @@ import { collections } from '@/services/database.js';
 import { asyncHandler, CustomError } from '@/middleware/errorHandler.js';
 import { authenticateToken } from '@/middleware/authMiddleware.js';
 import { AdMediaProcessor } from '@/services/adMediaProcessor.js';
+import { checkSavedAdsLimit, addPlanLimitsInfo } from '../middleware/planLimitsMiddleware.js';
 import type { SavedAd, AdData } from '../types/shared.js';
 
 const router = express.Router();
@@ -12,7 +13,7 @@ const router = express.Router();
 router.use(authenticateToken);
 
 // POST /api/saved-ads - Save a specific ad
-router.post('/', asyncHandler(async (req, res) => {
+router.post('/', checkSavedAdsLimit(1), addPlanLimitsInfo, asyncHandler(async (req, res) => {
   const { adData, tags, notes, collection } = req.body;
   const userId = (req as any).user?._id?.toString();
   
@@ -235,7 +236,11 @@ router.get('/tags', asyncHandler(async (req, res) => {
 }));
 
 // POST /api/saved-ads/bulk - Save multiple ads
-router.post('/bulk', asyncHandler(async (req, res) => {
+router.post('/bulk', asyncHandler(async (req, res, next) => {
+  const adsToSave = req.body?.ads?.length || 1;
+  const middleware = checkSavedAdsLimit(adsToSave);
+  return middleware(req, res, next);
+}), addPlanLimitsInfo, asyncHandler(async (req, res) => {
   const { ads, defaultTags, defaultCollection, defaultNotes } = req.body;
   const userId = (req as any).user?._id?.toString();
   
