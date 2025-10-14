@@ -339,7 +339,6 @@ export const scraperApi = {
   getAdvertiserStats: async (params: {
     pageId: string
     country?: string
-    userId?: string
   }): Promise<{
     success: boolean
     pageId: string

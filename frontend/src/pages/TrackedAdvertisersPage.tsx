@@ -18,11 +18,9 @@ import { trackedAdvertisersApi } from '../services/api';
 import type { TrackedAdvertiser, TrackedAdvertiserStats } from '../types/shared';
 import { toast } from 'react-hot-toast';
 import MiniChart from '../components/MiniChart';
-import { useAuth } from '../contexts/AuthContext';
 
 const TrackedAdvertisersPage: React.FC = () => {
   const queryClient = useQueryClient();
-  const { user } = useAuth(); // Get user for passing userId
   const [page, setPage] = useState(1);
   const [filter, setFilter] = useState<'all' | 'active' | 'inactive'>('active');
   const [searchTerm, setSearchTerm] = useState('');

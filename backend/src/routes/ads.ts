@@ -307,14 +307,13 @@ router.post('/scrape-advertiser', scrapingRateLimit, asyncHandler(async (req, re
 
 // POST /api/ads/advertiser-stats - Get total active ads count for a page by pageId
 router.post('/advertiser-stats', authenticateToken, scrapingRateLimit, asyncHandler(async (req, res) => {
-  const { pageId, country = 'ALL', userId: bodyUserId } = req.body;
+  const { pageId, country = 'ALL' } = req.body;
 
   if (!pageId || typeof pageId !== 'string') {
     throw new CustomError('pageId is required and must be a string', 400);
   }
 
-  // Use userId from body if provided, otherwise use authenticated user
-  const userId = bodyUserId || (req as any).user?._id?.toString() || 'anonymous';
+  const userId = (req as any).user?._id?.toString() || 'anonymous';
   console.log(`[STATS] 📊 Getting stats for pageId: ${pageId} (user: ${userId})`);
   
   // Check cache first

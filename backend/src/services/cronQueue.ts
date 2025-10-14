@@ -587,7 +587,7 @@ export class CronQueueService {
 
     // Get users with Telegram configured
     const usersWithTelegram = await collections.users?.find({
-      telegramId: { $exists: true, $nin: [null, ''] }
+      telegramId: { $exists: true, $ne: null, $ne: '' }
     }).toArray();
     
     if (!usersWithTelegram || usersWithTelegram.length === 0) {
