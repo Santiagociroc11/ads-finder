@@ -12,14 +12,11 @@ import {
   X,
   RefreshCw,
   Search,
-  Filter,
-  Eye
+  Filter
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
-import { useAdminView } from '../contexts/AdminViewContext';
 import apiClient from '../services/api';
 import toast from 'react-hot-toast';
-import type { User } from '../types/shared';
 
 interface AdminUser {
   _id: string;
@@ -48,7 +45,6 @@ interface AdminUsersResponse {
 export function AdminUsersPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const { enterUserView } = useAdminView();
   const [editingUser, setEditingUser] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'user'>('all');
@@ -157,33 +153,6 @@ export function AdminUsersPage() {
     if (confirm(`¿Estás seguro de resetear el uso mensual de ${userName}?`)) {
       resetUsageMutation.mutate(userId);
     }
-  };
-
-  const handleViewProfile = (adminUser: AdminUser) => {
-    // Convert AdminUser to User format for the context
-    const userForView: User = {
-      _id: adminUser._id,
-      email: adminUser.email,
-      name: adminUser.name,
-      role: adminUser.role,
-      plan: {
-        type: adminUser.plan.type,
-        name: adminUser.plan.name,
-        adsLimit: adminUser.plan.adsLimit,
-        features: [] // We don't have features in AdminUser, so empty array
-      },
-      usage: {
-        currentMonth: adminUser.usage.currentMonth,
-        adsFetched: adminUser.usage.adsFetched,
-        searchesPerformed: adminUser.usage.searchesPerformed,
-        lastResetDate: new Date().toISOString()
-      },
-      createdAt: adminUser.createdAt,
-      updatedAt: adminUser.createdAt
-    };
-    
-    enterUserView(userForView);
-    toast.success(`Ahora estás viendo como ${adminUser.name}`);
   };
 
   if (isLoading) {
@@ -333,13 +302,6 @@ export function AdminUsersPage() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleViewProfile(user)}
-                        className="flex items-center gap-1 px-2 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 text-xs rounded transition-colors"
-                      >
-                        <Eye className="w-3 h-3" />
-                        Ver Perfil
-                      </button>
                       <button
                         onClick={() => handleResetUsage(user._id, user.name)}
                         disabled={resetUsageMutation.isLoading}
