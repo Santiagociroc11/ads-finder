@@ -371,45 +371,45 @@ export function SearchPage() {
   };
 
 
-  // Process stats queue in batches
+  // Process stats queue one by one
   useEffect(() => {
     if (statsQueue.length > 0 && !isProcessingStats) {
       setIsProcessingStats(true)
       
-      const processBatch = async () => {
-        // Take up to 5 items from the queue
-        const batch = statsQueue.slice(0, 5).filter(pageId => !advertiserStats.has(pageId))
+      const processOneByOne = async () => {
+        // Take the first item from the queue
+        const nextPageId = statsQueue[0]
         
-        if (batch.length === 0) {
+        if (!nextPageId || advertiserStats.has(nextPageId)) {
+          // No valid items to process
           setIsProcessingStats(false)
           return
         }
         
-        console.log(`🚀 Frontend: Processing batch of ${batch.length} advertiser stats`)
-        
-        // Process all items in the batch concurrently
-        const promises = batch.map(pageId => getAdvertiserStats(pageId))
+        console.log(`🚀 Frontend: Processing ONE advertiser stat for pageId: ${nextPageId}`)
         
         try {
-          await Promise.allSettled(promises)
+          await getAdvertiserStats(nextPageId)
           
           // Update progress counter
-          setStatsLoaded(prev => prev + batch.length)
+          setStatsLoaded(prev => prev + 1)
           
-          // Remove processed items from queue
-          setStatsQueue(prev => prev.slice(batch.length))
+          // Remove the processed item from queue
+          setStatsQueue(prev => prev.slice(1))
           
         } catch (error) {
-          console.error('Error processing stats batch:', error)
+          console.error('Error processing advertiser stat:', error)
+          // Remove the failed item from queue anyway
+          setStatsQueue(prev => prev.slice(1))
         }
         
-        // Small delay before next batch
+        // Small delay before next item
         setTimeout(() => {
           setIsProcessingStats(false)
-        }, 100) // 100ms delay between batches
+        }, 200) // 200ms delay between individual requests
       }
       
-      processBatch()
+      processOneByOne()
     }
   }, [statsQueue, isProcessingStats])
 
