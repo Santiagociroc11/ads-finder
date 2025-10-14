@@ -338,18 +338,27 @@ export function AdminUsersPage() {
           ...prev,
           currentPasswordDisplay: result.password
         }));
+        
+        // Show success message if temporary password was generated
+        if (result.isTemporary) {
+          toast.success('🔑 Contraseña temporal generada. El usuario debe cambiarla en su próximo login.', { 
+            duration: 8000,
+            icon: '⚠️'
+          });
+        }
       } else {
         setEditForm(prev => ({
           ...prev,
-          currentPasswordDisplay: 'Error al cargar contraseña'
+          currentPasswordDisplay: 'Error al generar contraseña'
         }));
       }
     } catch (error) {
       console.error('Error fetching user password:', error);
       setEditForm(prev => ({
         ...prev,
-        currentPasswordDisplay: 'Error al cargar contraseña'
+        currentPasswordDisplay: 'Error al generar contraseña'
       }));
+      toast.error('Error al generar contraseña temporal');
     }
   };
 
@@ -903,26 +912,22 @@ export function AdminUsersPage() {
                 {/* Current Password Display */}
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-300 mb-2">
-                    Contraseña Actual (Solo Lectura)
+                    Contraseña Temporal Generada
                   </label>
                   <div className="relative">
                     <input
-                      type={showPassword ? "text" : "password"}
+                      type="text"
                       value={editForm.currentPasswordDisplay}
                       readOnly
-                      className="w-full px-3 py-2 pr-10 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500 cursor-not-allowed"
-                      placeholder="Cargando contraseña..."
+                      className="w-full px-3 py-2 bg-green-900 border border-green-600 rounded-lg text-green-100 placeholder-gray-400 focus:outline-none focus:border-green-500 cursor-not-allowed font-mono"
+                      placeholder="Generando contraseña..."
                     />
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-                    >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                    </button>
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-green-400">
+                      <Eye className="w-4 h-4" />
+                    </div>
                   </div>
-                  <p className="text-xs text-gray-500 mt-1">
-                    Esta es la contraseña hasheada actual del usuario (solo lectura)
+                  <p className="text-xs text-yellow-400 mt-1">
+                    ⚠️ Esta es una contraseña temporal. El usuario debe cambiarla en su próximo login.
                   </p>
                 </div>
 

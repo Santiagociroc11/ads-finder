@@ -138,7 +138,7 @@ router.post('/users/toggle-admin', requireAdmin, asyncHandler(async (req, res) =
   });
 }));
 
-// GET /api/admin/users/:userId/password - Get user password (admin only)
+// GET /api/admin/users/:userId/password - Generate temporary password for admin to see
 router.get('/users/:userId/password', requireAdmin, asyncHandler(async (req, res) => {
   const { userId } = req.params;
 
@@ -146,14 +146,26 @@ router.get('/users/:userId/password', requireAdmin, asyncHandler(async (req, res
     throw new CustomError('User ID is required', 400);
   }
 
-  const user = await User.findById(userId, { password: 1 });
+  const user = await User.findById(userId);
   if (!user) {
     throw new CustomError('User not found', 404);
   }
 
+  // Generate a temporary password that admin can see
+  const tempPassword = Math.random().toString(36).slice(-8); // 8 character random password
+  
+  // Hash the temporary password
+  const hashedPassword = await bcrypt.hash(tempPassword, 10);
+  
+  // Update user with temporary password
+  user.password = hashedPassword;
+  await user.save();
+
   res.json({
     success: true,
-    password: '••••••••' // Return masked password (cannot show actual password)
+    password: tempPassword, // Return the actual temporary password
+    isTemporary: true,
+    message: 'Se generó una contraseña temporal. El usuario debe cambiarla en su próximo login.'
   });
 }));
 
