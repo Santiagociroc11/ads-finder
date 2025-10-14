@@ -79,7 +79,7 @@ interface AdminUsersResponse {
 export function AdminUsersPage() {
   const queryClient = useQueryClient();
   const { user } = useAuth();
-  const [editingUser, setEditingUser] = useState<string | null>(null);
+  const [editingUserPlan, setEditingUserPlan] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterRole, setFilterRole] = useState<'all' | 'admin' | 'user'>('all');
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -164,7 +164,7 @@ export function AdminUsersPage() {
       onSuccess: () => {
         queryClient.invalidateQueries('adminUsers');
         toast.success('Plan actualizado exitosamente');
-        setEditingUser(null);
+        setEditingUserPlan(null);
       },
       onError: (error: any) => {
         toast.error('Error al actualizar el plan');
@@ -308,6 +308,75 @@ export function AdminUsersPage() {
       return;
     }
     createUserMutation.mutate(newUser);
+  };
+
+  const handleEditUser = (user: AdminUser) => {
+    setEditingUser(user);
+    setEditForm({
+      name: user.name,
+      email: user.email,
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
+    setShowEditModal(true);
+  };
+
+  const handleUpdateUser = () => {
+    if (!editingUser) return;
+
+    // Validate required fields
+    if (!editForm.name || !editForm.email) {
+      toast.error('Nombre y email son requeridos');
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editForm.email)) {
+      toast.error('Email inválido');
+      return;
+    }
+
+    // If changing password, validate password fields
+    if (editForm.newPassword) {
+      if (!editForm.currentPassword) {
+        toast.error('Contraseña actual es requerida para cambiar la contraseña');
+        return;
+      }
+      if (editForm.newPassword !== editForm.confirmPassword) {
+        toast.error('Las contraseñas nuevas no coinciden');
+        return;
+      }
+      if (editForm.newPassword.length < 6) {
+        toast.error('La nueva contraseña debe tener al menos 6 caracteres');
+        return;
+      }
+    }
+
+    const updateData: any = {
+      name: editForm.name,
+      email: editForm.email
+    };
+
+    if (editForm.newPassword) {
+      updateData.currentPassword = editForm.currentPassword;
+      updateData.newPassword = editForm.newPassword;
+    }
+
+    updateUserMutation.mutate({ userId: editingUser._id, userData: updateData });
+  };
+
+  const handleCancelEdit = () => {
+    setShowEditModal(false);
+    setEditingUser(null);
+    setEditForm({
+      name: '',
+      email: '',
+      currentPassword: '',
+      newPassword: '',
+      confirmPassword: ''
+    });
   };
 
   if (isLoading) {
@@ -509,7 +578,7 @@ export function AdminUsersPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {editingUser === user._id ? (
+                    {editingUserPlan === user._id ? (
                       <div className="flex items-center gap-2">
                         <select
                           defaultValue={user.plan.type}
@@ -523,7 +592,7 @@ export function AdminUsersPage() {
                           <option value="imperio">IMPERIO</option>
                         </select>
                         <button
-                          onClick={() => setEditingUser(null)}
+                          onClick={() => setEditingUserPlan(null)}
                           className="text-gray-400 hover:text-white"
                         >
                           <X className="w-4 h-4" />
@@ -536,7 +605,7 @@ export function AdminUsersPage() {
                           {user.plan.name}
                         </span>
                         <button
-                          onClick={() => setEditingUser(user._id)}
+                          onClick={() => setEditingUserPlan(user._id)}
                           className="text-gray-400 hover:text-white"
                         >
                           <Edit className="w-4 h-4" />
@@ -594,9 +663,18 @@ export function AdminUsersPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button
+                        onClick={() => handleEditUser(user)}
+                        className="flex items-center gap-1 px-2 py-1 bg-green-500/20 hover:bg-green-500/30 text-green-400 text-xs rounded transition-colors"
+                        title="Editar usuario"
+                      >
+                        <Edit className="w-3 h-3" />
+                        Editar
+                      </button>
+                      <button
                         onClick={() => handleResetUsage(user._id, user.name)}
                         disabled={resetUsageMutation.isLoading}
                         className="flex items-center gap-1 px-2 py-1 bg-blue-500/20 hover:bg-blue-500/30 text-blue-400 text-xs rounded transition-colors disabled:opacity-50"
+                        title="Resetear uso mensual"
                       >
                         <RefreshCw className={`w-3 h-3 ${resetUsageMutation.isLoading ? 'animate-spin' : ''}`} />
                         Resetear Uso
@@ -724,6 +802,176 @@ export function AdminUsersPage() {
                   <>
                     <Plus className="w-4 h-4" />
                     Crear Usuario
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit User Modal */}
+      {showEditModal && editingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="holographic-panel p-6 w-full max-w-md mx-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-white">Editar Usuario</h2>
+              <button
+                onClick={handleCancelEdit}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* User Info Section */}
+              <div className="border-b border-gray-600 pb-4">
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                  <User className="w-5 h-5" />
+                  Información Personal
+                </h3>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Nombre
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.name}
+                      onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500"
+                      placeholder="Nombre completo"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Email
+                    </label>
+                    <input
+                      type="email"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500"
+                      placeholder="usuario@ejemplo.com"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Password Section */}
+              <div>
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                  <Lock className="w-5 h-5" />
+                  Cambiar Contraseña
+                </h3>
+                <p className="text-sm text-gray-400 mb-3">
+                  Deja los campos de contraseña vacíos si no quieres cambiar la contraseña.
+                </p>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Contraseña Actual
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? "text" : "password"}
+                        value={editForm.currentPassword}
+                        onChange={(e) => setEditForm({ ...editForm, currentPassword: e.target.value })}
+                        className="w-full px-3 py-2 pr-10 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500"
+                        placeholder="Solo si cambias la contraseña"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Nueva Contraseña
+                    </label>
+                    <input
+                      type="password"
+                      value={editForm.newPassword}
+                      onChange={(e) => setEditForm({ ...editForm, newPassword: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500"
+                      placeholder="Mínimo 6 caracteres"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-300 mb-2">
+                      Confirmar Nueva Contraseña
+                    </label>
+                    <input
+                      type="password"
+                      value={editForm.confirmPassword}
+                      onChange={(e) => setEditForm({ ...editForm, confirmPassword: e.target.value })}
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500"
+                      placeholder="Repite la nueva contraseña"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* User Stats Section */}
+              <div className="border-t border-gray-600 pt-4">
+                <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                  <BarChart3 className="w-5 h-5" />
+                  Información del Usuario
+                </h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-gray-400">Plan Actual:</p>
+                    <p className="text-white font-medium">{editingUser.plan.name}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Rol:</p>
+                    <p className="text-white font-medium capitalize">{editingUser.role}</p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Anuncios Usados:</p>
+                    <p className="text-white font-medium">
+                      {editingUser.usage.adsFetched.toLocaleString()} / {editingUser.plan.adsLimit.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-gray-400">Búsquedas:</p>
+                    <p className="text-white font-medium">{editingUser.usage.searchesPerformed}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={handleCancelEdit}
+                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleUpdateUser}
+                disabled={updateUserMutation.isLoading}
+                className="flex-1 px-4 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                {updateUserMutation.isLoading ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    Actualizando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Guardar Cambios
                   </>
                 )}
               </button>
