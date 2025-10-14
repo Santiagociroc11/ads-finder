@@ -35,16 +35,17 @@ router.post('/', authenticateToken, searchRateLimit, checkAdsLimit(20), trackSea
   console.log(`[SEARCH] 🔍 Starting search: "${searchParams.value}" (${searchParams.searchType})`);
   
   try {
-    // Always use Apify for ads search
+    // Always use ScrapeCreators for ads search
     let searchResult: SearchResponse;
+    const userId = (req as any).user._id.toString();
     
-    // Don't cache Apify results due to cost implications
-    searchResult = await getFacebookService().searchAds(searchParams);
+    // Don't cache ScrapeCreators results due to cost implications
+    searchResult = await getFacebookService().searchAds(searchParams, userId);
     
-    // Auto-save complete search for Apify results
+    // Auto-save complete search for ScrapeCreators results
     if (searchResult.data.length > 0) {
       try {
-        const searchName = `Apify-${searchParams.value}-${searchParams.country || 'CO'}-${new Date().toISOString().split('T')[0]}`;
+        const searchName = `ScrapeCreators-${searchParams.value}-${searchParams.country || 'CO'}-${new Date().toISOString().split('T')[0]}`;
         
         const existingSearch = await collections.completeSearches.findOne({ searchName });
         
@@ -327,7 +328,7 @@ router.post('/advertiser-stats', authenticateToken, scrapingRateLimit, asyncHand
   
   try {
     // Use queue instead of direct execution for better concurrency control
-    const result = await advertiserStatsQueue.add('advertiser-stats', { pageId, country }, 5, 2, userId);
+        const result = await advertiserStatsQueue.add('advertiser-stats', { pageId, country, userId }, 5, 2, userId);
 
     console.log(`[STATS] ✅ Stats retrieval completed: ${(result as any).stats?.totalActiveAds || 0} total ads`);
     

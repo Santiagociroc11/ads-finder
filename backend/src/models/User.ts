@@ -23,6 +23,8 @@ export interface IUser extends Document {
     currentMonth: string; // YYYY-MM format
     adsFetched: number; // Total ads fetched this month
     searchesPerformed: number; // Total searches this month
+    scrapeCreatorsCreditsMonth: number; // ScrapeCreators credits used this month
+    scrapeCreatorsCreditsTotal: number; // Total ScrapeCreators credits used (historical)
     lastResetDate: Date; // When the monthly limit was last reset
   };
   
@@ -112,6 +114,14 @@ const UserSchema = new Schema<IUser>({
       type: Number,
       default: 0
     },
+    scrapeCreatorsCreditsMonth: {
+      type: Number,
+      default: 0
+    },
+    scrapeCreatorsCreditsTotal: {
+      type: Number,
+      default: 0
+    },
     lastResetDate: {
       type: Date,
       default: Date.now
@@ -161,6 +171,8 @@ UserSchema.pre('save', function(next) {
     this.usage.currentMonth = currentMonth;
     this.usage.adsFetched = 0;
     this.usage.searchesPerformed = 0;
+    this.usage.scrapeCreatorsCreditsMonth = 0; // Reset monthly credits
+    // Note: scrapeCreatorsCreditsTotal is NOT reset (historical tracking)
     this.usage.lastResetDate = new Date();
   }
   

@@ -143,7 +143,7 @@ export class SimpleQueue {
     }
   }
 
-  private async processAdvertiserStats(data: { pageId: string; country: string }, abortController?: AbortController): Promise<any> {
+  private async processAdvertiserStats(data: { pageId: string; country: string; userId?: string }, abortController?: AbortController): Promise<any> {
     const { AdvertiserStatsService } = await import('./advertiserStatsService.js');
     const statsService = new AdvertiserStatsService();
     
@@ -156,7 +156,7 @@ export class SimpleQueue {
           await new Promise(resolve => setTimeout(resolve, 1000)); // 1s delay before retry
         }
         
-        const result = await statsService.getAdvertiserStats(data.pageId, data.country);
+        const result = await statsService.getAdvertiserStats(data.pageId, data.country, data.userId);
         if (attempt > 1) {
           console.log(`✅ Retry successful for pageId: ${data.pageId}`);
         }

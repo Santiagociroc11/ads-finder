@@ -11,6 +11,8 @@ export interface PlanLimitCheck {
   planType: string;
   currentUsage: number;
   monthlyLimit: number;
+  scrapeCreatorsCreditsMonth: number;
+  scrapeCreatorsCreditsTotal: number;
 }
 
 export class UserLimitsService {
@@ -32,6 +34,8 @@ export class UserLimitsService {
         user.usage.currentMonth = currentMonth;
         user.usage.adsFetched = 0;
         user.usage.searchesPerformed = 0;
+        user.usage.scrapeCreatorsCreditsMonth = 0;
+        // Note: scrapeCreatorsCreditsTotal is NOT reset (historical tracking)
         user.usage.lastResetDate = new Date();
         await user.save();
       }
@@ -48,7 +52,9 @@ export class UserLimitsService {
         limitExceeded,
         planType: user.plan.type,
         currentUsage,
-        monthlyLimit
+        monthlyLimit,
+        scrapeCreatorsCreditsMonth: user.usage.scrapeCreatorsCreditsMonth || 0,
+        scrapeCreatorsCreditsTotal: user.usage.scrapeCreatorsCreditsTotal || 0
       };
 
     } catch (error) {
@@ -82,6 +88,8 @@ export class UserLimitsService {
         user.usage.currentMonth = currentMonth;
         user.usage.adsFetched = 0;
         user.usage.searchesPerformed = 0;
+        user.usage.scrapeCreatorsCreditsMonth = 0;
+        // Note: scrapeCreatorsCreditsTotal is NOT reset (historical tracking)
         user.usage.lastResetDate = new Date();
         await user.save();
       }
@@ -127,6 +135,8 @@ export class UserLimitsService {
         user.usage.currentMonth = currentMonth;
         user.usage.adsFetched = 0;
         user.usage.searchesPerformed = 0;
+        user.usage.scrapeCreatorsCreditsMonth = 0;
+        // Note: scrapeCreatorsCreditsTotal is NOT reset (historical tracking)
         user.usage.lastResetDate = new Date();
       }
 
@@ -158,6 +168,8 @@ export class UserLimitsService {
         user.usage.currentMonth = currentMonth;
         user.usage.adsFetched = 0;
         user.usage.searchesPerformed = 0;
+        user.usage.scrapeCreatorsCreditsMonth = 0;
+        // Note: scrapeCreatorsCreditsTotal is NOT reset (historical tracking)
         user.usage.lastResetDate = new Date();
       }
 

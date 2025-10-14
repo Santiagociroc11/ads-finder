@@ -19,13 +19,13 @@ export class FacebookService {
     // Only ScrapeCreators - no other dependencies needed
   }
 
-  async searchAds(params: SearchParams): Promise<SearchResponse> {
+  async searchAds(params: SearchParams, userId?: string): Promise<SearchResponse> {
     // Only use ScrapeCreators for ads search
     if (!scrapeCreatorsService.isConfigured()) {
       throw new Error('ScrapeCreators API not configured - please add SCRAPECREATORS_API_KEY to your .env file');
     }
     
-    return this.searchWithScrapeCreators(params);
+    return this.searchWithScrapeCreators(params, userId);
   }
 
   private generateCacheKey(params: SearchParams): string {
@@ -43,7 +43,7 @@ export class FacebookService {
     return (Date.now() - cached.timestamp) < CACHE_TTL;
   }
 
-  private async searchWithScrapeCreators(params: SearchParams): Promise<SearchResponse> {
+  private async searchWithScrapeCreators(params: SearchParams, userId?: string): Promise<SearchResponse> {
     const pageSize = 30; // ScrapeCreators returns 30 ads per page
     const currentPage = params.page || 1;
     
@@ -56,7 +56,7 @@ export class FacebookService {
       console.log(`[SCRAPECREATORS] 🔄 Fetching page ${currentPage} from ScrapeCreators API...${cursor ? ' (with cursor)' : ' (initial search)'}`);
       
       // Fetch ONLY one page from ScrapeCreators
-      const result = await scrapeCreatorsService.searchAds(params, cursor);
+      const result = await scrapeCreatorsService.searchAds(params, cursor, userId);
       
       console.log(`[SCRAPECREATORS] ✅ Received ${result.ads.length} ads (total available: ${result.totalResults})`);
       
@@ -117,7 +117,7 @@ export class FacebookService {
   /**
    * Get advertiser stats using ScrapeCreators company ads endpoint
    */
-  async getAdvertiserStats(pageId: string, country?: string): Promise<{
+  async getAdvertiserStats(pageId: string, country?: string, userId?: string): Promise<{
     totalActiveAds: number;
     ads: AdData[];
   }> {
@@ -125,7 +125,7 @@ export class FacebookService {
       console.log(`[FACEBOOK_SERVICE] 📊 Getting stats for pageId: ${pageId} using ScrapeCreators`);
       
       // Use ScrapeCreators service to get real advertiser stats
-      const stats = await scrapeCreatorsService.getAdvertiserStats(pageId, country);
+      const stats = await scrapeCreatorsService.getAdvertiserStats(pageId, country, userId);
       
       console.log(`[FACEBOOK_SERVICE] ✅ Retrieved stats: ${stats.totalActiveAds} active ads`);
       

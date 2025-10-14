@@ -105,7 +105,7 @@ export class ScrapeCreatorsService {
   /**
    * Search ads using ScrapeCreators API
    */
-  async searchAds(searchParams: SearchParams, cursor?: string): Promise<{
+  async searchAds(searchParams: SearchParams, cursor?: string, userId?: string): Promise<{
     ads: AdData[];
     cursor: string | null;
     totalResults: number;
@@ -165,6 +165,16 @@ export class ScrapeCreatorsService {
 
       console.log(`[SCRAPECREATORS] ✅ Received ${response.data.searchResults.length} ads (total: ${response.data.searchResultsCount})`);
 
+      // Track credits usage
+      if (userId) {
+        try {
+          const { creditsTrackingService } = await import('./creditsTrackingService.js');
+          await creditsTrackingService.trackCreditsUsage(userId, 1);
+        } catch (error) {
+          console.error('❌ Error tracking credits for search:', error);
+        }
+      }
+
       // Transform results to our AdData format
       const ads = this.transformResults(response.data.searchResults, searchParams);
 
@@ -186,6 +196,50 @@ export class ScrapeCreatorsService {
       }
 
       throw new Error(`ScrapeCreators API error: ${error.message}`);
+    }
+  }
+
+  /**
+   * Get advertiser stats using ScrapeCreators API
+   */
+  async getAdvertiserStats(pageId: string, country?: string, userId?: string): Promise<{
+    totalActiveAds: number;
+    ads: any[];
+  }> {
+    try {
+      console.log(`[SCRAPECREATORS] 📊 Getting advertiser stats for pageId: ${pageId}`);
+
+      const response = await axios.get(`${this.apiUrl.replace('/search/ads', '/company/ads')}`, {
+        headers: {
+          'x-api-key': this.apiKey
+        },
+        params: {
+          page_id: pageId,
+          ...(country && country !== 'ALL' && { country })
+        },
+        timeout: 30000
+      });
+
+      console.log(`[SCRAPECREATORS] ✅ Received advertiser stats: ${response.data.searchResults?.length || 0} ads`);
+
+      // Track credits usage
+      if (userId) {
+        try {
+          const { creditsTrackingService } = await import('./creditsTrackingService.js');
+          await creditsTrackingService.trackCreditsUsage(userId, 1);
+        } catch (error) {
+          console.error('❌ Error tracking credits for advertiser stats:', error);
+        }
+      }
+
+      return {
+        totalActiveAds: response.data.searchResults?.length || 0,
+        ads: response.data.searchResults || []
+      };
+
+    } catch (error: any) {
+      console.error('[SCRAPECREATORS] ❌ Error getting advertiser stats:', error.message);
+      throw new Error(`ScrapeCreators advertiser stats error: ${error.message}`);
     }
   }
 

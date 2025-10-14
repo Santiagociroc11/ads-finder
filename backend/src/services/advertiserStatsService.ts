@@ -25,6 +25,7 @@ export interface AdvertiserStatsResult {
 interface BatchRequest {
   pageId: string;
   country: string;
+  userId?: string;
   resolve: (result: AdvertiserStatsResult) => void;
   reject: (error: Error) => void;
 }
@@ -34,7 +35,7 @@ export class AdvertiserStatsService {
   private batchTimer: NodeJS.Timeout | null = null;
   private isProcessingBatch = false;
 
-  async getAdvertiserStats(pageId: string, country: string = 'ALL'): Promise<AdvertiserStatsResult> {
+  async getAdvertiserStats(pageId: string, country: string = 'ALL', userId?: string): Promise<AdvertiserStatsResult> {
     console.log(`🔍 Getting stats for pageId: ${pageId} using SCRAPECREATORS BATCH approach`);
     
     try {
@@ -56,7 +57,7 @@ export class AdvertiserStatsService {
 
       // Add to batch queue for processing
       return new Promise((resolve, reject) => {
-        this.batchQueue.push({ pageId, country, resolve, reject });
+        this.batchQueue.push({ pageId, country, userId, resolve, reject });
         
         // Process batch immediately if we have 5 requests
         if (this.batchQueue.length >= 5) {
@@ -108,7 +109,7 @@ export class AdvertiserStatsService {
       const batchPromises = batch.map(async (request) => {
         try {
           console.log(`🚀 Batch processing pageId: ${request.pageId}`);
-          const result = await scrapeCreatorsService.getAdvertiserStats(request.pageId, request.country);
+          const result = await scrapeCreatorsService.getAdvertiserStats(request.pageId, request.country, request.userId);
           
           if (result.totalActiveAds >= 0) {
             console.log(`✅ Batch successful for ${request.pageId}: ${result.totalActiveAds} ads`);
