@@ -94,62 +94,42 @@ export class AdvertiserStatsService {
     console.log(`📦 Processing batch of ${batch.length} advertiser stats requests`);
 
     try {
-      // Import ScrapeCreators service
-      const { scrapeCreatorsService } = await import('./scrapeCreatorsService.js');
-      
-      if (!scrapeCreatorsService.isConfigured()) {
-        console.error(`❌ ScrapeCreators not configured, rejecting all batch requests`);
-        batch.forEach(request => {
-          request.reject(new Error('ScrapeCreators service not configured'));
-        });
-        return;
-      }
-
-      // Process all requests in the batch concurrently
+      // Use BalancedScraperService which now uses ScrapeCreators as primary method
       const batchPromises = batch.map(async (request) => {
         try {
           console.log(`🚀 Batch processing pageId: ${request.pageId}`);
-          const result = await scrapeCreatorsService.getAdvertiserStats(request.pageId, request.country, request.userId);
           
-          if (result.totalActiveAds >= 0) {
-            console.log(`✅ Batch successful for ${request.pageId}: ${result.totalActiveAds} ads`);
-            
-            const stats: AdvertiserStats = {
-              pageId: request.pageId,
-              advertiserName: 'Unknown',
-              totalActiveAds: result.totalActiveAds,
-              lastUpdated: new Date().toISOString()
-            };
+          // Use balancedScraperService which internally uses ScrapeCreators with credit tracking
+          const result = await balancedScraperService.getAdvertiserStats(
+            request.pageId, 
+            request.country, 
+            request.userId
+          );
+          
+          if (result.success && result.stats) {
+            console.log(`✅ Batch successful for ${request.pageId}: ${result.stats.totalActiveAds} ads`);
             
             // Cache the result in Redis
             await redisCacheService.setAdvertiserStats(
               request.pageId, 
               request.country, 
               { 
-                totalActiveAds: result.totalActiveAds, 
+                totalActiveAds: result.stats.totalActiveAds, 
                 loading: false 
               }, 
               15 // 15 minutes TTL
             );
             
-            request.resolve({
-              success: true,
-              stats,
-              executionTime: 0
-            });
+            request.resolve(result);
           } else {
-            console.error(`❌ Batch failed for ${request.pageId}: invalid data`);
-            request.resolve({
-              success: false,
-              error: 'ScrapeCreators returned invalid data',
-              executionTime: 0
-            });
+            console.error(`❌ Batch failed for ${request.pageId}: ${result.error}`);
+            request.resolve(result);
           }
         } catch (error) {
           console.error(`❌ Batch error for ${request.pageId}:`, error);
           request.resolve({
             success: false,
-            error: `ScrapeCreators failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+            error: `BalancedScraper failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
             executionTime: 0
           });
         }

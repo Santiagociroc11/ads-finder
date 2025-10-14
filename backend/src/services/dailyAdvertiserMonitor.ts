@@ -245,6 +245,7 @@ export class DailyAdvertiserMonitor {
         console.log(`📊 Processing advertiser: ${advertiser.pageName} (${advertiser.pageId})`);
         
         // Llamar al mismo endpoint que usa la SearchPage
+        // NO pasar userId para que no se trackeen créditos (es proceso del sistema)
         const statsResult = await advertiserStatsService.getAdvertiserStats(
           advertiser.pageId,
           'ALL' // Usar 'ALL' como país por defecto

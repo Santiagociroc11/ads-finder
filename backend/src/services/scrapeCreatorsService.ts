@@ -395,58 +395,6 @@ export class ScrapeCreatorsService {
     return `https://www.facebook.com/ads/library/?id=${adArchiveId}&country=${countryCode}`;
   }
 
-  /**
-   * Get advertiser stats (active ads count)
-   */
-  async getAdvertiserStats(pageId: string, country?: string): Promise<{
-    totalActiveAds: number;
-    ads: AdData[];
-  }> {
-    try {
-      console.log(`[SCRAPECREATORS] 📊 Getting stats for pageId: ${pageId}, country: ${country || 'ALL'}`);
-      
-      const companyAdsUrl = `${this.apiUrl.replace('/search/ads', '/company/ads')}`;
-      
-      const response = await axios.get(companyAdsUrl, {
-        headers: {
-          'x-api-key': this.apiKey
-        },
-        params: {
-          pageId: pageId,
-          country: country?.toUpperCase() || 'ALL',
-          status: 'ACTIVE',
-          media_type: 'ALL'
-        },
-        timeout: 30000 // 30 seconds timeout
-      });
-
-      const totalActiveAds = response.data.searchResultsCount || 0;
-      const ads = response.data.results || [];
-      
-      console.log(`[SCRAPECREATORS] ✅ Found ${totalActiveAds} active ads for pageId: ${pageId}`);
-      
-      return {
-        totalActiveAds: totalActiveAds,
-        ads: ads
-      };
-
-    } catch (error: any) {
-      console.error(`[SCRAPECREATORS] ❌ Error getting advertiser stats for ${pageId}:`, error.message);
-      
-      if (error.response) {
-        console.error('[SCRAPECREATORS] Response error:', {
-          status: error.response.status,
-          data: error.response.data
-        });
-      }
-      
-      // Return default values on error
-      return {
-        totalActiveAds: 0,
-        ads: []
-      };
-    }
-  }
 
   /**
    * Check if API key is configured
