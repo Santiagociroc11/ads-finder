@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { Request, Response } from 'express';
 import { authenticateToken } from '@/middleware/authMiddleware.js';
 import { requireAdmin } from '@/middleware/authMiddleware.js';
-import { cronService } from '@/services/cronService.js';
+import { simpleCronService } from '@/services/simpleCronService.js';
 import { dailyAdvertiserMonitor } from '@/services/dailyAdvertiserMonitor.js';
 import { cronQueueService } from '@/services/cronQueue.js';
 
@@ -11,7 +11,7 @@ const router = Router();
 // GET /api/monitoring/status - Get monitoring status
 router.get('/status', authenticateToken, async (req: Request, res: Response) => {
   try {
-    const cronStatus = cronService.getStatus();
+    const cronStatus = simpleCronService.getStatus();
     const queueStats = cronQueueService.getQueueStats();
     const isQueueProcessing = cronQueueService.isProcessingQueue();
     
@@ -38,7 +38,7 @@ router.get('/status', authenticateToken, async (req: Request, res: Response) => 
 router.post('/run-daily', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
   try {
     console.log('🔧 Manual daily monitoring triggered by admin');
-    await cronService.runDailyMonitoringNow();
+    await simpleCronService.runDailyMonitoringNow();
     
     res.json({
       success: true,
@@ -49,6 +49,25 @@ router.post('/run-daily', authenticateToken, requireAdmin, async (req: Request, 
     res.status(500).json({
       success: false,
       message: 'Error al ejecutar el monitoreo diario'
+    });
+  }
+});
+
+// POST /api/monitoring/run-intermediate - Run intermediate monitoring manually (admin only)
+router.post('/run-intermediate', authenticateToken, requireAdmin, async (req: Request, res: Response) => {
+  try {
+    console.log('🔧 Manual intermediate monitoring triggered by admin');
+    await simpleCronService.runIntermediateMonitoringNow();
+    
+    res.json({
+      success: true,
+      message: 'Monitoreo intermedio ejecutado exitosamente'
+    });
+  } catch (error) {
+    console.error('Error running intermediate monitoring:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Error al ejecutar el monitoreo intermedio'
     });
   }
 });

@@ -40,7 +40,7 @@ import monitoringRoutes from '@/routes/monitoring.js';
 import storageRoutes from '@/routes/storage.js';
 import blockingMonitorRoutes from '@/routes/blockingMonitor.js';
 import { telegramBotService } from '@/services/telegramBotService.js';
-import { cronService } from '@/services/cronService.js';
+import { simpleCronService } from '@/services/simpleCronService.js';
 import { monitor } from '@/middleware/concurrencyMonitor.js';
 
 // Verify critical environment variables
@@ -176,9 +176,9 @@ async function startServer(): Promise<void> {
             console.log('🤖 Telegram bot started successfully');
           }
 
-          // Start Cron service for daily monitoring
-          cronService.start();
-          console.log('⏰ Cron service started successfully');
+          // Start Simple Cron service for daily monitoring
+          simpleCronService.start();
+          console.log('⏰ Simple cron service started successfully');
     });
 
   } catch (error) {
@@ -197,9 +197,9 @@ process.on('SIGINT', () => {
     console.log('🤖 Telegram bot stopped');
   }
 
-  // Stop Cron service
-  cronService.stop();
-  console.log('⏰ Cron service stopped');
+  // Stop Simple Cron service
+  simpleCronService.stop();
+  console.log('⏰ Simple cron service stopped');
   
   process.exit(0);
 });
@@ -213,9 +213,9 @@ process.on('SIGTERM', () => {
     console.log('🤖 Telegram bot stopped');
   }
 
-  // Stop Cron service
-  cronService.stop();
-  console.log('⏰ Cron service stopped');
+  // Stop Simple Cron service
+  simpleCronService.stop();
+  console.log('⏰ Simple cron service stopped');
   
   process.exit(0);
 });

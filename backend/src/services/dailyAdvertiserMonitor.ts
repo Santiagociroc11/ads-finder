@@ -86,6 +86,107 @@ export class DailyAdvertiserMonitor {
   }
 
   /**
+   * Ejecuta monitoreo intermedio (cada 2 horas)
+   */
+  async runIntermediateMonitoring(): Promise<void> {
+    console.log('🔄 Starting intermediate advertiser monitoring...');
+    
+    try {
+      // Solo procesar anunciantes que han sido muy activos recientemente
+      const activeAdvertisers = await this.getHighlyActiveAdvertisers();
+      
+      if (activeAdvertisers.length === 0) {
+        console.log('🔄 No highly active advertisers found for intermediate monitoring');
+        return;
+      }
+
+      console.log(`🔄 Found ${activeAdvertisers.length} highly active advertisers`);
+      
+      // Procesar en lotes más pequeños para monitoreo intermedio
+      const results = await this.processAdvertisersBatch(activeAdvertisers.slice(0, 10)); // Solo los primeros 10
+      
+      console.log(`✅ Intermediate monitoring completed: ${results.length} advertisers processed`);
+      
+    } catch (error) {
+      console.error('❌ Error in intermediate monitoring:', error);
+    }
+  }
+
+  /**
+   * Ejecuta monitoreo de fin de semana
+   */
+  async runWeekendMonitoring(): Promise<void> {
+    console.log('📅 Starting weekend advertiser monitoring...');
+    
+    try {
+      // Procesar todos los anunciantes activos en fin de semana
+      const trackedAdvertisers = await this.getActiveTrackedAdvertisers();
+      
+      if (trackedAdvertisers.length === 0) {
+        console.log('📅 No active tracked advertisers found for weekend monitoring');
+        return;
+      }
+
+      console.log(`📅 Found ${trackedAdvertisers.length} advertisers for weekend monitoring`);
+      
+      // Procesar en lotes más grandes para fin de semana
+      const results = await this.processAdvertisersBatch(trackedAdvertisers);
+      
+      console.log(`✅ Weekend monitoring completed: ${results.length} advertisers processed`);
+      
+    } catch (error) {
+      console.error('❌ Error in weekend monitoring:', error);
+    }
+  }
+
+  /**
+   * Obtiene anunciantes altamente activos
+   */
+  private async getHighlyActiveAdvertisers(): Promise<any[]> {
+    try {
+      if (!collections.trackedAdvertisers) {
+        return [];
+      }
+
+      // Buscar anunciantes con más de 5 anuncios activos en los últimos días
+      const highlyActive = await collections.trackedAdvertisers.find({
+        isActive: true,
+        $expr: {
+          $gt: [
+            { $arrayElemAt: ['$dailyStats.activeAds', -1] },
+            5
+          ]
+        }
+      }).toArray();
+
+      return highlyActive;
+    } catch (error) {
+      console.error('Error getting highly active advertisers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Procesa un lote de anunciantes
+   */
+  private async processAdvertisersBatch(advertisers: any[]): Promise<any[]> {
+    const results = [];
+    
+    for (const advertiser of advertisers) {
+      try {
+        const result = await this.processAdvertisers([advertiser]);
+        if (result) {
+          results.push(result);
+        }
+      } catch (error) {
+        console.error(`Error processing advertiser ${advertiser.pageName}:`, error);
+      }
+    }
+    
+    return results;
+  }
+
+  /**
    * Verifica si la base de datos está lista
    */
   private async isDatabaseReady(): Promise<boolean> {
@@ -163,13 +264,13 @@ export class DailyAdvertiserMonitor {
             : currentActiveAds > 0 ? 100 : 0;
           
           // Crear nueva entrada de estadísticas diarias
-          const newDailyStat: DailyStatsUpdate = {
+          const newDailyStat = {
             date: new Date(),
             activeAds: currentActiveAds,
             newAds: change > 0 ? change : 0,
             totalAds: advertiser.totalAdsTracked + (change > 0 ? change : 0),
-            change,
-            changePercentage
+            reachEstimate: undefined,
+            avgSpend: undefined
           };
 
           // Actualizar el anunciante en la base de datos
@@ -220,7 +321,7 @@ export class DailyAdvertiserMonitor {
   /**
    * Actualiza las estadísticas del anunciante en la base de datos
    */
-  private async updateAdvertiserStats(advertiserId: string, newDailyStat: DailyStatsUpdate, currentActiveAds: number): Promise<void> {
+  private async updateAdvertiserStats(advertiserId: string, newDailyStat: any, currentActiveAds: number): Promise<void> {
     // Wait for database to be ready with retry logic
     let retries = 0;
     const maxRetries = 3;
@@ -242,12 +343,12 @@ export class DailyAdvertiserMonitor {
     await collections.trackedAdvertisers.updateOne(
       { _id: new ObjectId(advertiserId) } as any,
       {
-        $push: { dailyStats: newDailyStat },
+        $push: { dailyStats: newDailyStat as any },
         $set: { 
           lastCheckedDate: new Date(),
           totalAdsTracked: newDailyStat.totalAds
         }
-      }
+      } as any
     );
   }
 
@@ -358,7 +459,7 @@ export class DailyAdvertiserMonitor {
 
     const users = await collections.users
       .find({ 
-        telegramId: { $exists: true, $ne: null, $ne: '' } 
+        telegramId: { $exists: true, $nin: [null, ""] } 
       })
       .toArray();
 
