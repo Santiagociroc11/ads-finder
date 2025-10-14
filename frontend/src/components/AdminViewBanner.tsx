@@ -1,11 +1,15 @@
 import React from 'react';
 import { ArrowLeft, User, Shield } from 'lucide-react';
 import { useAdminView } from '../contexts/AdminViewContext';
+import { useAuth } from '../contexts/AuthContext';
 
 export function AdminViewBanner() {
-  const { isViewingAsUser, viewedUser, exitUserView } = useAdminView();
+  const { isViewingAsUser, exitUserView } = useAdminView();
+  const { getCurrentUser, user: realUser } = useAuth();
+  
+  const viewedUser = getCurrentUser();
 
-  if (!isViewingAsUser || !viewedUser) {
+  if (!isViewingAsUser || !viewedUser || !realUser) {
     return null;
   }
 

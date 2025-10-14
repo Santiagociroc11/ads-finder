@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useQuery } from 'react-query';
 import { Link } from 'react-router-dom';
-import { BarChart3, TrendingUp, AlertCircle, Crown, Zap, Gift, ArrowRight } from 'lucide-react';
+import { BarChart3, TrendingUp, AlertCircle, Crown, Zap, Gift, ArrowRight, Eye } from 'lucide-react';
 import { userPlansApi } from '../services/userPlansApi';
+import { useAuth } from '../contexts/AuthContext';
 import type { UserUsage } from '../types/shared';
 
 interface UsageCounterProps {
@@ -12,6 +13,10 @@ interface UsageCounterProps {
 
 export function UsageCounter({ className = '', showDetails = false }: UsageCounterProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { getCurrentUser, isViewingAsDifferentUser } = useAuth();
+  
+  const currentUser = getCurrentUser();
+  const isViewingAsUser = isViewingAsDifferentUser();
 
   const { data: usageData, isLoading, error } = useQuery({
     queryKey: ['userUsage'],
@@ -45,6 +50,30 @@ export function UsageCounter({ className = '', showDetails = false }: UsageCount
           <div>
             <p className="text-red-400 font-medium text-sm">Error al cargar uso</p>
             <p className="text-red-300 text-xs">No se pudo obtener la información</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Special display for admin viewing as another user
+  if (isViewingAsUser && currentUser) {
+    return (
+      <div className={`bg-gray-800/50 border border-gray-700/50 rounded-lg p-3 ${className}`}>
+        <div className="flex items-center gap-2">
+          <div className="w-8 h-8 bg-red-500/20 border border-red-500/30 rounded-full flex items-center justify-center">
+            <Eye className="w-4 h-4 text-red-400" />
+          </div>
+          <div className="flex-1">
+            <div className="flex items-center gap-2">
+              <span className="text-sm font-medium text-white">Vista de Usuario</span>
+              <span className="px-2 py-1 bg-red-500/20 text-red-400 text-xs rounded-full">
+                {currentUser.name}
+              </span>
+            </div>
+            <p className="text-xs text-gray-400">
+              Plan: {currentUser.plan?.name || 'N/A'} • {currentUser.plan?.adsLimit || 0} anuncios
+            </p>
           </div>
         </div>
       </div>

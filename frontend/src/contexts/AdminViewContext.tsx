@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useState, ReactNode } from 'react';
+import React, { createContext, useContext, ReactNode } from 'react';
+import { useAuth } from './AuthContext';
 import type { User } from '../types/shared';
 
 interface AdminViewContextType {
@@ -15,24 +16,21 @@ interface AdminViewProviderProps {
 }
 
 export function AdminViewProvider({ children }: AdminViewProviderProps) {
-  const [isViewingAsUser, setIsViewingAsUser] = useState(false);
-  const [viewedUser, setViewedUser] = useState<User | null>(null);
+  const { setViewingAsUser, isViewingAsDifferentUser } = useAuth();
 
   const enterUserView = (user: User) => {
-    setViewedUser(user);
-    setIsViewingAsUser(true);
+    setViewingAsUser(user);
   };
 
   const exitUserView = () => {
-    setViewedUser(null);
-    setIsViewingAsUser(false);
+    setViewingAsUser(null);
   };
 
   return (
     <AdminViewContext.Provider
       value={{
-        isViewingAsUser,
-        viewedUser,
+        isViewingAsUser: isViewingAsDifferentUser(),
+        viewedUser: null, // We'll get this from AuthContext
         enterUserView,
         exitUserView
       }}

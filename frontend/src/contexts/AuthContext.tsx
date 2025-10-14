@@ -243,6 +243,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Admin view functions
+  const setViewingAsUserHandler = (targetUser: User | null): void => {
+    setViewingAsUser(targetUser);
+    console.log(targetUser ? `🔄 Admin now viewing as: ${targetUser.name}` : '🔄 Admin returned to own view');
+  };
+
+  const getCurrentUser = (): User | null => {
+    // Return the user being viewed if in admin mode, otherwise return the actual user
+    return viewingAsUser || user;
+  };
+
+  const isViewingAsDifferentUser = (): boolean => {
+    return viewingAsUser !== null;
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -251,7 +266,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     register,
     logout,
     refreshUser,
-    updateUser
+    updateUser,
+    // Admin view functions
+    setViewingAsUser: setViewingAsUserHandler,
+    getCurrentUser,
+    isViewingAsDifferentUser
   };
 
   return (

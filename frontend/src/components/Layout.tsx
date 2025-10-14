@@ -59,8 +59,11 @@ function LayoutContent({ children }: LayoutProps) {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showLimitModal, setShowLimitModal] = useState(false)
-  const { user, logout } = useAuth()
+  const { user, logout, getCurrentUser } = useAuth()
   const { isViewingAsUser } = useAdminView()
+  
+  // Get the current user (either real user or viewed user in admin mode)
+  const currentUser = getCurrentUser()
 
   // Fetch user usage to check if at limit
   const { data: usageData } = useQuery({
@@ -226,15 +229,15 @@ function LayoutContent({ children }: LayoutProps) {
                   <div className="flex items-center gap-2 flex-1 min-w-0">
                     <div className="w-8 h-8 bg-gradient-to-br from-primary-500 to-primary-600 rounded-full flex items-center justify-center flex-shrink-0">
                       <span className="text-white text-xs font-semibold">
-                        {getInitials(user.name)}
+                        {getInitials(currentUser.name)}
                       </span>
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium text-white truncate">
-                        {user.name}
+                        {currentUser.name}
                       </p>
                       <p className="text-xs text-gray-400 truncate">
-                        {user.role === 'admin' ? 'Admin' : 'Usuario'}
+                        {currentUser.role === 'admin' ? 'Admin' : 'Usuario'}
                       </p>
                     </div>
                   </div>
