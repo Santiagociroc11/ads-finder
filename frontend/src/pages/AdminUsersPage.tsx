@@ -48,6 +48,13 @@ interface AdminUser {
     scrapeCreatorsCreditsMonth?: number;
     scrapeCreatorsCreditsTotal?: number;
   };
+  subscription?: {
+    status: 'active' | 'inactive' | 'cancelled' | 'expired';
+    startDate: string;
+    endDate?: string;
+    autoRenew: boolean;
+    paymentMethod?: string;
+  };
   createdAt: string;
 }
 

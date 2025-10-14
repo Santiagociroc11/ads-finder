@@ -43,6 +43,13 @@ router.get('/users', requireAdmin, asyncHandler(async (req, res) => {
       scrapeCreatorsCreditsMonth: user.usage.scrapeCreatorsCreditsMonth || 0,
       scrapeCreatorsCreditsTotal: user.usage.scrapeCreatorsCreditsTotal || 0
     },
+    subscription: user.subscription ? {
+      status: user.subscription.status,
+      startDate: user.subscription.startDate,
+      endDate: user.subscription.endDate,
+      autoRenew: user.subscription.autoRenew,
+      paymentMethod: user.subscription.paymentMethod
+    } : undefined,
     createdAt: user.createdAt
   }));
 
