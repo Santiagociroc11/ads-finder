@@ -99,7 +99,8 @@ export function AdminUsersPage() {
     email: '',
     currentPassword: '',
     newPassword: '',
-    confirmPassword: ''
+    confirmPassword: '',
+    currentPasswordDisplay: '' // Para mostrar la contraseña actual
   });
 
   // Credit value constant
@@ -154,6 +155,17 @@ export function AdminUsersPage() {
       return response.data;
     },
     enabled: showCreditsStats
+  });
+
+  // Fetch user password
+  const { data: userPasswordData, refetch: fetchUserPassword } = useQuery({
+    queryKey: ['userPassword', editingUser?._id],
+    queryFn: async (): Promise<{ success: boolean; password: string }> => {
+      if (!editingUser?._id) throw new Error('No user selected');
+      const response = await apiClient.get(`/admin/users/${editingUser._id}/password`);
+      return response.data;
+    },
+    enabled: false // Only fetch when manually triggered
   });
 
   // Update user plan mutation
@@ -232,7 +244,8 @@ export function AdminUsersPage() {
           email: '',
           currentPassword: '',
           newPassword: '',
-          confirmPassword: ''
+          confirmPassword: '',
+          currentPasswordDisplay: ''
         });
       },
       onError: (error: any) => {
@@ -310,16 +323,31 @@ export function AdminUsersPage() {
     createUserMutation.mutate(newUser);
   };
 
-  const handleEditUser = (user: AdminUser) => {
+  const handleEditUser = async (user: AdminUser) => {
     setEditingUser(user);
     setEditForm({
       name: user.name,
       email: user.email,
       currentPassword: '',
       newPassword: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      currentPasswordDisplay: ''
     });
     setShowEditModal(true);
+    
+    // Fetch user password
+    try {
+      const result = await fetchUserPassword();
+      if (result.data?.success) {
+        setEditForm(prev => ({
+          ...prev,
+          currentPasswordDisplay: result.data?.password || ''
+        }));
+      }
+    } catch (error) {
+      console.error('Error fetching user password:', error);
+      toast.error('Error al obtener la contraseña del usuario');
+    }
   };
 
   const handleUpdateUser = () => {
@@ -375,7 +403,8 @@ export function AdminUsersPage() {
       email: '',
       currentPassword: '',
       newPassword: '',
-      confirmPassword: ''
+      confirmPassword: '',
+      currentPasswordDisplay: ''
     });
   };
 
@@ -865,13 +894,44 @@ export function AdminUsersPage() {
               <div>
                 <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
                   <Lock className="w-5 h-5" />
-                  Cambiar Contraseña
+                  Contraseña
                 </h3>
-                <p className="text-sm text-gray-400 mb-3">
-                  Deja los campos de contraseña vacíos si no quieres cambiar la contraseña.
-                </p>
                 
-                <div className="space-y-3">
+                {/* Current Password Display */}
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-300 mb-2">
+                    Contraseña Actual (Solo Lectura)
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      value={editForm.currentPasswordDisplay}
+                      readOnly
+                      className="w-full px-3 py-2 pr-10 bg-gray-900 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500 cursor-not-allowed"
+                      placeholder="Cargando contraseña..."
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
+                    >
+                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Esta es la contraseña hasheada actual del usuario (solo lectura)
+                  </p>
+                </div>
+
+                <div className="border-t border-gray-600 pt-4">
+                  <h4 className="text-md font-medium text-white mb-3">
+                    Cambiar Contraseña
+                  </h4>
+                  <p className="text-sm text-gray-400 mb-3">
+                    Deja los campos de contraseña vacíos si no quieres cambiar la contraseña.
+                  </p>
+                  
+                  <div className="space-y-3">
                   <div>
                     <label className="block text-sm font-medium text-gray-300 mb-2">
                       Contraseña Actual
@@ -918,6 +978,7 @@ export function AdminUsersPage() {
                       className="w-full px-3 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white placeholder-gray-400 focus:outline-none focus:border-primary-500"
                       placeholder="Repite la nueva contraseña"
                     />
+                  </div>
                   </div>
                 </div>
               </div>

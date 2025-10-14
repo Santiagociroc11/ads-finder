@@ -39,7 +39,9 @@ router.get('/users', requireAdmin, asyncHandler(async (req, res) => {
     usage: {
       currentMonth: user.usage.currentMonth,
       adsFetched: user.usage.adsFetched,
-      searchesPerformed: user.usage.searchesPerformed
+      searchesPerformed: user.usage.searchesPerformed,
+      scrapeCreatorsCreditsMonth: user.usage.scrapeCreatorsCreditsMonth || 0,
+      scrapeCreatorsCreditsTotal: user.usage.scrapeCreatorsCreditsTotal || 0
     },
     createdAt: user.createdAt
   }));
@@ -133,6 +135,71 @@ router.post('/users/toggle-admin', requireAdmin, asyncHandler(async (req, res) =
     success: true,
     message: `User admin status updated to ${user.role}`,
     newRole: user.role
+  });
+}));
+
+// GET /api/admin/users/:userId/password - Get user password (admin only)
+router.get('/users/:userId/password', requireAdmin, asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+
+  if (!userId) {
+    throw new CustomError('User ID is required', 400);
+  }
+
+  const user = await User.findById(userId, { password: 1 });
+  if (!user) {
+    throw new CustomError('User not found', 404);
+  }
+
+  res.json({
+    success: true,
+    password: user.password // Return the hashed password (for display purposes)
+  });
+}));
+
+// PUT /api/admin/users/:userId - Update user (admin only)
+router.put('/users/:userId', requireAdmin, asyncHandler(async (req, res) => {
+  const { userId } = req.params;
+  const { name, email, currentPassword, newPassword } = req.body;
+
+  if (!userId) {
+    throw new CustomError('User ID is required', 400);
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    throw new CustomError('User not found', 404);
+  }
+
+  // Update basic info
+  if (name) user.name = name.trim();
+  if (email) user.email = email.toLowerCase().trim();
+
+  // Update password if provided
+  if (newPassword) {
+    if (!currentPassword) {
+      throw new CustomError('Current password is required to change password', 400);
+    }
+
+    // Verify current password
+    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
+    if (!isCurrentPasswordValid) {
+      throw new CustomError('Current password is incorrect', 400);
+    }
+
+    // Hash new password
+    const saltRounds = 12;
+    const hashedNewPassword = await bcrypt.hash(newPassword, saltRounds);
+    user.password = hashedNewPassword;
+  }
+
+  await user.save();
+
+  console.log(`[ADMIN] ✅ User updated by admin: ${user.email}`);
+
+  res.json({
+    success: true,
+    message: 'User updated successfully'
   });
 }));
 
