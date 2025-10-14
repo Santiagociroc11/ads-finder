@@ -14,7 +14,11 @@ import {
   Search,
   Filter,
   Plus,
-  UserPlus
+  UserPlus,
+  DollarSign,
+  CreditCard,
+  Calculator,
+  Activity
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
@@ -34,8 +38,29 @@ interface AdminUser {
     currentMonth: string;
     adsFetched: number;
     searchesPerformed: number;
+    scrapeCreatorsCreditsMonth?: number;
+    scrapeCreatorsCreditsTotal?: number;
   };
   createdAt: string;
+}
+
+interface CreditsStats {
+  totalCreditsThisMonth: number;
+  totalCreditsAllTime: number;
+  topUsersThisMonth: CreditsUsageStats[];
+  topUsersAllTime: CreditsUsageStats[];
+  averageCreditsPerUser: number;
+  totalUsers: number;
+}
+
+interface CreditsUsageStats {
+  userId: string;
+  email: string;
+  name: string;
+  creditsMonth: number;
+  creditsTotal: number;
+  plan: string;
+  lastUsed: Date | null;
 }
 
 interface AdminUsersResponse {
@@ -58,6 +83,10 @@ export function AdminUsersPage() {
     planType: 'free' as 'free' | 'pioneros' | 'tactico' | 'conquista' | 'imperio',
     role: 'user' as 'user' | 'admin'
   });
+  const [showCreditsStats, setShowCreditsStats] = useState(false);
+
+  // Credit value constant
+  const CREDIT_VALUE_USD = 0.001;
 
   // Debug: Log user info
   console.log('🔍 AdminUsersPage - Current user:', user);
@@ -90,6 +119,26 @@ export function AdminUsersPage() {
     }
   });
 
+  // Fetch credits statistics
+  const { data: creditsStatsData, isLoading: creditsStatsLoading } = useQuery({
+    queryKey: ['adminCreditsStats'],
+    queryFn: async (): Promise<{ success: boolean; data: CreditsStats }> => {
+      const response = await apiClient.get('/admin/credits/stats');
+      return response.data;
+    },
+    enabled: showCreditsStats
+  });
+
+  // Fetch credits usage by users
+  const { data: creditsUsersData, isLoading: creditsUsersLoading } = useQuery({
+    queryKey: ['adminCreditsUsers'],
+    queryFn: async (): Promise<{ success: boolean; data: { users: CreditsUsageStats[] } }> => {
+      const response = await apiClient.get('/admin/credits/users');
+      return response.data;
+    },
+    enabled: showCreditsStats
+  });
+
   // Update user plan mutation
   const updatePlanMutation = useMutation(
     ({ userId, newPlanType }: { userId: string; newPlanType: string }) =>
@@ -114,11 +163,31 @@ export function AdminUsersPage() {
     {
       onSuccess: () => {
         queryClient.invalidateQueries('adminUsers');
+        queryClient.invalidateQueries('adminCreditsStats');
+        queryClient.invalidateQueries('adminCreditsUsers');
         toast.success('Uso resetado exitosamente');
       },
       onError: (error: any) => {
         toast.error('Error al resetar el uso');
         console.error('Reset usage error:', error);
+      }
+    }
+  );
+
+  // Reset credits mutation
+  const resetCreditsMutation = useMutation(
+    ({ userId, resetTotal }: { userId: string; resetTotal?: boolean }) =>
+      apiClient.post(`/admin/credits/reset/${userId}`, { resetTotal }).then(res => res.data),
+    {
+      onSuccess: (data, variables) => {
+        queryClient.invalidateQueries('adminUsers');
+        queryClient.invalidateQueries('adminCreditsStats');
+        queryClient.invalidateQueries('adminCreditsUsers');
+        toast.success(variables.resetTotal ? 'Créditos totales resetados' : 'Créditos mensuales resetados');
+      },
+      onError: (error: any) => {
+        toast.error('Error al resetar los créditos');
+        console.error('Reset credits error:', error);
       }
     }
   );
@@ -149,6 +218,22 @@ export function AdminUsersPage() {
   );
 
   const users = usersData?.users || [];
+  const creditsStats = creditsStatsData?.data;
+  const creditsUsers = creditsUsersData?.data?.users || [];
+
+  // Helper functions for cost calculations
+  const calculateUserCost = (credits: number): number => {
+    return credits * CREDIT_VALUE_USD;
+  };
+
+  const formatCurrency = (amount: number): string => {
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 4,
+      maximumFractionDigits: 4
+    }).format(amount);
+  };
 
   const getPlanIcon = (planType: string) => {
     switch (planType) {
@@ -187,6 +272,13 @@ export function AdminUsersPage() {
   const handleResetUsage = (userId: string, userName: string) => {
     if (confirm(`¿Estás seguro de resetear el uso mensual de ${userName}?`)) {
       resetUsageMutation.mutate(userId);
+    }
+  };
+
+  const handleResetCredits = (userId: string, userName: string) => {
+    const resetTotal = confirm(`¿Resetear créditos TOTALES de ${userName}?\n\nSi cancelas, solo se resetearán los créditos mensuales.`);
+    if (confirm(`¿Estás seguro de resetear los créditos ${resetTotal ? 'totales' : 'mensuales'} de ${userName}?`)) {
+      resetCreditsMutation.mutate({ userId, resetTotal });
     }
   };
 
@@ -231,6 +323,17 @@ export function AdminUsersPage() {
         </div>
         <div className="flex items-center gap-4">
           <button
+            onClick={() => setShowCreditsStats(!showCreditsStats)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+              showCreditsStats 
+                ? 'bg-green-500 hover:bg-green-600 text-white' 
+                : 'bg-gray-600 hover:bg-gray-700 text-white'
+            }`}
+          >
+            <CreditCard className="w-4 h-4" />
+            {showCreditsStats ? 'Ocultar Créditos' : 'Ver Créditos'}
+          </button>
+          <button
             onClick={() => setShowCreateModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-primary-500 hover:bg-primary-600 text-white rounded-lg transition-colors"
           >
@@ -243,6 +346,81 @@ export function AdminUsersPage() {
           </div>
         </div>
       </div>
+
+      {/* Credits Statistics Cards */}
+      {showCreditsStats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          {/* Total Credits This Month */}
+          <div className="holographic-panel p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-400">Créditos Este Mes</p>
+                <p className="text-2xl font-bold text-white">
+                  {creditsStatsLoading ? '...' : creditsStats?.totalCreditsThisMonth.toLocaleString() || 0}
+                </p>
+                <p className="text-sm text-green-400">
+                  {formatCurrency(calculateUserCost(creditsStats?.totalCreditsThisMonth || 0))}
+                </p>
+              </div>
+              <div className="p-3 bg-blue-500/20 rounded-full">
+                <Activity className="w-6 h-6 text-blue-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* Total Credits All Time */}
+          <div className="holographic-panel p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-400">Créditos Totales</p>
+                <p className="text-2xl font-bold text-white">
+                  {creditsStatsLoading ? '...' : creditsStats?.totalCreditsAllTime.toLocaleString() || 0}
+                </p>
+                <p className="text-sm text-green-400">
+                  {formatCurrency(calculateUserCost(creditsStats?.totalCreditsAllTime || 0))}
+                </p>
+              </div>
+              <div className="p-3 bg-purple-500/20 rounded-full">
+                <BarChart3 className="w-6 h-6 text-purple-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* Average Credits Per User */}
+          <div className="holographic-panel p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-400">Promedio por Usuario</p>
+                <p className="text-2xl font-bold text-white">
+                  {creditsStatsLoading ? '...' : Math.round(creditsStats?.averageCreditsPerUser || 0)}
+                </p>
+                <p className="text-sm text-green-400">
+                  {formatCurrency(calculateUserCost(creditsStats?.averageCreditsPerUser || 0))}
+                </p>
+              </div>
+              <div className="p-3 bg-yellow-500/20 rounded-full">
+                <Calculator className="w-6 h-6 text-yellow-400" />
+              </div>
+            </div>
+          </div>
+
+          {/* Credit Value */}
+          <div className="holographic-panel p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-gray-400">Valor por Crédito</p>
+                <p className="text-2xl font-bold text-white">
+                  {formatCurrency(CREDIT_VALUE_USD)}
+                </p>
+                <p className="text-sm text-gray-400">USD</p>
+              </div>
+              <div className="p-3 bg-green-500/20 rounded-full">
+                <DollarSign className="w-6 h-6 text-green-400" />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="holographic-panel p-4">
@@ -283,6 +461,13 @@ export function AdminUsersPage() {
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Usuario</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Plan Actual</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Uso Mensual</th>
+                {showCreditsStats && (
+                  <>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Créditos Mes</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Créditos Total</th>
+                    <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Costo Total</th>
+                  </>
+                )}
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Registro</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Acciones</th>
               </tr>
@@ -349,6 +534,40 @@ export function AdminUsersPage() {
                       </div>
                     </div>
                   </td>
+                  {showCreditsStats && (
+                    <>
+                      <td className="px-4 py-3">
+                        <div className="text-sm">
+                          <div className="text-white">
+                            {(user.usage.scrapeCreatorsCreditsMonth || 0).toLocaleString()}
+                          </div>
+                          <div className="text-green-400 text-xs">
+                            {formatCurrency(calculateUserCost(user.usage.scrapeCreatorsCreditsMonth || 0))}
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm">
+                          <div className="text-white">
+                            {(user.usage.scrapeCreatorsCreditsTotal || 0).toLocaleString()}
+                          </div>
+                          <div className="text-blue-400 text-xs">
+                            Total histórico
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="text-sm">
+                          <div className="text-white font-medium">
+                            {formatCurrency(calculateUserCost(user.usage.scrapeCreatorsCreditsTotal || 0))}
+                          </div>
+                          <div className="text-gray-400 text-xs">
+                            Costo acumulado
+                          </div>
+                        </div>
+                      </td>
+                    </>
+                  )}
                   <td className="px-4 py-3 text-sm text-gray-400">
                     {new Date(user.createdAt).toLocaleDateString('es-ES')}
                   </td>
@@ -362,6 +581,16 @@ export function AdminUsersPage() {
                         <RefreshCw className={`w-3 h-3 ${resetUsageMutation.isLoading ? 'animate-spin' : ''}`} />
                         Resetear Uso
                       </button>
+                      {showCreditsStats && (user.usage.scrapeCreatorsCreditsTotal || 0) > 0 && (
+                        <button
+                          onClick={() => handleResetCredits(user._id, user.name)}
+                          className="flex items-center gap-1 px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs rounded transition-colors"
+                          title="Resetear créditos mensuales"
+                        >
+                          <CreditCard className="w-3 h-3" />
+                          Reset Créditos
+                        </button>
+                      )}
                     </div>
                   </td>
                 </tr>
