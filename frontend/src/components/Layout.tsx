@@ -10,10 +10,13 @@ import {
   Menu,
   X,
   Crown,
-  Sliders
+  Sliders,
+  Shield
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { AdminViewProvider, useAdminView } from '../contexts/AdminViewContext'
+import { AdminViewBanner } from './AdminViewBanner'
 import { LogOut } from 'lucide-react'
 import { UsageCounter } from './UsageCounter'
 import { LimitReachedModal } from './LimitReachedModal'
@@ -52,11 +55,12 @@ const navigationItems = [
   },
 ]
 
-export function Layout({ children }: LayoutProps) {
+function LayoutContent({ children }: LayoutProps) {
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [showLimitModal, setShowLimitModal] = useState(false)
   const { user, logout } = useAuth()
+  const { isViewingAsUser } = useAdminView()
 
   // Fetch user usage to check if at limit
   const { data: usageData } = useQuery({
@@ -181,6 +185,33 @@ export function Layout({ children }: LayoutProps) {
                 </Link>
               )
             })}
+
+            {/* Admin Navigation - Only show for admins */}
+            {user?.role === 'admin' && (
+              <>
+                <div className="border-t border-gray-700/30 my-4"></div>
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2 px-3">
+                  Administración
+                </div>
+                <Link
+                  to="/admin/users"
+                  onClick={() => setSidebarOpen(false)}
+                  className={`
+                    flex items-center p-3 rounded-lg transition-all duration-300
+                    ${location.pathname === '/admin/users'
+                      ? 'bg-red-500/20 text-red-200 border border-red-500/30' 
+                      : 'text-gray-300 hover:bg-red-500/10 hover:text-red-200 border border-transparent hover:border-red-500/20'
+                    }
+                  `}
+                >
+                  <Shield className="w-5 h-5 mr-3" />
+                  <div>
+                    <div className="font-medium">Gestión de Usuarios</div>
+                    <div className="text-xs text-gray-400">Administrar usuarios y planes</div>
+                  </div>
+                </Link>
+              </>
+            )}
           </nav>
 
           {/* User Info Footer */}
@@ -265,6 +296,9 @@ export function Layout({ children }: LayoutProps) {
           </div>
         </header>
 
+        {/* Admin View Banner */}
+        <AdminViewBanner />
+        
         {/* Page content */}
         <main className="flex-1 overflow-auto p-6 main-content">
           {children}
@@ -282,5 +316,13 @@ export function Layout({ children }: LayoutProps) {
         />
       )}
     </div>
+  )
+}
+
+export function Layout({ children }: LayoutProps) {
+  return (
+    <AdminViewProvider>
+      <LayoutContent>{children}</LayoutContent>
+    </AdminViewProvider>
   )
 }

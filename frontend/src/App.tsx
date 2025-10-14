@@ -8,6 +8,7 @@ import { SearchHistoryPage } from '@/pages/SearchHistoryPage'
 import TrackedAdvertisersPage from '@/pages/TrackedAdvertisersPage'
 import { SettingsPage } from '@/pages/SettingsPage'
 import { UserPlansPage } from '@/pages/UserPlansPage'
+import { AdminUsersPage } from '@/pages/AdminUsersPage'
 import { AuthPage } from '@/pages/AuthPage'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 
@@ -42,6 +43,7 @@ function App() {
                   <Route path="/tracked-advertisers" element={<TrackedAdvertisersPage />} />
                   <Route path="/settings" element={<SettingsPage />} />
                   <Route path="/user-plans" element={<UserPlansPage />} />
+                  <Route path="/admin/users" element={<AdminUsersPage />} />
                   <Route path="/stats" element={<StatsPage />} />
                   <Route path="/pages" element={<TrackedPagesPage />} />
                 </Routes>

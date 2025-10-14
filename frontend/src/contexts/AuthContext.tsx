@@ -11,6 +11,10 @@ interface AuthContextType {
   logout: () => void;
   refreshUser: () => Promise<void>;
   updateUser: (userData: User) => void;
+  // Admin view functions
+  setViewingAsUser: (user: User | null) => void;
+  getCurrentUser: () => User | null;
+  isViewingAsDifferentUser: () => boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -62,6 +66,7 @@ interface AuthProviderProps {
 
 export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
+  const [viewingAsUser, setViewingAsUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Initialize auth state on mount
