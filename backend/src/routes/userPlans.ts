@@ -39,6 +39,22 @@ router.get('/limits', authenticateToken, asyncHandler(async (req, res) => {
   });
 }));
 
+// GET /api/user-plans/usage - Get current user usage information
+router.get('/usage', authenticateToken, asyncHandler(async (req, res) => {
+  const userId = (req as any).user?._id?.toString();
+  
+  if (!userId) {
+    throw new CustomError('User not authenticated', 401);
+  }
+
+  const usageInfo = await UserLimitsService.getUserUsage(userId);
+  
+  res.json({
+    success: true,
+    usage: usageInfo
+  });
+}));
+
 // GET /api/user-plans/plans - Get available plans
 router.get('/plans', asyncHandler(async (req, res) => {
   const plans = {

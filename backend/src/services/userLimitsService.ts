@@ -58,6 +58,59 @@ export class UserLimitsService {
   }
 
   /**
+   * Get user usage information
+   */
+  static async getUserUsage(userId: string): Promise<{
+    adsFetched: number;
+    monthlyLimit: number;
+    adsRemaining: number;
+    planType: string;
+    planName: string;
+    searchesPerformed: number;
+    resetDate: string;
+  }> {
+    try {
+      const user = await User.findById(userId);
+      
+      if (!user) {
+        throw new CustomError('User not found', 404);
+      }
+
+      // Ensure usage is up to date (check if month has changed)
+      const currentMonth = new Date().toISOString().slice(0, 7);
+      if (user.usage.currentMonth !== currentMonth) {
+        user.usage.currentMonth = currentMonth;
+        user.usage.adsFetched = 0;
+        user.usage.searchesPerformed = 0;
+        user.usage.lastResetDate = new Date();
+        await user.save();
+      }
+
+      const currentUsage = user.usage.adsFetched;
+      const monthlyLimit = user.plan.adsLimit;
+      const adsRemaining = Math.max(0, monthlyLimit - currentUsage);
+
+      // Calculate next reset date (first day of next month)
+      const now = new Date();
+      const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+
+      return {
+        adsFetched: currentUsage,
+        monthlyLimit,
+        adsRemaining,
+        planType: user.plan.type,
+        planName: user.plan.name,
+        searchesPerformed: user.usage.searchesPerformed,
+        resetDate: nextMonth.toISOString()
+      };
+
+    } catch (error) {
+      console.error('[USER_LIMITS] ❌ Error getting user usage:', error);
+      throw new CustomError('Error getting user usage', 500);
+    }
+  }
+
+  /**
    * Increment ads fetched counter for user
    */
   static async incrementAdsFetched(userId: string, adsCount: number): Promise<void> {
