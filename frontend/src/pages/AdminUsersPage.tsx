@@ -18,7 +18,14 @@ import {
   DollarSign,
   CreditCard,
   Calculator,
-  Activity
+  Activity,
+  Eye,
+  EyeOff,
+  User,
+  Mail,
+  Lock,
+  Check,
+  AlertCircle
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import apiClient from '../services/api';
@@ -84,6 +91,16 @@ export function AdminUsersPage() {
     role: 'user' as 'user' | 'admin'
   });
   const [showCreditsStats, setShowCreditsStats] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingUser, setEditingUser] = useState<AdminUser | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [editForm, setEditForm] = useState({
+    name: '',
+    email: '',
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
 
   // Credit value constant
   const CREDIT_VALUE_USD = 0.001;
@@ -174,23 +191,6 @@ export function AdminUsersPage() {
     }
   );
 
-  // Reset credits mutation
-  const resetCreditsMutation = useMutation(
-    ({ userId, resetTotal }: { userId: string; resetTotal?: boolean }) =>
-      apiClient.post(`/admin/credits/reset/${userId}`, { resetTotal }).then(res => res.data),
-    {
-      onSuccess: (data, variables) => {
-        queryClient.invalidateQueries('adminUsers');
-        queryClient.invalidateQueries('adminCreditsStats');
-        queryClient.invalidateQueries('adminCreditsUsers');
-        toast.success(variables.resetTotal ? 'Créditos totales resetados' : 'Créditos mensuales resetados');
-      },
-      onError: (error: any) => {
-        toast.error('Error al resetar los créditos');
-        console.error('Reset credits error:', error);
-      }
-    }
-  );
 
   // Create user mutation
   const createUserMutation = useMutation(
@@ -213,6 +213,32 @@ export function AdminUsersPage() {
         const message = error.response?.data?.message || 'Error al crear usuario';
         toast.error(message);
         console.error('Create user error:', error);
+      }
+    }
+  );
+
+  // Update user mutation
+  const updateUserMutation = useMutation(
+    ({ userId, userData }: { userId: string; userData: any }) =>
+      apiClient.put(`/admin/users/${userId}`, userData).then(res => res.data),
+    {
+      onSuccess: () => {
+        queryClient.invalidateQueries('adminUsers');
+        toast.success('Usuario actualizado exitosamente');
+        setShowEditModal(false);
+        setEditingUser(null);
+        setEditForm({
+          name: '',
+          email: '',
+          currentPassword: '',
+          newPassword: '',
+          confirmPassword: ''
+        });
+      },
+      onError: (error: any) => {
+        const message = error.response?.data?.message || 'Error al actualizar usuario';
+        toast.error(message);
+        console.error('Update user error:', error);
       }
     }
   );
@@ -275,12 +301,6 @@ export function AdminUsersPage() {
     }
   };
 
-  const handleResetCredits = (userId: string, userName: string) => {
-    const resetTotal = confirm(`¿Resetear créditos TOTALES de ${userName}?\n\nSi cancelas, solo se resetearán los créditos mensuales.`);
-    if (confirm(`¿Estás seguro de resetear los créditos ${resetTotal ? 'totales' : 'mensuales'} de ${userName}?`)) {
-      resetCreditsMutation.mutate({ userId, resetTotal });
-    }
-  };
 
   const handleCreateUser = () => {
     if (!newUser.name || !newUser.email || !newUser.password) {
@@ -581,16 +601,6 @@ export function AdminUsersPage() {
                         <RefreshCw className={`w-3 h-3 ${resetUsageMutation.isLoading ? 'animate-spin' : ''}`} />
                         Resetear Uso
                       </button>
-                      {showCreditsStats && (user.usage.scrapeCreatorsCreditsTotal || 0) > 0 && (
-                        <button
-                          onClick={() => handleResetCredits(user._id, user.name)}
-                          className="flex items-center gap-1 px-2 py-1 bg-red-500/20 hover:bg-red-500/30 text-red-400 text-xs rounded transition-colors"
-                          title="Resetear créditos mensuales"
-                        >
-                          <CreditCard className="w-3 h-3" />
-                          Reset Créditos
-                        </button>
-                      )}
                     </div>
                   </td>
                 </tr>
