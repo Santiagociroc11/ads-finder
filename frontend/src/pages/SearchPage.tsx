@@ -2112,20 +2112,6 @@ export function SearchPage() {
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => handleSaveIndividual(ad)}
-                        disabled={saveIndividualMutation.isLoading}
-                        className={`btn-icon ${ad.isSaved ? 'text-yellow-400' : 'text-gray-400 hover:text-yellow-400'}`}
-                        title={ad.isSaved ? 'Ya guardado' : 'Guardar anuncio'}
-                      >
-                        {saveIndividualMutation.isLoading ? (
-                          <div className="loading-spinner w-4 h-4" />
-                        ) : (
-                          <Bookmark className={`w-4 h-4 ${ad.isSaved ? 'fill-current' : ''}`} />
-                        )}
-                      </button>
-                    </div>
                   </div>
 
                   {/* Advertiser Ad Count Badge */}
@@ -2444,7 +2430,7 @@ export function SearchPage() {
                         className="btn-secondary text-xs px-4 py-2 flex items-center gap-2"
                       >
                                                 <ExternalLink className="w-3 h-3" />
-                        Ir al anuncio
+                        IR A BIBLIOTECA
                         </button>
                       
                       <button
@@ -2452,7 +2438,16 @@ export function SearchPage() {
                         className="bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 hover:text-purple-200 border border-purple-500/30 hover:border-purple-500/50 text-xs px-4 py-2 flex items-center gap-2 rounded-lg transition-all duration-200"
                       >
                         <Eye className="w-3 h-3" />
-                        Track
+                        INICIAR SEGUIMIENTO
+                        </button>
+                      
+                      <button
+                        onClick={() => handleSaveIndividual(ad)}
+                        disabled={saveIndividualMutation.isLoading}
+                        className="bg-blue-500/20 hover:bg-blue-500/30 text-blue-300 hover:text-blue-200 border border-blue-500/30 hover:border-blue-500/50 text-xs px-4 py-2 flex items-center gap-2 rounded-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        <Bookmark className="w-3 h-3" />
+                        {saveIndividualMutation.isLoading ? 'Guardando...' : 'GUARDAR ANUNCIO'}
                         </button>
                       </div>
                     </div>
