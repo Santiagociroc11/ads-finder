@@ -99,6 +99,8 @@ export class UserLimitsService {
     planName: string;
     searchesPerformed: number;
     resetDate: string;
+    subscriptionExpiration: string | null;
+    subscriptionStatus: string;
   }> {
     try {
       const user = await User.findById(userId);
@@ -135,7 +137,9 @@ export class UserLimitsService {
         planType: user.plan.type,
         planName: user.plan.name,
         searchesPerformed: user.usage.searchesPerformed,
-        resetDate: nextMonth.toISOString()
+        resetDate: nextResetDate.toISOString(),
+        subscriptionExpiration: user.subscription?.endDate || null,
+        subscriptionStatus: user.subscription?.status || 'active'
       };
 
     } catch (error) {

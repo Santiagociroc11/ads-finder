@@ -613,6 +613,7 @@ export function AdminUsersPage() {
               <tr>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Usuario</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Plan Actual</th>
+                <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Vencimiento</th>
                 <th className="px-4 py-3 text-left text-sm font-medium text-gray-300">Uso Mensual</th>
                 {showCreditsStats && (
                   <>
@@ -655,6 +656,29 @@ export function AdminUsersPage() {
                         <Edit className="w-4 h-4" />
                       </button>
                     </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    {user.subscription?.endDate && user.plan.type !== 'free' ? (
+                      <div className={`text-sm ${
+                        user.subscription.status === 'expired' 
+                          ? 'text-red-400' 
+                          : new Date(user.subscription.endDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                            ? 'text-yellow-400'
+                            : 'text-gray-300'
+                      }`}>
+                        {user.subscription.status === 'expired' 
+                          ? '⚠️ Vencido' 
+                          : new Date(user.subscription.endDate).toLocaleDateString('es-ES', {
+                              day: 'numeric',
+                              month: 'short'
+                            })
+                        }
+                      </div>
+                    ) : (
+                      <div className="text-sm text-gray-500">
+                        Sin vencimiento
+                      </div>
+                    )}
                   </td>
                   <td className="px-4 py-3">
                     <div className="text-sm">

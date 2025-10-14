@@ -142,6 +142,24 @@ export function UserPlansPage() {
               </div>
               <h3 className="text-base font-semibold text-white mb-1">{usage.planName}</h3>
               <p className="text-blue-300 text-xs">Plan Actual</p>
+              
+              {usage.subscriptionExpiration && usage.planType !== 'free' && (
+                <div className={`mt-2 text-xs ${
+                  usage.subscriptionStatus === 'expired' 
+                    ? 'text-red-400' 
+                    : new Date(usage.subscriptionExpiration) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+                      ? 'text-yellow-400'
+                      : 'text-blue-400'
+                }`}>
+                  {usage.subscriptionStatus === 'expired' 
+                    ? '⚠️ Plan vencido' 
+                    : `Vence: ${new Date(usage.subscriptionExpiration).toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'short'
+                      })}`
+                  }
+                </div>
+              )}
             </div>
 
             {/* Anuncios */}

@@ -157,11 +157,32 @@ export function UsageCounter({ className = '', showDetails = false }: UsageCount
               <p className="font-semibold text-white">{usage.searchesPerformed.toLocaleString()}</p>
             </div>
           </div>
-          <div className="text-xs text-gray-500">
+          <div className="text-xs text-gray-500 space-y-1">
             <p>Próximo reset: {new Date(usage.resetDate).toLocaleDateString('es-ES', { 
               month: 'long', 
               year: 'numeric' 
             })}</p>
+            
+            {usage.subscriptionExpiration && usage.planType !== 'free' && (
+              <div className={`flex items-center gap-1 ${
+                usage.subscriptionStatus === 'expired' 
+                  ? 'text-red-400' 
+                  : new Date(usage.subscriptionExpiration) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
+                    ? 'text-yellow-400'
+                    : 'text-gray-400'
+              }`}>
+                <span>
+                  {usage.subscriptionStatus === 'expired' 
+                    ? '⚠️ Plan vencido' 
+                    : `Plan vence: ${new Date(usage.subscriptionExpiration).toLocaleDateString('es-ES', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}`
+                  }
+                </span>
+              </div>
+            )}
           </div>
         </div>
       )}

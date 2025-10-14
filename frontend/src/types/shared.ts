@@ -332,6 +332,8 @@ export interface UserUsage {
   planType: string;
   planName: string;
   resetDate: string;
+  subscriptionExpiration: string | null;
+  subscriptionStatus: string;
 }
 
 export interface PlanLimitCheck {

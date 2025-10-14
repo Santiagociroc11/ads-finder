@@ -325,14 +325,37 @@ export const SettingsPage: React.FC = () => {
                       {user?.role === 'admin' ? 'Administrador' : 'Usuario'}
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-400 mb-1">
-                      Miembro desde
-                    </label>
-                    <div className="px-4 py-3 bg-dark-800 rounded-lg text-gray-300">
-                      {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
-                    </div>
-                  </div>
+                       <div>
+                         <label className="block text-sm font-medium text-gray-400 mb-1">
+                           Miembro desde
+                         </label>
+                         <div className="px-4 py-3 bg-dark-800 rounded-lg text-gray-300">
+                           {user?.createdAt ? new Date(user.createdAt).toLocaleDateString() : 'N/A'}
+                         </div>
+                       </div>
+                       {user?.subscription?.endDate && user?.plan?.type !== 'free' && (
+                         <div>
+                           <label className="block text-sm font-medium text-gray-400 mb-1">
+                             Plan vence
+                           </label>
+                           <div className={`px-4 py-3 rounded-lg ${
+                             user.subscription.status === 'expired' 
+                               ? 'bg-red-900/20 border border-red-500/30 text-red-300'
+                               : new Date(user.subscription.endDate) < new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+                                 ? 'bg-yellow-900/20 border border-yellow-500/30 text-yellow-300'
+                                 : 'bg-dark-800 text-gray-300'
+                           }`}>
+                             {user.subscription.status === 'expired' 
+                               ? '⚠️ Plan vencido' 
+                               : new Date(user.subscription.endDate).toLocaleDateString('es-ES', {
+                                   day: 'numeric',
+                                   month: 'long',
+                                   year: 'numeric'
+                                 })
+                             }
+                           </div>
+                         </div>
+                       )}
                 </div>
               </div>
             </div>
