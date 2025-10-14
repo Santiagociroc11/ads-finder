@@ -172,52 +172,6 @@ export class UserLimitsService {
     }
   }
 
-  /**
-   * Get user usage statistics
-   */
-  static async getUserUsage(userId: string): Promise<{
-    currentMonth: string;
-    adsFetched: number;
-    searchesPerformed: number;
-    adsRemaining: number;
-    monthlyLimit: number;
-    planType: string;
-    planName: string;
-    resetDate: Date;
-  }> {
-    try {
-      const user = await User.findById(userId);
-      
-      if (!user) {
-        throw new CustomError('User not found', 404);
-      }
-
-      // Ensure usage is up to date
-      const currentMonth = new Date().toISOString().slice(0, 7);
-      if (user.usage.currentMonth !== currentMonth) {
-        user.usage.currentMonth = currentMonth;
-        user.usage.adsFetched = 0;
-        user.usage.searchesPerformed = 0;
-        user.usage.lastResetDate = new Date();
-        await user.save();
-      }
-
-      return {
-        currentMonth: user.usage.currentMonth,
-        adsFetched: user.usage.adsFetched,
-        searchesPerformed: user.usage.searchesPerformed,
-        adsRemaining: Math.max(0, user.plan.adsLimit - user.usage.adsFetched),
-        monthlyLimit: user.plan.adsLimit,
-        planType: user.plan.type,
-        planName: user.plan.name,
-        resetDate: user.usage.lastResetDate
-      };
-
-    } catch (error) {
-      console.error('[USER_LIMITS] ❌ Error getting user usage:', error);
-      throw new CustomError('Error getting user usage', 500);
-    }
-  }
 
   /**
    * Upgrade user plan

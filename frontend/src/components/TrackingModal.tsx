@@ -3,6 +3,7 @@ import { X, Eye, Package, Smartphone, Save, Loader, Crown, ArrowRight } from 'lu
 import { AdData } from '../types/shared';
 import { trackedAdvertisersApi } from '../services/api';
 import { Link } from 'react-router-dom';
+import toast from 'react-hot-toast';
 
 interface TrackingModalProps {
   isOpen: boolean;
@@ -54,6 +55,12 @@ const TrackingModal: React.FC<TrackingModalProps> = ({ isOpen, onClose, ad, acti
         initialActiveAdsCount: activeAdsCount
       });
 
+      // Success toast
+      toast.success('¡Anunciante agregado al seguimiento exitosamente!', {
+        duration: 4000,
+        icon: '✅'
+      });
+      
       onSuccess();
       onClose();
     } catch (err: any) {
@@ -62,10 +69,24 @@ const TrackingModal: React.FC<TrackingModalProps> = ({ isOpen, onClose, ad, acti
       // Check if it's a plan limit error
       if (err.response?.status === 403 && err.response?.data?.error?.includes('Límite de anunciantes')) {
         setIsPlanLimitError(true);
-        setError('Tu plan actual no permite agregar anunciantes en seguimiento. Para usar esta funcionalidad, necesitas hacer upgrade a un plan superior.');
+        const errorMessage = 'Tu plan actual no permite agregar anunciantes en seguimiento. Para usar esta funcionalidad, necesitas hacer upgrade a un plan superior.';
+        setError(errorMessage);
+        
+        // Show specific toast for plan limit
+        toast.error('🚫 Tu plan actual no permite agregar anunciantes. Considera hacer upgrade.', {
+          duration: 6000,
+          icon: '👑'
+        });
       } else {
         setIsPlanLimitError(false);
-        setError(err.response?.data?.message || err.response?.data?.error || 'Error al agregar el anunciante al seguimiento');
+        const errorMessage = err.response?.data?.message || err.response?.data?.error || 'Error al agregar el anunciante al seguimiento';
+        setError(errorMessage);
+        
+        // Show generic error toast
+        toast.error(`Error al agregar anunciante: ${errorMessage}`, {
+          duration: 4000,
+          icon: '❌'
+        });
       }
     } finally {
       setIsLoading(false);
@@ -180,7 +201,13 @@ const TrackingModal: React.FC<TrackingModalProps> = ({ isOpen, onClose, ad, acti
                   <p className="text-xs text-yellow-300 mb-3">{error}</p>
                   <Link
                     to="/user-plans"
-                    onClick={onClose}
+                    onClick={() => {
+                      onClose();
+                      toast.success('Navegando a planes disponibles...', {
+                        duration: 2000,
+                        icon: '👑'
+                      });
+                    }}
                     className="inline-flex items-center gap-2 text-xs bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 px-3 py-2 rounded-lg transition-colors"
                   >
                     <Crown className="w-3 h-3" />
