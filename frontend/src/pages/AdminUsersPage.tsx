@@ -165,7 +165,8 @@ export function AdminUsersPage() {
       const response = await apiClient.get(`/admin/users/${editingUser._id}/password`);
       return response.data;
     },
-    enabled: false // Only fetch when manually triggered
+    enabled: false, // Only fetch when manually triggered
+    retry: false // Don't retry on error
   });
 
   // Update user plan mutation
@@ -335,18 +336,26 @@ export function AdminUsersPage() {
     });
     setShowEditModal(true);
     
-    // Fetch user password
+    // Fetch user password after setting the editing user
     try {
       const result = await fetchUserPassword();
-      if (result.data?.success) {
+      if (result.data?.success && result.data.password) {
         setEditForm(prev => ({
           ...prev,
-          currentPasswordDisplay: result.data?.password || ''
+          currentPasswordDisplay: result.data.password
+        }));
+      } else {
+        setEditForm(prev => ({
+          ...prev,
+          currentPasswordDisplay: 'Error al cargar contraseña'
         }));
       }
     } catch (error) {
       console.error('Error fetching user password:', error);
-      toast.error('Error al obtener la contraseña del usuario');
+      setEditForm(prev => ({
+        ...prev,
+        currentPasswordDisplay: 'Error al cargar contraseña'
+      }));
     }
   };
 
@@ -853,7 +862,7 @@ export function AdminUsersPage() {
               </button>
             </div>
 
-            <div className="space-y-4">
+            <form onSubmit={(e) => { e.preventDefault(); handleUpdateUser(); }} className="space-y-4">
               {/* User Info Section */}
               <div className="border-b border-gray-600 pb-4">
                 <h3 className="text-lg font-semibold text-white mb-3 flex items-center gap-2">
@@ -1010,7 +1019,7 @@ export function AdminUsersPage() {
                   </div>
                 </div>
               </div>
-            </div>
+            </form>
 
             <div className="flex gap-3 mt-6">
               <button
