@@ -100,6 +100,49 @@ router.post('/users/plan', requireAdmin, asyncHandler(async (req, res) => {
   });
 }));
 
+// POST /api/admin/users/migrate-subscriptions - Migrate existing users to proper subscription model (admin only)
+router.post('/users/migrate-subscriptions', requireAdmin, asyncHandler(async (req, res) => {
+  try {
+    // Find all users with paid plans but no subscription
+    const usersToMigrate = await User.find({
+      'plan.type': { $ne: 'free' },
+      $or: [
+        { subscription: { $exists: false } },
+        { subscription: null }
+      ]
+    });
+
+    let migratedCount = 0;
+
+    for (const user of usersToMigrate) {
+      // Create subscription for paid plans
+      const expirationDate = new Date();
+      expirationDate.setMonth(expirationDate.getMonth() + 1);
+
+      user.subscription = {
+        status: 'active',
+        startDate: new Date(),
+        endDate: expirationDate,
+        autoRenew: true
+      };
+
+      await user.save();
+      migratedCount++;
+      
+      console.log(`[ADMIN] 🔄 Migrated user ${user.email} to subscription model`);
+    }
+
+    res.json({
+      success: true,
+      message: `Migrated ${migratedCount} users to subscription model`,
+      migratedCount
+    });
+
+  } catch (error) {
+    console.error('[ADMIN] ❌ Error migrating subscriptions:', error);
+    throw new CustomError('Error migrating user subscriptions', 500);
+  }
+}));
 
 // POST /api/admin/users/toggle-admin - Toggle admin status (admin only)
 router.post('/users/toggle-admin', requireAdmin, asyncHandler(async (req, res) => {

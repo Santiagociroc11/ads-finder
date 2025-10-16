@@ -665,7 +665,11 @@ export function AdminUsersPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    {user.subscription?.endDate && user.plan.type !== 'free' ? (
+                    {user.plan.type === 'free' ? (
+                      <div className="text-sm text-gray-500">
+                        Plan GRATIS
+                      </div>
+                    ) : user.subscription?.endDate ? (
                       <div className={`text-sm ${
                         user.subscription.status === 'expired' 
                           ? 'text-red-400' 
@@ -682,8 +686,8 @@ export function AdminUsersPage() {
                         }
                       </div>
                     ) : (
-                      <div className="text-sm text-gray-500">
-                        Sin vencimiento
+                      <div className="text-sm text-orange-400">
+                        ⚠️ Sin suscripción
                       </div>
                     )}
                   </td>

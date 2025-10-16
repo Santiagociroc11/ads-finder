@@ -213,25 +213,34 @@ export class UserLimitsService {
       // Update user plan limits using the new service
       await PlanLimitsService.updateUserPlanLimits(userId, newPlanType);
 
-      // Calculate expiration date if not provided
-      const planExpirationDate = expirationDate || (() => {
-        const date = new Date();
-        date.setMonth(date.getMonth() + 1);
-        return date;
-      })();
+      // Handle subscription based on plan type
+      if (newPlanType === 'free') {
+        // Free plan: remove subscription
+        user.subscription = undefined;
+      } else {
+        // Paid plan: create or update subscription
+        const planExpirationDate = expirationDate || (() => {
+          const date = new Date();
+          date.setMonth(date.getMonth() + 1);
+          return date;
+        })();
 
-      // Update subscription info
-      user.subscription = {
-        status: 'active',
-        startDate: new Date(),
-        endDate: planExpirationDate,
-        autoRenew: true,
-        ...user.subscription
-      };
+        user.subscription = {
+          status: 'active',
+          startDate: new Date(),
+          endDate: planExpirationDate,
+          autoRenew: true,
+          ...user.subscription
+        };
+      }
 
       await user.save();
 
-      console.log(`[USER_LIMITS] ⬆️ User ${userId} upgraded to ${newPlanType} with expiration ${planExpirationDate.toISOString().split('T')[0]}`);
+      if (newPlanType === 'free') {
+        console.log(`[USER_LIMITS] ⬆️ User ${userId} downgraded to FREE plan (subscription removed)`);
+      } else {
+        console.log(`[USER_LIMITS] ⬆️ User ${userId} upgraded to ${newPlanType} with expiration ${user.subscription?.endDate ? new Date(user.subscription.endDate).toISOString().split('T')[0] : 'N/A'}`);
+      }
 
     } catch (error) {
       console.error('[USER_LIMITS] ❌ Error upgrading user plan:', error);
